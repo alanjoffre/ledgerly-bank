@@ -1,0 +1,27 @@
+# Dependabot: abre pull requests automaticamente quando sai versão nova de uma
+# dependência. As atualizações são agrupadas para não virar uma enxurrada de PRs.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      maven:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker-compose
+    directory: /infra/docker
+    schedule:
+      interval: weekly
+    groups:
+      imagens:
+        patterns: ["*"]

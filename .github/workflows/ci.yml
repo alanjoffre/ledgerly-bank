@@ -1,0 +1,77 @@
+# Integração contínua (CI): a cada envio para a main e a cada pull request, o GitHub
+# compila o projeto, roda todos os testes e confere a infraestrutura local.
+# Em repositório público, os minutos do GitHub Actions são gratuitos.
+#
+# As actions são fixadas pelo SHA do commit (não pela tag, que pode ser movida) —
+# proteção contra ataque à cadeia de suprimentos. O Dependabot atualiza os SHAs.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Menor permissão possível: o CI só lê o código.
+permissions:
+  contents: read
+
+# Um envio novo no mesmo branch cancela o CI anterior, que ficou desatualizado.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compilar e testar (Java 25)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      # verify = compila, testa, mede cobertura e confere as regras de arquitetura.
+      - name: Build
+        run: ./mvnw --batch-mode --no-transfer-progress verify
+
+      - name: Publicar relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cobertura-jacoco
+          path: "**/target/site/jacoco/"
+          if-no-files-found: ignore
+          retention-days: 14
+
+  infra:
+    name: Validar infraestrutura local
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validar o compose.yaml
+        run: docker compose -f infra/docker/compose.yaml config --quiet
+
+      # Sobe tudo e espera cada contêiner ficar saudável (healthcheck).
+      - name: Subir a infraestrutura
+        run: docker compose -f infra/docker/compose.yaml up -d --wait --wait-timeout 300
+
+      - name: Conferir o isolamento entre bancos
+        run: |
+          # O usuário do pix NÃO pode conectar no banco do razão.
+          if docker compose -f infra/docker/compose.yaml exec -T -e PGPASSWORD=pix_local \
+               postgres psql -h localhost -U pix -d razao -c "select 1" </dev/null; then
+            echo "::error::O usuário pix conseguiu entrar no banco razao"
+            exit 1
+          fi
+          echo "Isolamento confirmado."
+
+      - name: Derrubar
+        if: always()
+        run: docker compose -f infra/docker/compose.yaml down -v
