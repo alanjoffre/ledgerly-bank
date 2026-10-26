@@ -1,0 +1,32 @@
+# Configuração do serviço razão. Valores entre ${...:padrão} podem ser trocados por variável
+# de ambiente (por exemplo RAZAO_DB_URL) sem recompilar — é assim que ele roda no Kubernetes.
+
+server:
+  port: ${RAZAO_PORTA:8082}
+
+spring:
+  application:
+    name: razao
+  # Virtual threads (Java 21+): cada requisição roda numa thread leve; o servidor atende
+  # milhares de requisições simultâneas sem um pool grande de threads do sistema.
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${RAZAO_DB_URL:jdbc:postgresql://localhost:15432/razao}
+    username: ${RAZAO_DB_USUARIO:razao}
+    password: ${RAZAO_DB_SENHA:razao_local}
+    hikari:
+      maximum-pool-size: ${RAZAO_DB_POOL:20}
+  mvc:
+    # Erros do próprio Spring (JSON malformado, cabeçalho faltando) também saem em Problem Details.
+    problemdetails:
+      enabled: true
+  messages:
+    basename: mensagens
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
