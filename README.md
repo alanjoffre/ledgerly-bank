@@ -171,7 +171,7 @@ ledgerly-bank/
 
 ## Autor
 
-**Alan Joffre** — [GitHub](https://github.com/alanjoffre)
+**Alan Joffre** — [LinkedIn](https://www.linkedin.com/in/alanjoffre/) · [GitHub](https://github.com/alanjoffre)
 
 ## Licença
 
