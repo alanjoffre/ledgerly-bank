@@ -1,5 +1,6 @@
 # Post do LinkedIn — Fase 1 (rascunho)
 
+> Sugestão de imagem: a tabela "com a trava / sem a trava" do README (print), ou o trecho
 > `ORDER BY id FOR UPDATE` com o resultado do teste.
 
 ---

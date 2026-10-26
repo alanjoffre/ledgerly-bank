@@ -1,6 +1,7 @@
 # Post do LinkedIn — Fase 0 (rascunho)
 
-> código do `Dinheiro` com o `0.1 + 0.2`.
+> Sugestão de imagem: o diagrama de arquitetura do README (print) ou o trecho de código do
+> `Dinheiro` com o `0.1 + 0.2`.
 
 ---
 
