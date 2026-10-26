@@ -1,0 +1,22 @@
+# Saída do build do Maven
+target/
+.mvn/wrapper/maven-wrapper.jar
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Variáveis de ambiente locais (podem ter segredo)
+.env
+*.local.env
+
+# Logs
+*.log

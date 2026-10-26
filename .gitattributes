@@ -1,0 +1,4 @@
+# Fim de linha LF no repositório, qualquer que seja o sistema de quem clona.
+* text=auto eol=lf
+*.cmd text eol=crlf
+mvnw text eol=lf
