@@ -1,0 +1,143 @@
+<!doctype html>
+<!--
+  Imagem do post de lançamento (Fase 1). Gera o PNG com:
+    chrome-headless-shell --screenshot=fase-1.png --window-size=1080,1350 \
+      --force-device-scale-factor=2 --virtual-time-budget=4000 fase-1.html
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ledgerly Bank — Fase 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=block" rel="stylesheet">
+<style>
+  :root {
+    --fundo: #0b1220;
+    --cartao: #111a2e;
+    --linha: #1f2a44;
+    --texto: #e6ebf5;
+    --suave: #93a0bd;
+    --verde: #34d399;
+    --verde-fundo: rgba(52, 211, 153, 0.12);
+    --vermelho: #f87171;
+    --vermelho-fundo: rgba(248, 113, 113, 0.12);
+    --destaque: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1350px; }
+  body {
+    background:
+      radial-gradient(900px 600px at 100% 0%, rgba(96, 165, 250, 0.16), transparent 60%),
+      radial-gradient(700px 500px at 0% 100%, rgba(52, 211, 153, 0.10), transparent 60%),
+      var(--fundo);
+    color: var(--texto);
+    font-family: "Inter", "DejaVu Sans", sans-serif;
+    padding: 72px 72px 64px;
+    display: flex;
+    flex-direction: column;
+  }
+  .topo {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--suave); font-weight: 600;
+  }
+  .marca { display: flex; align-items: center; gap: 14px; color: var(--texto); letter-spacing: 0.04em; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--destaque), var(--verde));
+    display: grid; place-items: center; color: #0b1220; font-weight: 800; font-size: 24px; letter-spacing: 0;
+  }
+  .fase {
+    border: 1px solid var(--linha); border-radius: 999px; padding: 8px 18px; font-size: 19px;
+  }
+  h1 {
+    margin-top: 64px;
+    font-size: 62px; line-height: 1.1; font-weight: 800; letter-spacing: -0.025em;
+  }
+  h1 .vermelho { color: var(--vermelho); }
+  .sub {
+    margin-top: 26px; font-size: 28px; line-height: 1.4; color: var(--suave); max-width: 900px;
+  }
+  .codigo {
+    margin-top: 44px;
+    background: #0a0f1c; border: 1px solid var(--linha); border-radius: 18px;
+    padding: 26px 32px;
+    font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 25px; line-height: 1.55;
+    color: #c9d4ea;
+  }
+  .codigo .kw { color: #c084fc; }
+  .codigo .fu { color: var(--verde); font-weight: 600; background: var(--verde-fundo); padding: 2px 8px; border-radius: 6px; }
+  .codigo .cm { color: #64748b; }
+  table {
+    margin-top: 40px; width: 100%; border-collapse: separate; border-spacing: 0 14px;
+  }
+  th {
+    text-align: left; font-size: 19px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--suave); font-weight: 600; padding: 0 22px;
+  }
+  th.com { color: var(--verde); }
+  th.sem { color: var(--vermelho); }
+  td {
+    background: var(--cartao); font-size: 24px; padding: 22px; line-height: 1.3;
+    border-top: 1px solid var(--linha); border-bottom: 1px solid var(--linha);
+  }
+  td:first-child { border-left: 1px solid var(--linha); border-radius: 16px 0 0 16px; color: var(--texto); width: 46%; }
+  td:last-child { border-right: 1px solid var(--linha); border-radius: 0 16px 16px 0; }
+  td.com { color: var(--verde); font-weight: 700; background: linear-gradient(var(--verde-fundo), var(--verde-fundo)), var(--cartao); }
+  td.sem { color: var(--vermelho); font-weight: 700; background: linear-gradient(var(--vermelho-fundo), var(--vermelho-fundo)), var(--cartao); }
+  td small { display: block; font-size: 18px; color: var(--suave); font-weight: 500; margin-top: 4px; }
+  .rodape {
+    margin-top: auto;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 1px solid var(--linha); padding-top: 28px;
+  }
+  .stack { font-size: 21px; color: var(--suave); line-height: 1.5; }
+  .stack b { color: var(--texto); font-weight: 600; }
+  .autor { text-align: right; font-size: 21px; color: var(--suave); line-height: 1.5; }
+  .autor b { color: var(--texto); font-size: 25px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="topo">
+    <div class="marca"><div class="logo">L</div>Ledgerly Bank</div>
+    <div class="fase">Fase 1 · razão contábil</div>
+  </div>
+
+  <h1>Apaguei duas palavras.<br>Meu banco aprovou <span class="vermelho">1.500&nbsp;saques</span> numa conta com R$&nbsp;1.000.</h1>
+
+  <p class="sub">Pedidos disparados ao mesmo tempo, contra um PostgreSQL de verdade. As duas palavras:</p>
+
+  <div class="codigo">
+    <span class="kw">SELECT</span> ... <span class="kw">FROM</span> conta_razao <span class="kw">WHERE</span> id <span class="kw">IN</span> (:ids)<br>
+    <span class="kw">ORDER BY</span> id <span class="fu">FOR UPDATE</span>; <span class="cm">-- trava as contas, em ordem</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Teste simultâneo</th><th class="com">Com a trava</th><th class="sem">Sem a trava</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>1.500 saques de R$ 1,00<small>saldo inicial: R$ 1.000,00</small></td>
+        <td class="com">1.000 aprovados<small>500 recusados</small></td>
+        <td class="sem">1.500 aprovados<small>R$ 500 de gasto duplo</small></td>
+      </tr>
+      <tr>
+        <td>400 transferências cruzadas<small>A → B e B → A ao mesmo tempo</small></td>
+        <td class="com">R$ 0 perdido<small>zero deadlock</small></td>
+        <td class="sem">R$ 11 sumiram<small>atualizações perdidas</small></td>
+      </tr>
+      <tr>
+        <td>100 cliques no mesmo depósito<small>mesma Idempotency-Key</small></td>
+        <td class="com">1 depósito<small>99 "já processado"</small></td>
+        <td class="sem">20 depósitos</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="rodape">
+    <div class="stack"><b>Java 25 · Spring Boot · PostgreSQL</b><br>356 testes · Testcontainers</div>
+    <div class="autor"><b>Alan Joffre</b><br>github.com/alanjoffre/ledgerly-bank</div>
+  </div>
+</body>
+</html>
