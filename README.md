@@ -68,7 +68,7 @@ Detalhes, o fluxo completo de um Pix e os princípios estão na
 | Fase | Entrega | Status |
 | --- | --- | --- |
 | 0 | Fundação: monorepo, `Dinheiro`, infraestrutura local, CI, documentação | ✅ |
-| 1 | Domínio e razão contábil (Spring Boot), prova de concorrência | ⬜ |
+| 1 | Razão contábil e contas (Spring Boot), prova de concorrência, idempotência | ✅ |
 | 2 | Pix, Saga, Outbox, Kafka e extrato CQRS (Quarkus) | ⬜ |
 | 3 | Concorrência e desempenho: *virtual threads*, JMH, teste de carga | ⬜ |
 | 4 | Segurança (Keycloak) e front-end React | ⬜ |
@@ -93,6 +93,28 @@ cd ledgerly-bank
 # Subir PostgreSQL, MongoDB, Redis e Kafka
 docker compose -f infra/docker/compose.yaml up -d --wait
 ```
+
+Para rodar os serviços e ver o banco funcionando pela API, siga a
+[demonstração da Fase 1](docs/guias/demo-fase-1.md).
+
+## Destaque: o razão aguenta mil pedidos ao mesmo tempo
+
+O [teste de concorrência](servicos/razao/src/test/java/io/github/alanjoffre/ledgerly/razao/integracao/ConcorrenciaIT.java)
+dispara pedidos simultâneos em *virtual threads* contra um PostgreSQL de verdade. Para provar que
+o teste pega o erro, a trava foi removida de propósito — e o resultado mudou assim:
+
+| Cenário | Com a trava | Sem a trava |
+|---|---|---|
+| 1.500 saques de R$ 1,00 numa conta com R$ 1.000,00 | 1.000 aprovados, 500 recusados | **1.500 aprovados** — R$ 500 de gasto duplo |
+| 400 transferências cruzadas A↔B ao mesmo tempo | nenhum deadlock, total intacto | **R$ 11,00 sumiram** |
+| 100 cliques no mesmo depósito (mesma `Idempotency-Key`) | 1 lançamento | **20 lançamentos** |
+
+A solução — travar as contas sempre na mesma ordem (`SELECT ... ORDER BY id FOR UPDATE`) — e as
+alternativas descartadas estão na [ADR-0009](docs/adr/0009-concorrencia-com-trava-pessimista-ordenada.md).
+E o banco não confia cegamente na aplicação: saldo negativo, lançamento desbalanceado e alteração
+do razão são recusados pelo próprio PostgreSQL.
+
+Quer ver rodando? [Demonstração em 3 minutos](docs/guias/demo-fase-1.md).
 
 ## Destaque: dinheiro sem perder centavo
 
@@ -121,9 +143,12 @@ está na [ADR-0007](docs/adr/0007-dinheiro-com-bigdecimal.md).
 ledgerly-bank/
 ├── bibliotecas/
 │   └── nucleo-compartilhado/   # tipos de domínio comuns (Dinheiro), Java puro
-├── servicos/                   # os cinco serviços (a partir da Fase 1)
+├── servicos/
+│   ├── contas/                 # clientes e contas (Spring Boot + JPA)
+│   └── razao/                  # razão contábil (Spring Boot + JDBC)
 ├── infra/
 │   └── docker/                 # Docker Compose da infraestrutura local
+├── scripts/                    # demonstração pela API
 ├── docs/
 │   ├── adr/                    # decisões de arquitetura
 │   ├── arquitetura/            # diagramas C4
@@ -140,6 +165,8 @@ ledgerly-bank/
 - [Roteiro de fases](docs/roadmap.md)
 - [Glossário](docs/glossario.md) — termos de banco e de tecnologia explicados
 - [Guia de ambiente local](docs/guias/ambiente-local.md)
+- [Demonstração da Fase 1](docs/guias/demo-fase-1.md)
+- Serviços: [razão](servicos/razao/README.md) · [contas](servicos/contas/README.md)
 - [Como contribuir](CONTRIBUTING.md)
 
 ## Autor

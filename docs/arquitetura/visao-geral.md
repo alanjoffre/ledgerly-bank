@@ -80,7 +80,49 @@ flowchart TB
     kafka --> antifraude
 ```
 
-### Como uma transferência Pix atravessa o sistema (visão da Fase 2)
+### O que já roda (Fase 1)
+
+Hoje rodam os serviços **contas** e **razao**. Abrir uma conta atravessa os dois:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Cliente da API
+    participant CT as contas (8081)
+    participant DBC as Postgres contas
+    participant RZ as razao (8082)
+    participant DBR as Postgres razao
+
+    C->>CT: POST /v1/contas {clienteId}
+    CT->>DBC: BEGIN · INSERT conta (número da sequência)
+    CT->>RZ: PUT /v1/contas/{id} {moeda: BRL} (idempotente, tempo-limite 5 s)
+    RZ->>DBR: INSERT ... ON CONFLICT DO NOTHING
+    RZ-->>CT: 201 Created
+    CT->>DBC: COMMIT
+    CT-->>C: 201 Created {agencia, numero, situacao}
+    Note over CT,RZ: Se o razão falhar ou demorar: ROLLBACK aqui e 503 ao cliente (ADR-0011)
+```
+
+E uma transferência, dentro do razão, numa transação só:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor C as Cliente da API
+    participant RZ as razao
+    participant DB as Postgres razao
+
+    C->>RZ: POST /v1/transferencias + Idempotency-Key
+    RZ->>DB: BEGIN
+    RZ->>DB: SELECT contas ORDER BY id FOR UPDATE (trava em ordem)
+    RZ->>DB: SELECT lançamento pela chave (já existe? devolve o original)
+    Note over RZ: Domínio: saldo, situação, partidas dobradas
+    RZ->>DB: INSERT lançamento + partidas · UPDATE saldos
+    RZ->>DB: COMMIT (gatilho confere débitos = créditos)
+    RZ-->>C: 201 Created + Location
+```
+
+### Como uma transferência Pix atravessará o sistema (visão da Fase 2)
 
 1. O cliente pede um Pix no internet banking; o **gateway** confere o token de acesso.
 2. O serviço **pix** registra o pedido com uma **chave de idempotência** (no Redis): se o mesmo

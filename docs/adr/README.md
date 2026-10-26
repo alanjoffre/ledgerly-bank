@@ -24,3 +24,8 @@ sem que se saiba o que se perde. O formato segue o modelo de Michael Nygard, o m
 | [0005](0005-nomes-de-dominio-em-portugues.md) | Nomes de domínio em português (linguagem ubíqua) | Aceita |
 | [0006](0006-nuvem-com-custo-zero.md) | Nuvem com custo zero: Terraform validado, sem aplicar | Aceita |
 | [0007](0007-dinheiro-com-bigdecimal.md) | Dinheiro com `BigDecimal` e arredondamento bancário | Aceita |
+| [0008](0008-persistencia-jdbcclient-no-razao-jpa-em-contas.md) | SQL explícito no razão, JPA no serviço de contas | Aceita |
+| [0009](0009-concorrencia-com-trava-pessimista-ordenada.md) | Trava pessimista ordenada no razão, otimista nas contas | Aceita |
+| [0010](0010-idempotencia-pela-chave-no-banco.md) | Idempotência pela chave no banco de dados | Aceita |
+| [0011](0011-contas-chama-razao-dentro-da-transacao.md) | Contas chama o razão dentro da transação local (provisório) | Aceita (sai na Fase 2) |
+| [0012](0012-erros-problem-details-e-dinheiro-como-texto.md) | Erros em Problem Details e dinheiro como texto no JSON | Aceita |

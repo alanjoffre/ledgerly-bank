@@ -15,14 +15,24 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 - CI no GitHub Actions e Dependabot — configurados e validados localmente (actionlint); a primeira execução no GitHub acontece quando o repositório for publicado
 - Documentação: README, arquitetura C4, ADRs 0001–0007, glossário, guia de ambiente
 
-## ⬜ Fase 1 — Domínio e razão contábil (Spring Boot)
+## ✅ Fase 1 — Domínio e razão contábil (Spring Boot)
 
-- Serviço **contas**: abertura, bloqueio e encerramento de conta
-- Serviço **razao**: lançamentos em **partidas dobradas**, saldo derivado dos lançamentos
-- DDD (agregados, *value objects*, eventos de domínio) e arquitetura hexagonal
-- **Idempotência** de operações
-- Prova de concorrência: 1.000 débitos simultâneos, saldo nunca negativo, nenhum gasto duplo
-- PostgreSQL com Flyway; testes de integração com Testcontainers
+- Serviço **razao** ([README](../servicos/razao/README.md)): lançamentos em **partidas dobradas**,
+  contas de natureza devedora e credora, extrato com saldo após cada lançamento, conferência de
+  integridade (o balanço fecha?)
+- Serviço **contas** ([README](../servicos/contas/README.md)): clientes com CPF validado e
+  mascarado, conta como máquina de estados (ativa, bloqueada, encerrada)
+- DDD e arquitetura hexagonal nos dois, verificada por ArchUnit
+- **Concorrência:** trava pessimista ordenada no razão, otimista nas contas — com prova reversa
+  (sem a trava, 1.500 saques passam numa conta de R$ 1.000,00)
+- **Idempotência** com `Idempotency-Key` — 100 cliques simultâneos viram 1 lançamento
+- O PostgreSQL como segunda linha de defesa: `CHECK`, gatilhos de partidas dobradas e de
+  imutabilidade, `UNIQUE`
+- API REST com erros em Problem Details (RFC 9457)
+- 72 testes de unidade (mais 200 rodadas do teste de CPF, uma por CPF gerado) e 55 de integração
+  com Testcontainers; cobertura de linhas acima de 97% nos dois serviços
+- [Demonstração](guias/demo-fase-1.md) de ponta a ponta com os dois serviços rodando
+- ADRs 0008–0012
 
 ## ⬜ Fase 2 — Pix e eventos (Quarkus)
 
