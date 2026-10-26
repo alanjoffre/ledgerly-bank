@@ -44,7 +44,7 @@ services:
   # MongoDB — banco de documentos (NoSQL). Guarda o extrato: o "modelo de leitura"
   # do CQRS, montado a partir dos eventos e otimizado para a tela do cliente.
   mongo:
-    image: mongo:8.0.34
+    image: mongo:9.0.4
     environment:
       MONGO_INITDB_ROOT_USERNAME: ledgerly_admin
       MONGO_INITDB_ROOT_PASSWORD: ledgerly_local
@@ -62,7 +62,7 @@ services:
   # processar o mesmo Pix duas vezes), cache, limite de requisições e as regras
   # de velocidade do antifraude ("mais de 5 Pix em 1 minuto").
   redis:
-    image: redis:8.8.4-alpine
+    image: redis:8.10.0-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "127.0.0.1:16379:6379"
