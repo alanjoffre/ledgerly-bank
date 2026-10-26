@@ -12,7 +12,7 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 - Qualidade desde o primeiro dia: compilador com avisos como erro, cobertura mínima (JaCoCo),
   teste de arquitetura (ArchUnit), teste de propriedade
 - Infraestrutura local: PostgreSQL (um banco por serviço), MongoDB, Redis, Kafka (KRaft)
-- CI no GitHub Actions e Dependabot — configurados e validados localmente (actionlint); a primeira execução no GitHub acontece quando o repositório for publicado
+- CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot
 - Documentação: README, arquitetura C4, ADRs 0001–0007, glossário, guia de ambiente
 
 ## ✅ Fase 1 — Domínio e razão contábil (Spring Boot)
