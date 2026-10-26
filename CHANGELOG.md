@@ -5,6 +5,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [0.1.0] — 2026-10-26
+
 ### Adicionado — Fase 1 (razão contábil e contas)
 
 - Serviço **razao** (Spring Boot + JdbcClient): partidas dobradas, contas devedoras e credoras,
@@ -36,3 +38,6 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
   Redis 8 e Kafka 4 em modo KRaft.
 - CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot.
 - Documentação: arquitetura C4, ADRs 0001–0007, roteiro de fases, glossário, guia de ambiente.
+
+[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.1.0
