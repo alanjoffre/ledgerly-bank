@@ -1,0 +1,131 @@
+# Infraestrutura local do Ledgerly Bank.
+#
+# O que é: o Docker Compose sobe vários contêineres (programas isolados) de uma vez,
+# com um comando só. Aqui ficam os bancos de dados e o Kafka que os serviços usam.
+#
+#   Subir:   docker compose -f infra/docker/compose.yaml up -d
+#   Status:  docker compose -f infra/docker/compose.yaml ps
+#   Parar:   docker compose -f infra/docker/compose.yaml down        (mantém os dados)
+#   Zerar:   docker compose -f infra/docker/compose.yaml down -v     (APAGA os dados)
+#
+# Portas: todas começam com 1 (15432, 17017...) para não colidir com um Postgres,
+# Mongo ou Redis que já exista na máquina. Todas escutam só em 127.0.0.1 (a própria
+# máquina), nunca na rede.
+#
+# Senhas: são de ambiente LOCAL, de propósito simples e públicas. Em nuvem, as senhas
+# vêm de um cofre (AWS Secrets Manager) — ver docs/adr/0006.
+
+name: ledgerly
+
+services:
+
+  # PostgreSQL — banco relacional. Guarda o que exige consistência forte:
+  # contas, razão contábil (lançamentos) e transferências Pix.
+  # Um banco (database) por serviço: nenhum serviço lê a tabela do outro.
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_USER: ledgerly_admin
+      POSTGRES_PASSWORD: ledgerly_local
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:15432:5432"
+    volumes:
+      # A partir do Postgres 18 a imagem guarda os dados em /var/lib/postgresql/<versão>.
+      - postgres-dados:/var/lib/postgresql
+      # Scripts nesta pasta rodam só na PRIMEIRA subida (com o volume vazio).
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgerly_admin -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # MongoDB — banco de documentos (NoSQL). Guarda o extrato: o "modelo de leitura"
+  # do CQRS, montado a partir dos eventos e otimizado para a tela do cliente.
+  mongo:
+    image: mongo:8.0.34
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ledgerly_admin
+      MONGO_INITDB_ROOT_PASSWORD: ledgerly_local
+    ports:
+      - "127.0.0.1:17017:27017"
+    volumes:
+      - mongo-dados:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Redis — banco em memória, muito rápido. Usos: chave de idempotência (não
+  # processar o mesmo Pix duas vezes), cache, limite de requisições e as regras
+  # de velocidade do antifraude ("mais de 5 Pix em 1 minuto").
+  redis:
+    image: redis:8.8.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:16379:6379"
+    volumes:
+      - redis-dados:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Kafka — o "correio" de eventos entre os serviços. Quando o razão registra um
+  # lançamento, publica um evento; o extrato e o antifraude consomem, cada um no
+  # seu ritmo. Modo KRaft: o Kafka se coordena sozinho, sem o antigo ZooKeeper.
+  kafka:
+    image: apache/kafka:4.4.0
+    ports:
+      - "127.0.0.1:19092:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # Três "portas de entrada": INTERNO (outros contêineres), EXTERNO (sua máquina)
+      # e CONTROLLER (coordenação interna do próprio Kafka).
+      KAFKA_LISTENERS: INTERNO://:9092,EXTERNO://:19092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNO://kafka:9092,EXTERNO://localhost:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNO:PLAINTEXT,EXTERNO:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNO
+      # Um nó só (ambiente local): réplica 1. Em produção seriam 3.
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+      # Tópico só existe se for criado de propósito — um nome digitado errado vira erro, não um tópico novo.
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+    volumes:
+      - kafka-dados:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+
+  # Kafka UI — tela web para ver tópicos e mensagens. Opcional: só sobe com
+  #   docker compose -f infra/docker/compose.yaml --profile ferramentas up -d
+  # e abre em http://localhost:18080
+  kafka-ui:
+    image: kafbat/kafka-ui:v1.5.0
+    profiles: ["ferramentas"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: ledgerly-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    ports:
+      - "127.0.0.1:18080:8080"
+
+volumes:
+  postgres-dados:
+  mongo-dados:
+  redis-dados:
+  kafka-dados:
