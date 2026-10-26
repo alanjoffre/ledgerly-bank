@@ -1,0 +1,40 @@
+# Configuração do serviço de contas. ${VARIAVEL:padrão} pode ser trocado por variável de ambiente.
+
+server:
+  port: ${CONTAS_PORTA:8081}
+
+spring:
+  application:
+    name: contas
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${CONTAS_DB_URL:jdbc:postgresql://localhost:15432/contas}
+    username: ${CONTAS_DB_USUARIO:contas}
+    password: ${CONTAS_DB_SENHA:contas_local}
+  jpa:
+    # validate: na subida, o Hibernate confere se as entidades batem com as tabelas criadas pelo
+    # Flyway. Quem cria e muda tabela é SEMPRE o Flyway, nunca o Hibernate.
+    hibernate:
+      ddl-auto: validate
+    # Desliga o "open session in view": a conexão com o banco não fica presa durante a
+    # renderização da resposta HTTP — só dentro dos casos de uso.
+    open-in-view: false
+  mvc:
+    problemdetails:
+      enabled: true
+  messages:
+    basename: mensagens
+
+ledgerly:
+  razao:
+    url: ${CONTAS_RAZAO_URL:http://localhost:8082}
+    tempo-conexao: 2s
+    tempo-resposta: 5s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
