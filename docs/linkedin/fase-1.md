@@ -1,7 +1,5 @@
 # Post do LinkedIn — Fase 1 (rascunho)
 
-> Rascunho para publicar com a release da Fase 1. Trocar `<link do repositório>` pelo endereço
-> real. Sugestão de imagem: a tabela "com a trava / sem a trava" do README (print), ou o trecho
 > `ORDER BY id FOR UPDATE` com o resultado do teste.
 
 ---
@@ -46,6 +44,6 @@ Tudo documentado em português, com as decisões explicadas e um script que roda
 Próxima fase: Pix com Quarkus, eventos com Kafka e o padrão Saga para estornar quando algo falha
 no meio do caminho.
 
-Código e documentação: <link do repositório>
+Código e documentação: https://github.com/alanjoffre/ledgerly-bank
 
 #Java #SpringBoot #PostgreSQL #Concorrencia #SistemasFinanceiros #BuildInPublic

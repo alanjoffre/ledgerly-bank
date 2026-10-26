@@ -1,7 +1,5 @@
 # Post do LinkedIn — Fase 0 (rascunho)
 
-> Rascunho para publicar quando o repositório estiver no ar. Trocar `<link do repositório>` pelo
-> endereço real. Sugestão de imagem: o diagrama de arquitetura do README (print) ou o trecho de
 > código do `Dinheiro` com o `0.1 + 0.2`.
 
 ---
@@ -40,6 +38,6 @@ Nesta Fase 0 também ficaram prontos:
 Próxima fase: o razão contábil em partidas dobradas, e a prova de que mil débitos simultâneos
 nunca deixam o saldo negativo.
 
-Código e documentação: <link do repositório>
+Código e documentação: https://github.com/alanjoffre/ledgerly-bank
 
 #Java #SpringBoot #Quarkus #ArquiteturaDeSoftware #SistemasFinanceiros #BuildInPublic
