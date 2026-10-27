@@ -1,6 +1,6 @@
 # ADR-0011: O serviço de contas chama o razão dentro da transação local (provisório)
 
-- **Status:** Aceita — será substituída na Fase 2 (Outbox + eventos)
+- **Status:** Substituída pela [ADR-0014](0014-contas-avisa-o-razao-por-evento.md)
 - **Data:** 2026-10-26
 
 ## Contexto
