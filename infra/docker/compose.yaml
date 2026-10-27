@@ -52,6 +52,8 @@ services:
       - "127.0.0.1:17017:27017"
     volumes:
       - mongo-dados:/data/db
+      # Scripts nesta pasta rodam só na PRIMEIRA subida (com o volume vazio): criam o usuário do extrato.
+      - ./mongo/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 5s

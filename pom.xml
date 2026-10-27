@@ -36,6 +36,7 @@
         <module>bibliotecas/nucleo-compartilhado</module>
         <module>servicos/razao</module>
         <module>servicos/contas</module>
+        <module>servicos/extrato</module>
     </modules>
 
     <properties>
