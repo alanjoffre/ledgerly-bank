@@ -43,7 +43,7 @@ sequenceDiagram
 | estorno recusado | `EM_ANALISE` — uma pessoa decide |
 
 Sem resposta **não é** recusa: o razão pode ter movido o dinheiro e a resposta se perdido.
-Compensar ali criaria dinheiro do nada. Os detalhes e o teste que prova estão na
+Compensar ali devolveria ao pagador um dinheiro que já chegou ao recebedor, e quem pagaria a diferença seria o dinheiro de outros clientes em trânsito na Liquidação Pix. Os detalhes e o teste que prova estão na
 [ADR-0015](../../docs/adr/0015-saga-orquestrada-no-pix.md).
 
 Se o serviço morrer no meio, outra execução assume: cada passo **reserva** a transferência por 30 s,

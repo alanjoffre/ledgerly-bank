@@ -5,6 +5,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+### Corrigido
+
+- **Pix para conta recém-aberta era estornado.** O razão só conhece a conta depois de consumir o
+  `ContaAberta`; nesse intervalo, o `404 conta-nao-encontrada` no crédito virava recusa e estorno.
+  Agora, por até 5 minutos desde a criação do Pix, ele conta como "sem resposta" e o crédito é
+  repetido (adendo na ADR-0015).
+- Documentação: o README e a ADR-0009 diziam "20 lançamentos" em 100 cliques sem a trava; refeito o
+  experimento, sai 1 lançamento e 19 erros falsos de "chave já usada" (o `UNIQUE` segura). Também:
+  a tabela de competências do README marca o que é planejado e em que fase; o CHECK de saldo na
+  ADR-0009; os códigos "sem resposta" na ADR-0015; o README do pix; o `GET /titular` no README de
+  contas; o pix na visão geral roda na JVM; o `eventoId` em eventos.md; MongoDB 9 na Fase 0.
+
 ## [0.2.0] — 2026-10-27
 
 ### Adicionado — Fase 2 (Pix e eventos)
@@ -68,7 +80,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
   arredondamento bancário, rateio sem perda de centavo e proteção contra mistura de moedas.
 - Qualidade no build: avisos do compilador como erro, cobertura mínima de 90% (JaCoCo),
   teste de arquitetura (ArchUnit), teste de propriedade.
-- Infraestrutura local (Docker Compose): PostgreSQL 18 com um banco por serviço, MongoDB 8,
+- Infraestrutura local (Docker Compose): PostgreSQL 18 com um banco por serviço, MongoDB 9,
   Redis 8 e Kafka 4 em modo KRaft.
 - CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot.
 - Documentação: arquitetura C4, ADRs 0001–0007, roteiro de fases, glossário, guia de ambiente.

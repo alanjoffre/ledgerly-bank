@@ -1,6 +1,7 @@
 package io.github.alanjoffre.ledgerly.pix.dominio;
 
 import io.github.alanjoffre.ledgerly.nucleo.Dinheiro;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
@@ -22,6 +23,17 @@ public final class TransferenciaPix {
 
     public static final int TAMANHO_MAXIMO_DESCRICAO = 140;
     public static final int TAMANHO_MAXIMO_CHAVE_IDEMPOTENCIA = 100;
+
+    /**
+     * Quanto tempo um "conta não encontrada" no crédito vale como "ainda não sei" (ADR-0015).
+     *
+     * <p>O razão só conhece a conta depois de consumir o evento {@code ContaAberta} (ADR-0014), e a
+     * chave Pix pode ser registrada antes disso. Nesse intervalo, o 404 do razão não é certeza de
+     * nada: a conta existe no serviço de contas e vai chegar. Estornar seria recusar um Pix
+     * legítimo. Passada a janela, o 404 volta a ser recusa e o dinheiro volta ao pagador.
+     */
+    public static final Duration JANELA_CONTA_NOVA = Duration.ofMinutes(5);
+    static final String CONTA_NAO_ENCONTRADA = "conta-nao-encontrada";
 
     private final UUID id;
     private final String chaveIdempotencia;
@@ -185,6 +197,12 @@ public final class TransferenciaPix {
                     "O passo %s não é o próximo da transferência %s (situação %s)".formatted(passo, id, situacao));
         }
         Instant instante = micros(agora);
+        if (passo == Passo.CREDITAR
+                && resultado instanceof ResultadoDoPasso.Recusado recusado
+                && CONTA_NAO_ENCONTRADA.equals(recusado.codigo())
+                && instante.isBefore(criadaEm.plus(JANELA_CONTA_NOVA))) {
+            resultado = new ResultadoDoPasso.SemResposta("o razão ainda não conhece a conta de destino");
+        }
         switch (resultado) {
             case ResultadoDoPasso.SemResposta semResposta -> {
                 tentativas++;

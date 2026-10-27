@@ -35,7 +35,7 @@ Toda mensagem tem o mesmo formato (JSON, UTF-8):
 
 | Campo | O que é |
 |---|---|
-| `eventoId` | Identificador único do evento — o mesmo nas repetições. Serve para descartar duplicata. |
+| `eventoId` | Identificador único do evento — o mesmo nas repetições. Serve para rastrear; hoje nenhum consumidor descarta duplicata por ele: a idempotência vem da forma de gravar (`ON CONFLICT`, *upsert* por `_id`, "já está nessa situação"). |
 | `tipo` | O nome do fato. Também vai no cabeçalho Kafka `tipo`, para filtrar sem ler o corpo. |
 | `versao` | Versão do formato de `dados` dentro do tópico. Campo novo opcional não muda a versão. |
 | `ocorridoEm` | Quando o fato aconteceu (UTC, ISO-8601, microssegundos). |

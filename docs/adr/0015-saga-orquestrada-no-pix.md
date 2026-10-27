@@ -50,8 +50,19 @@ ninguém.
 | O razão respondeu | Significa | A Saga faz |
 |---|---|---|
 | 201 / 200 | o dinheiro se moveu | avança |
-| 422 / 404 / 400 | **certeza** de que nada se moveu | avança para o estado de recusa, ou compensa |
+| 422 / 404 / 400 | **certeza** de que nada se moveu | avança para o estado de recusa, ou compensa (exceção: o 404 `conta-nao-encontrada` no crédito, veja abaixo) |
+| 409, 429, outro código, 200/201 sem o id | **não se sabe** | repete o mesmo passo mais tarde |
 | tempo esgotado, 503, conexão recusada | **não se sabe** | repete o mesmo passo mais tarde, com a mesma chave |
+
+**Conta recém-aberta (adendo de 27/10/2026).** O razão só conhece uma conta depois de consumir o
+evento `ContaAberta` ([ADR-0014](0014-contas-avisa-o-razao-por-evento.md)), e a chave Pix pode ser
+registrada antes disso, porque o pix confere a conta no serviço de contas. Um Pix nesse intervalo
+recebia `404 conta-nao-encontrada` no crédito e era estornado: um Pix legítimo recusado. Esse 404
+não é certeza; é "ainda não sei". Por isso, no crédito e por até 5 minutos desde a criação do Pix
+(`TransferenciaPix.JANELA_CONTA_NOVA`), ele é tratado como "sem resposta" e o crédito é repetido.
+Passada a janela, volta a ser recusa e o dinheiro volta ao pagador. Preço: um destino que nunca
+vai existir demora 5 minutos para ser estornado. Teste: `contaNovaAindaNaoConhecida` (e a prova
+reversa: sem a regra, ele falha).
 
 Compensar no tempo esgotado parece prudente, e é um erro caro. O teste
 [`tempoEsgotadoNaoEhRecusa`](../../servicos/pix/src/test/java/io/github/alanjoffre/ledgerly/pix/integracao/TransferenciaIT.java)

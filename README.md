@@ -36,14 +36,14 @@ está registrada numa [ADR](docs/adr/README.md), com as alternativas descartadas
 
 | Competência | Onde aparece |
 | --- | --- |
-| **Back-end com Spring e Quarkus + IA aplicada** | Contas e razão em Spring Boot; Pix e antifraude em Quarkus (imagem nativa); IA com LangChain4j e modelo ONNX |
-| **Front-end com React** | Internet banking e backoffice de fraude (React + TypeScript) |
+| **Back-end com Spring e Quarkus + IA aplicada** | Contas e razão em Spring Boot; Pix em Quarkus (imagem nativa compilada e medida); antifraude com LangChain4j e ONNX (planejado: Fase 5) |
+| **Front-end com React** | Internet banking e backoffice de fraude em React + TypeScript (planejado: Fase 4) |
 | **Arquitetura de sistemas** | Microsserviços orientados a eventos, [Saga](docs/adr/0015-saga-orquestrada-no-pix.md), [Outbox](docs/adr/0013-outbox-para-publicar-eventos.md), [CQRS](docs/adr/0016-extrato-em-cqrs-no-mongodb.md) — [visão geral](docs/arquitetura/visao-geral.md) |
 | **Software design e system design** | DDD, arquitetura hexagonal, *value objects*, diagramas C4, [ADRs](docs/adr/README.md) |
-| **Concorrência e multithreading em Java** | Prova de saldo sem gasto duplo sob 1.000 débitos simultâneos, *virtual threads*, *Structured Concurrency*, JMH |
-| **Infra e nuvem: Docker, Kubernetes e AWS** | Docker Compose, Kubernetes com Helm, Terraform da AWS validado no CI |
-| **Bancos relacionais e NoSQL** | PostgreSQL (um banco por serviço), MongoDB, Redis, pgvector |
-| **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, contrato (Pact), *mutation testing* (PIT), cobertura mínima no build |
+| **Concorrência e multithreading em Java** | Prova de saldo sem gasto duplo sob 1.500 saques simultâneos, *virtual threads*; *Structured Concurrency* e JMH (planejado: Fase 3) |
+| **Infra e nuvem: Docker, Kubernetes e AWS** | Docker Compose; Kubernetes com Helm e Terraform da AWS validado no CI (planejado: Fase 6) |
+| **Bancos relacionais e NoSQL** | PostgreSQL (um banco por serviço), MongoDB, Redis; pgvector (planejado: Fase 5) |
+| **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, cobertura mínima no build; contrato (Pact) e *mutation testing* (PIT) (planejado: Fase 7) |
 
 ## Arquitetura
 
@@ -155,7 +155,7 @@ para receber tráfego":
 Não é o mesmo programa escrito duas vezes — as limitações da comparação, e o preço da imagem
 nativa (quase 4 minutos de compilação), estão na [ADR-0017](docs/adr/0017-quarkus-no-pix.md).
 
-## Destaque: o razão aguenta mil pedidos ao mesmo tempo
+## Destaque: o razão aguenta 1.500 pedidos ao mesmo tempo
 
 O [teste de concorrência](servicos/razao/src/test/java/io/github/alanjoffre/ledgerly/razao/integracao/ConcorrenciaIT.java)
 dispara pedidos simultâneos em *virtual threads* contra um PostgreSQL de verdade. Para provar que
@@ -164,8 +164,8 @@ o teste pega o erro, a trava foi removida de propósito — e o resultado mudou 
 | Cenário | Com a trava | Sem a trava |
 |---|---|---|
 | 1.500 saques de R$ 1,00 numa conta com R$ 1.000,00 | 1.000 aprovados, 500 recusados | **1.500 aprovados** — R$ 500 de gasto duplo |
-| 400 transferências cruzadas A↔B ao mesmo tempo | nenhum deadlock, total intacto | **R$ 11,00 sumiram** |
-| 100 cliques no mesmo depósito (mesma `Idempotency-Key`) | 1 lançamento | **20 lançamentos** |
+| 400 transferências cruzadas A↔B ao mesmo tempo | nenhum deadlock, total intacto | **dinheiro sumiu** (R$ 11,00 numa rodada; o valor varia) |
+| 100 cliques no mesmo depósito (mesma `Idempotency-Key`) | 1 lançamento + 99 respostas repetidas | 1 lançamento (o `UNIQUE` do banco segura), mas **19 clientes recebem um erro falso** de "chave já usada para outro pedido" |
 
 A solução — travar as contas sempre na mesma ordem (`SELECT ... ORDER BY id FOR UPDATE`) — e as
 alternativas descartadas estão na [ADR-0009](docs/adr/0009-concorrencia-com-trava-pessimista-ordenada.md).

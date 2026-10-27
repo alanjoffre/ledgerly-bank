@@ -93,6 +93,35 @@ class TransferenciaPixTest {
     class SemResposta {
 
         @Test
+        @DisplayName("conta nova que o razão ainda não conhece: repete o crédito em vez de estornar")
+        void contaNovaAindaNaoConhecida() {
+            var t = nova();
+            t.aplicar(Passo.DEBITAR, feito(), AGORA);
+            var naoEncontrada = new ResultadoDoPasso.Recusado("conta-nao-encontrada", "conta não encontrada");
+
+            t.aplicar(Passo.CREDITAR, naoEncontrada, AGORA.plusSeconds(1));
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.DEBITADA);
+            assertThat(t.tentativas()).isEqualTo(1);
+
+            t.aplicar(Passo.CREDITAR, feito(), AGORA.plusSeconds(3));
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.CONCLUIDA);
+        }
+
+        @Test
+        @DisplayName("passada a janela, conta não encontrada volta a ser recusa e estorna")
+        void contaNaoEncontradaDepoisDaJanela() {
+            var t = nova();
+            t.aplicar(Passo.DEBITAR, feito(), AGORA);
+
+            t.aplicar(
+                    Passo.CREDITAR,
+                    new ResultadoDoPasso.Recusado("conta-nao-encontrada", "conta não encontrada"),
+                    AGORA.plus(TransferenciaPix.JANELA_CONTA_NOVA));
+
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.ESTORNANDO);
+        }
+
+        @Test
         @DisplayName("a situação não muda; o mesmo passo volta, com espera exponencial")
         void repeteOMesmoPasso() {
             TransferenciaPix t = nova();

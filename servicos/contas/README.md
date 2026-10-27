@@ -80,6 +80,7 @@ gravariam por cima uns dos outros — ver [ADR-0009](../../docs/adr/0009-concorr
 | `GET /v1/clientes/{id}/contas` | Contas do cliente | 200 |
 | `POST /v1/contas` | `{"clienteId"}` — abre a conta; o razão recebe o `ContaAberta` | 201 |
 | `GET /v1/contas/{id}` | Conta com o saldo (vindo do razão; `0.00` se o razão ainda não a conhece) | 200 |
+| `GET /v1/contas/{id}/titular` | Titular e situação, sem o saldo (`contaId`, `clienteId`, `nome`, `situacao`): responde mesmo com o razão fora do ar. Usado pelo Pix | 200 |
 | `POST /v1/contas/{id}/bloqueio` | Bloqueia | 200 |
 | `DELETE /v1/contas/{id}/bloqueio` | Desbloqueia | 200 |
 | `POST /v1/contas/{id}/encerramento` | Encerra (o razão exige saldo zero) | 200 |

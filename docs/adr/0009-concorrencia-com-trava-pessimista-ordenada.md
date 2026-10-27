@@ -16,8 +16,15 @@ mostrou:
 | Cenário | Com a trava | Sem a trava |
 |---|---|---|
 | 1.500 saques de R$ 1,00 numa conta com R$ 1.000,00 | 1.000 aprovados, 500 recusados, saldo 0 | **1.500 aprovados** (R$ 500 de gasto duplo) |
-| 400 transferências cruzadas A↔B de R$ 1,00 | A e B continuam com R$ 1.000,00 | **R$ 11,00 sumiram** (atualizações perdidas) |
-| 100 cliques no mesmo depósito (mesma chave) | 1 lançamento + 99 respostas repetidas | **20 lançamentos** |
+| 400 transferências cruzadas A↔B de R$ 1,00 | A e B continuam com R$ 1.000,00 | **R$ 11,00 sumiram** (atualizações perdidas; o valor varia a cada rodada) |
+| 100 cliques no mesmo depósito (mesma chave) | 1 lançamento + 99 respostas repetidas | 1 lançamento, mas **19 erros falsos** "chave já usada para outro pedido" (\*) |
+
+(\*) Correção de 27/10/2026: a primeira versão desta tabela dizia "20 lançamentos". Refeito o
+experimento, o `UNIQUE (chave_idempotencia)` do banco segura e sai 1 lançamento só. O defeito é
+outro: sem a trava, os cliques idênticos não esperam em fila, não acham o primeiro lançamento (ainda
+não confirmado), tentam gravar, e a violação do `UNIQUE` vira `ChaveIdempotenciaReutilizadaException`.
+O cliente que repetiu **o mesmo** pedido recebe "chave já usada para outro pedido". O `UNIQUE`
+protege o dinheiro; a trava protege a resposta.
 
 ## Decisão
 
@@ -31,7 +38,7 @@ SELECT ... FROM conta_razao WHERE id IN (:ids) ORDER BY id FOR UPDATE
 - `ORDER BY id` faz todas as transações travarem as contas na mesma ordem. Sem isso, "A→B" trava
   A e espera B enquanto "B→A" trava B e espera A — um **deadlock**. Com a ordem fixa, o teste de
   400 transferências cruzadas passa sem nenhum deadlock.
-- O banco é a segunda linha de defesa: `CHECK (saldo >= 0)` recusa saldo negativo mesmo que a
+- O banco é a segunda linha de defesa: `CHECK (permite_saldo_negativo OR saldo >= 0)` recusa saldo negativo mesmo que a
   aplicação erre.
 
 **No serviço de contas — trava otimista (`@Version`):**

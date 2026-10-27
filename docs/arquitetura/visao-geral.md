@@ -49,7 +49,7 @@ flowchart TB
     subgraph servicos["Serviços"]
         contas["contas<br/><small>Spring Boot</small>"]
         razao["razao<br/><small>Spring Boot<br/>partidas dobradas</small>"]
-        pix["pix<br/><small>Quarkus nativo<br/>Saga</small>"]
+        pix["pix<br/><small>Quarkus<br/>Saga</small>"]
         antifraude["antifraude<br/><small>Quarkus + IA</small>"]
         extrato["extrato<br/><small>CQRS - leitura</small>"]
     end
