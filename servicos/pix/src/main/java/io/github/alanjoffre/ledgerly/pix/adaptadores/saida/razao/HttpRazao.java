@@ -43,14 +43,14 @@ class HttpRazao implements Razao {
             case CREDITAR -> cliente.receber(chave, corpo);
             case ESTORNAR -> cliente.estornar(chave, corpo);
         }) {
-            return traduzir(resposta);
+            return traduzir(passo, resposta);
         } catch (ProcessingException e) {
             // Tempo esgotado ou conexão recusada: o pedido pode ou não ter chegado ao razão.
             return new ResultadoDoPasso.SemResposta(causaRaiz(e));
         }
     }
 
-    private ResultadoDoPasso traduzir(Response resposta) {
+    private ResultadoDoPasso traduzir(Passo passo, Response resposta) {
         int status = resposta.getStatus();
         JsonNode corpo = ler(resposta);
         if (status == 200 || status == 201) {
@@ -63,9 +63,27 @@ class HttpRazao implements Razao {
         if (status == 400 || status == 404 || status == 422) {
             String tipo = corpo.path("type").asText("");
             String codigo = tipo.startsWith("urn:ledgerly:erro:") ? tipo.substring("urn:ledgerly:erro:".length()) : "recusado";
-            return new ResultadoDoPasso.Recusado(codigo, corpo.path("detail").asText("o razão recusou (HTTP " + status + ")"));
+            return new ResultadoDoPasso.Recusado(
+                    codigo, motivo(passo, codigo, corpo.path("detail").asText("o razão recusou (HTTP " + status + ")")));
         }
         return new ResultadoDoPasso.SemResposta("HTTP " + status);
+    }
+
+    /**
+     * O motivo vai para o cliente (na transferência e na linha do extrato): em vez do texto técnico
+     * do razão, com o id da conta, a frase que faz sentido para quem pagou.
+     */
+    private static String motivo(Passo passo, String codigo, String detalheDoRazao) {
+        return switch (codigo) {
+            case "saldo-insuficiente" -> passo == Passo.DEBITAR ? "saldo insuficiente" : detalheDoRazao;
+            case "conta-inativa" -> switch (passo) {
+                case DEBITAR -> "a conta do pagador está bloqueada ou encerrada";
+                // Conta bloqueada recebe; só a encerrada recusa crédito.
+                case CREDITAR -> "a conta de destino está encerrada";
+                case ESTORNAR -> "a conta do pagador está encerrada";
+            };
+            default -> detalheDoRazao;
+        };
     }
 
     private JsonNode ler(Response resposta) {

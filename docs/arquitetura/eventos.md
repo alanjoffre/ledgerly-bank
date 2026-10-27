@@ -139,7 +139,7 @@ enviado para Maria" em vez de só "PIX_ENVIO".
 | Campo | O que é |
 |---|---|
 | `lancamentoEstornoId` | O lançamento que devolveu o dinheiro ao pagador |
-| `motivo` | Por que o crédito foi recusado (por exemplo, `"conta de destino encerrada"`) |
+| `motivo` | Por que o crédito foi recusado, em frase para o cliente (por exemplo, `"a conta de destino está encerrada"`) |
 | `estornadoEm` | Quando o estorno foi escriturado |
 
 A chave do recebedor vai **mascarada**: o extrato mostra, não precisa do valor completo.
@@ -167,11 +167,15 @@ Todas exigem `Idempotency-Key`, recebem `{"contaId", "valor", "descricao"?}` e r
 | `POST /v1/pix/recebimentos` | Liquidação Pix | conta do cliente | `PIX_RECEBIMENTO` |
 | `POST /v1/pix/estornos` | Liquidação Pix | conta do cliente | `PIX_ESTORNO` |
 
-### contas — titularidade
+### contas — titular e titularidade
 
 | Método e caminho | O que faz | Resposta |
 |---|---|---|
+| `GET /v1/contas/{id}/titular` | Nome do titular e situação da conta, **sem o saldo** | `200 {"contaId","clienteId","nome","situacao"}` · `404` |
 | `POST /v1/contas/{id}/titularidade` | `{"cpf"}` — o CPF é o do titular da conta? | `200 {"confere": true\|false}` · `404` conta inexistente |
+
+O `titular` existe porque o `GET /v1/contas/{id}` pergunta o saldo ao razão: com o razão fora do ar,
+ele responde 503 — e o Pix não poderia nem criar uma transferência para esperar o razão voltar.
 
 O Pix precisa saber se a chave CPF pertence ao dono da conta, mas o CPF completo não sai do serviço
 de contas: o Pix pergunta "é este?", e a resposta é sim ou não.

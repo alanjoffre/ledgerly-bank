@@ -32,7 +32,7 @@ por tópicos diferentes, **em qualquer ordem**:
 
 Num Pix de João para Maria, o extrato do João mostra "Pix enviado para Maria Souza" e o da Maria
 "Pix recebido de João da Silva". Num Pix estornado, o João vê a saída marcada como estornada e
-"Estorno do Pix para Maria Souza: conta de destino encerrada"; a Maria não vê nada.
+"Estorno do Pix para Maria Souza: a conta de destino está encerrada"; a Maria não vê nada.
 
 ### Organização interna (arquitetura hexagonal)
 

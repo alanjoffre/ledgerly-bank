@@ -73,7 +73,7 @@ class TransferenciaIT extends TesteDeIntegracao {
             String id = pix(chave(), joao.id(), chaveEmail(maria), "10.01")
                     .statusCode(201)
                     .body("situacao", equalTo("REJEITADA"))
-                    .body("motivo", org.hamcrest.Matchers.containsString("Saldo insuficiente"))
+                    .body("motivo", equalTo("saldo insuficiente"))
                     .extract().path("id");
 
             assertThat(RAZAO.saldo(joao.id())).isEqualByComparingTo("10.00");
@@ -91,7 +91,7 @@ class TransferenciaIT extends TesteDeIntegracao {
             pix(chave(), joao.id(), chave, "100.00")
                     .statusCode(201)
                     .body("situacao", equalTo("ESTORNADA"))
-                    .body("motivo", org.hamcrest.Matchers.containsString("encerrada"))
+                    .body("motivo", equalTo("a conta de destino está encerrada"))
                     .body("lancamentos.envio", notNullValue())
                     .body("lancamentos.recebimento", nullValue())
                     .body("lancamentos.estorno", notNullValue());
