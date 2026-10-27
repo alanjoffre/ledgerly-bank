@@ -18,6 +18,12 @@ public final class Comandos {
 
     public record Saque(ChaveIdempotencia chave, UUID contaId, Dinheiro valor, String descricao) {}
 
+    /**
+     * Um movimento do Pix na conta de um cliente: envio, recebimento ou estorno. A outra ponta é
+     * sempre a conta interna Liquidação Pix.
+     */
+    public record MovimentoPix(ChaveIdempotencia chave, UUID contaId, Dinheiro valor, String descricao) {}
+
     public record Transferencia(
             ChaveIdempotencia chave, UUID origemId, UUID destinoId, Dinheiro valor, String descricao) {}
 }

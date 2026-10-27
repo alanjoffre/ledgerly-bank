@@ -17,10 +17,12 @@ public interface LancamentoRepository {
     /**
      * Grava o lançamento e as partidas.
      *
+     * @return a sequência de cada partida (número que só cresce, dado pelo banco), na ordem de
+     *     {@link Lancamento#partidas()} — o extrato usa para saber qual saldo é o mais novo
      * @throws io.github.alanjoffre.ledgerly.razao.dominio.ChaveIdempotenciaReutilizadaException
      *     se a chave já existir (corrida entre dois pedidos diferentes com a mesma chave)
      */
-    void inserir(Lancamento lancamento);
+    List<Long> inserir(Lancamento lancamento);
 
     /** As últimas partidas da conta, da mais nova para a mais antiga. */
     List<ItemExtrato> extrato(UUID contaId, int limite);

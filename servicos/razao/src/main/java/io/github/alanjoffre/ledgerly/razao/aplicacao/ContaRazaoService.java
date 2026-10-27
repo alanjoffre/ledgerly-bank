@@ -39,10 +39,13 @@ public class ContaRazaoService {
      * Abre a conta de um cliente no razão. <b>Idempotente</b>: pedir de novo com o mesmo id e a
      * mesma moeda devolve a conta existente; com moeda diferente, é erro.
      *
-     * <p>Quem chama é o serviço de contas, quando o cliente abre uma conta (ADR-0011).
+     * <p>Quem pede é o serviço de contas, pelo evento {@code ContaAberta} (ADR-0014).
      */
     @Transactional
     public ResultadoAbertura abrir(UUID id, Currency moeda) {
+        if (ContaRazao.ehInterna(id)) {
+            throw new OperacaoNaoPermitidaException("O id %s é de uma conta interna do banco".formatted(id));
+        }
         ContaRazao nova = ContaRazao.abrirContaDeCliente(id, moeda);
         if (contas.inserirSeAusente(nova)) {
             return new ResultadoAbertura(nova, true);
@@ -57,8 +60,8 @@ public class ContaRazaoService {
     /** Bloqueia, desbloqueia ou encerra a conta. A conta é travada para não correr com um débito. */
     @Transactional
     public ContaRazao alterarSituacao(UUID id, SituacaoConta situacao) {
-        if (ContaRazao.CAIXA.equals(id)) {
-            throw new OperacaoNaoPermitidaException("A situação da conta interna Caixa não pode ser alterada");
+        if (ContaRazao.ehInterna(id)) {
+            throw new OperacaoNaoPermitidaException("A situação de uma conta interna do banco não pode ser alterada");
         }
         ContaRazao conta = contas.travarParaAtualizacao(Set.of(id)).get(id);
         if (conta == null) {

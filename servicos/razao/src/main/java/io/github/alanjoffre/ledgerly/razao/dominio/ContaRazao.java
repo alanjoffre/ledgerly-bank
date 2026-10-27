@@ -21,6 +21,17 @@ public final class ContaRazao {
     /** Conta interna "Caixa" do banco, criada pela migração V1. */
     public static final UUID CAIXA = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
+    /**
+     * Conta interna "Liquidação Pix", criada pela migração V2: guarda o dinheiro de um Pix em
+     * andamento, entre sair do pagador e chegar ao recebedor (ver ADR-0015).
+     */
+    public static final UUID LIQUIDACAO_PIX = UUID.fromString("00000000-0000-0000-0000-000000000002");
+
+    /** Diz se o id é de uma conta do próprio banco (Caixa, Liquidação Pix), e não de um cliente. */
+    public static boolean ehInterna(UUID id) {
+        return CAIXA.equals(id) || LIQUIDACAO_PIX.equals(id);
+    }
+
     private final UUID id;
     private final Natureza natureza;
     private final Currency moeda;

@@ -208,4 +208,75 @@ class ApiIT extends TesteDeIntegracao {
             assertThat(http.get().uri("/v1/contas/{id}/extrato?limite=1000", conta)).hasStatus(HttpStatus.BAD_REQUEST);
         }
     }
+
+    @Nested
+    @DisplayName("Pix")
+    class Pix {
+
+        private MvcTestResult movimento(String caminho, String chave, UUID conta, String valor) {
+            return http.post().uri("/v1/pix/" + caminho)
+                    .header("Idempotency-Key", chave)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"contaId\":\"%s\",\"valor\":\"%s\"}".formatted(conta, valor))
+                    .exchange();
+        }
+
+        @Test
+        @DisplayName("envio e recebimento: 201, e o passo repetido devolve 200 com o mesmo lançamento")
+        void envioERecebimento() {
+            UUID pagador = UUID.randomUUID();
+            UUID recebedor = UUID.randomUUID();
+            abrirConta(pagador);
+            abrirConta(recebedor);
+            depositar(UUID.randomUUID().toString(), pagador, "50.00");
+
+            assertThat(movimento("envios", "pix:a:envio", pagador, "20.00")).hasStatus(HttpStatus.CREATED)
+                    .bodyJson().hasPathSatisfying("$.tipo", v -> v.assertThat().isEqualTo("PIX_ENVIO"));
+            assertThat(movimento("envios", "pix:a:envio", pagador, "20.00")).hasStatus(HttpStatus.OK)
+                    .hasHeader("Idempotent-Replayed", "true");
+            assertThat(movimento("recebimentos", "pix:a:credito", recebedor, "20.00")).hasStatus(HttpStatus.CREATED)
+                    .bodyJson().hasPathSatisfying("$.tipo", v -> v.assertThat().isEqualTo("PIX_RECEBIMENTO"));
+            assertThat(http.get().uri("/v1/contas/{id}", recebedor)).bodyJson()
+                    .hasPathSatisfying("$.saldo", v -> v.assertThat().isEqualTo("20.00"));
+        }
+
+        @Test
+        @DisplayName("recebedor encerrado: 422 conta-inativa; estorno devolve ao pagador")
+        void recusaEEstorno() {
+            UUID pagador = UUID.randomUUID();
+            UUID recebedor = UUID.randomUUID();
+            abrirConta(pagador);
+            abrirConta(recebedor);
+            http.put().uri("/v1/contas/{id}/situacao", recebedor)
+                    .contentType(MediaType.APPLICATION_JSON).content("{\"situacao\":\"ENCERRADA\"}").exchange();
+            depositar(UUID.randomUUID().toString(), pagador, "50.00");
+            movimento("envios", "pix:b:envio", pagador, "20.00");
+
+            assertThat(movimento("recebimentos", "pix:b:credito", recebedor, "20.00"))
+                    .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+                    .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:conta-inativa"));
+            assertThat(movimento("estornos", "pix:b:estorno", pagador, "20.00")).hasStatus(HttpStatus.CREATED)
+                    .bodyJson().hasPathSatisfying("$.tipo", v -> v.assertThat().isEqualTo("PIX_ESTORNO"));
+            assertThat(http.get().uri("/v1/contas/{id}", pagador)).bodyJson()
+                    .hasPathSatisfying("$.saldo", v -> v.assertThat().isEqualTo("50.00"));
+        }
+
+        @Test
+        @DisplayName("a Liquidação Pix não é movimentada diretamente: 422 operacao-nao-permitida")
+        void liquidacaoProtegida() {
+            assertThat(movimento("envios", UUID.randomUUID().toString(),
+                            UUID.fromString("00000000-0000-0000-0000-000000000002"), "1.00"))
+                    .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+                    .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:operacao-nao-permitida"));
+        }
+
+        @Test
+        @DisplayName("sem Idempotency-Key: 400")
+        void semChave() {
+            assertThat(http.post().uri("/v1/pix/envios")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"contaId\":\"%s\",\"valor\":\"1.00\"}".formatted(UUID.randomUUID())))
+                    .hasStatus(HttpStatus.BAD_REQUEST);
+        }
+    }
 }

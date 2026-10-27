@@ -12,6 +12,7 @@ import io.github.alanjoffre.ledgerly.razao.dominio.TipoPartida;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
@@ -61,7 +62,7 @@ class JdbcLancamentoRepository implements LancamentoRepository {
     }
 
     @Override
-    public void inserir(Lancamento lancamento) {
+    public List<Long> inserir(Lancamento lancamento) {
         try {
             jdbc.sql("""
                             INSERT INTO lancamento (id, chave_idempotencia, tipo, descricao, registrado_em)
@@ -79,18 +80,22 @@ class JdbcLancamentoRepository implements LancamentoRepository {
             throw new ChaveIdempotenciaReutilizadaException(
                     "A chave de idempotência '%s' já foi usada para outro pedido".formatted(lancamento.chave()));
         }
+        List<Long> sequencias = new ArrayList<>(lancamento.partidas().size());
         for (Partida partida : lancamento.partidas()) {
-            jdbc.sql("""
+            sequencias.add(jdbc.sql("""
                             INSERT INTO partida (lancamento_id, conta_id, tipo, valor, saldo_apos)
                             VALUES (:lancamentoId, :contaId, :tipo, :valor, :saldoApos)
+                            RETURNING id
                             """)
                     .param("lancamentoId", lancamento.id())
                     .param("contaId", partida.contaId())
                     .param("tipo", partida.tipo().name())
                     .param("valor", partida.valor().valor())
                     .param("saldoApos", partida.saldoApos().valor())
-                    .update();
+                    .query(Long.class)
+                    .single());
         }
+        return sequencias;
     }
 
     @Override

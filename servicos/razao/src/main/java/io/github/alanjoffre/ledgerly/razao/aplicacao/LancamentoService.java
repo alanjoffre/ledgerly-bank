@@ -3,6 +3,7 @@ package io.github.alanjoffre.ledgerly.razao.aplicacao;
 import static io.github.alanjoffre.ledgerly.razao.dominio.PedidoDePartida.credito;
 import static io.github.alanjoffre.ledgerly.razao.dominio.PedidoDePartida.debito;
 
+import io.github.alanjoffre.ledgerly.razao.aplicacao.porta.CaixaDeSaida;
 import io.github.alanjoffre.ledgerly.razao.aplicacao.porta.ContaRazaoRepository;
 import io.github.alanjoffre.ledgerly.razao.aplicacao.porta.LancamentoRepository;
 import io.github.alanjoffre.ledgerly.razao.dominio.ChaveIdempotencia;
@@ -32,7 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>Conferir a chave de idempotência</b> — depois de travar, para que dois pedidos iguais
  *       simultâneos fiquem em fila e o segundo enxergue o lançamento do primeiro;</li>
  *   <li><b>Escriturar</b> no domínio (regras de saldo, situação e partidas dobradas);</li>
- *   <li><b>Gravar</b> o lançamento e os saldos novos.</li>
+ *   <li><b>Gravar</b> o lançamento, os saldos novos e o evento {@code LancamentoRegistrado} na
+ *       caixa de saída (Outbox, ADR-0013).</li>
  * </ol>
  *
  * <p>Se qualquer passo falhar, a transação é desfeita inteira: nenhum centavo se move pela metade.
@@ -42,11 +44,14 @@ public class LancamentoService {
 
     private final ContaRazaoRepository contas;
     private final LancamentoRepository lancamentos;
+    private final CaixaDeSaida caixaDeSaida;
     private final Clock relogio;
 
-    public LancamentoService(ContaRazaoRepository contas, LancamentoRepository lancamentos, Clock relogio) {
+    public LancamentoService(
+            ContaRazaoRepository contas, LancamentoRepository lancamentos, CaixaDeSaida caixaDeSaida, Clock relogio) {
         this.contas = contas;
         this.lancamentos = lancamentos;
+        this.caixaDeSaida = caixaDeSaida;
         this.relogio = relogio;
     }
 
@@ -87,11 +92,47 @@ public class LancamentoService {
                 List.of(debito(comando.origemId(), comando.valor()), credito(comando.destinoId(), comando.valor())));
     }
 
+    /** Pix saindo: o dinheiro sai do pagador e fica na Liquidação Pix até o crédito no recebedor. */
+    @Transactional
+    public ResultadoLancamento enviarPix(Comandos.MovimentoPix comando) {
+        exigirContaDeCliente(comando.contaId());
+        return registrar(
+                comando.chave(),
+                TipoOperacao.PIX_ENVIO,
+                comando.descricao(),
+                List.of(debito(comando.contaId(), comando.valor()), credito(ContaRazao.LIQUIDACAO_PIX, comando.valor())));
+    }
+
+    /** Pix chegando: o dinheiro sai da Liquidação Pix e entra na conta do recebedor. */
+    @Transactional
+    public ResultadoLancamento receberPix(Comandos.MovimentoPix comando) {
+        return daLiquidacaoPara(TipoOperacao.PIX_RECEBIMENTO, comando);
+    }
+
+    /**
+     * Pix devolvido: o crédito no recebedor foi recusado, e o dinheiro sai da Liquidação Pix de
+     * volta para o pagador. É a compensação da Saga do Pix (ADR-0015) — um lançamento novo, nunca
+     * a alteração do envio (o razão é imutável).
+     */
+    @Transactional
+    public ResultadoLancamento estornarPix(Comandos.MovimentoPix comando) {
+        return daLiquidacaoPara(TipoOperacao.PIX_ESTORNO, comando);
+    }
+
     @Transactional(readOnly = true)
     public Lancamento consultar(UUID id) {
         return lancamentos
                 .buscarPorId(id)
                 .orElseThrow(() -> new ContaNaoEncontradaException("Lançamento %s não encontrado".formatted(id)));
+    }
+
+    private ResultadoLancamento daLiquidacaoPara(TipoOperacao tipo, Comandos.MovimentoPix comando) {
+        exigirContaDeCliente(comando.contaId());
+        return registrar(
+                comando.chave(),
+                tipo,
+                comando.descricao(),
+                List.of(debito(ContaRazao.LIQUIDACAO_PIX, comando.valor()), credito(comando.contaId(), comando.valor())));
     }
 
     private ResultadoLancamento registrar(
@@ -109,15 +150,17 @@ public class LancamentoService {
         }
 
         Lancamento lancamento = Escrituracao.escriturar(chave, tipo, descricao, pedidos, travadas, relogio.instant());
-        lancamentos.inserir(lancamento);
+        List<Long> sequencias = lancamentos.inserir(lancamento);
         contas.atualizar(travadas.values());
+        caixaDeSaida.lancamentoRegistrado(lancamento, sequencias);
         return new ResultadoLancamento(lancamento, false);
     }
 
-    /** As contas internas do banco (como o Caixa) não podem ser movimentadas diretamente pela API. */
+    /** As contas internas do banco (Caixa, Liquidação Pix) não podem ser movimentadas diretamente pela API. */
     private static void exigirContaDeCliente(UUID contaId) {
-        if (ContaRazao.CAIXA.equals(contaId)) {
-            throw new OperacaoNaoPermitidaException("A conta interna Caixa não pode ser movimentada diretamente");
+        if (ContaRazao.ehInterna(contaId)) {
+            throw new OperacaoNaoPermitidaException(
+                    "A conta %s é interna do banco e não pode ser movimentada diretamente".formatted(contaId));
         }
     }
 }

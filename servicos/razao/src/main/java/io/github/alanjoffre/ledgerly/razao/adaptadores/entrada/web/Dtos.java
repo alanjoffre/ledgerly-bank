@@ -52,6 +52,12 @@ final class Dtos {
             @NotBlank @Pattern(regexp = PADRAO_VALOR, message = MENSAGEM_VALOR) String valor,
             @Size(max = Lancamento.TAMANHO_MAXIMO_DESCRICAO) String descricao) {}
 
+    /** Envio, recebimento ou estorno de Pix: a outra ponta é sempre a Liquidação Pix. */
+    record MovimentoPixRequisicao(
+            @NotNull UUID contaId,
+            @NotBlank @Pattern(regexp = PADRAO_VALOR, message = MENSAGEM_VALOR) String valor,
+            @Size(max = Lancamento.TAMANHO_MAXIMO_DESCRICAO) String descricao) {}
+
     record TransferenciaRequisicao(
             @NotNull UUID origemId,
             @NotNull UUID destinoId,

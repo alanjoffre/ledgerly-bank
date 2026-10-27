@@ -8,7 +8,8 @@ import java.util.UUID;
 
 /**
  * Uma linha do extrato: modelo de leitura, montado direto da consulta, sem regra de negócio.
- * (Na Fase 2, o extrato do cliente passa a vir do serviço extrato, em CQRS.)
+ * O extrato que o cliente vê, com "Pix enviado para Maria", vem do serviço extrato (CQRS,
+ * ADR-0016); este é o extrato contábil, a fonte da verdade.
  */
 public record ItemExtrato(
         UUID lancamentoId,

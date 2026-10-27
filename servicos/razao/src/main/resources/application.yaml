@@ -24,6 +24,28 @@ spring:
       enabled: true
   messages:
     basename: mensagens
+  # Kafka: o razão publica os lançamentos (pelo Outbox) e consome os eventos de conta.
+  kafka:
+    bootstrap-servers: ${RAZAO_KAFKA:localhost:19092}
+    producer:
+      # acks=all + idempotência: o Kafka só confirma depois de gravar em todas as réplicas, e uma
+      # nova tentativa do produtor não duplica a mensagem no tópico.
+      acks: all
+      properties:
+        enable.idempotence: true
+        # Com o Kafka fora do ar, o publicador desiste em segundos (e tenta na próxima rodada),
+        # em vez de ficar preso o padrão de 1 minuto.
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+    consumer:
+      # Grupo novo começa do início do tópico: nenhuma conta aberta antes fica de fora.
+      auto-offset-reset: earliest
+
+razao:
+  outbox:
+    intervalo-ms: ${RAZAO_OUTBOX_INTERVALO_MS:100}
+    lote: 100
 
 management:
   endpoints:
