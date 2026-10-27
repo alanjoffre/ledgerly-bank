@@ -109,6 +109,22 @@ services:
       timeout: 10s
       retries: 20
 
+  # Cria os tópicos do Kafka (a criação automática está desligada). Fica "saudável" só depois de
+  # criá-los — então "up --wait" não termina antes. Tópico que já existe fica como está.
+  kafka-topicos:
+    image: apache/kafka:4.4.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "/scripts/criar-topicos.sh"]
+    volumes:
+      - ./kafka/criar-topicos.sh:/scripts/criar-topicos.sh:ro
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/topicos-criados"]
+      interval: 2s
+      timeout: 2s
+      retries: 60
+
   # Kafka UI — tela web para ver tópicos e mensagens. Opcional: só sobe com
   #   docker compose -f infra/docker/compose.yaml --profile ferramentas up -d
   # e abre em http://localhost:18080
