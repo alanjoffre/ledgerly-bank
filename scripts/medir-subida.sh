@@ -36,7 +36,8 @@ if [[ -n $NATIVO ]]; then
   SERVICOS+=(pix-nativo)
 fi
 
-agora_ms() { date +%s%3N; }
+# %s%N (nanossegundos) e a divisão, em vez de %3N: há versões do date que ignoram a largura do %N.
+agora_ms() { echo $(( $(date +%s%N) / 1000000 )); }
 rss_mb() { echo $(( $(ps -o rss= -p "$1") / 1024 )); }
 mediana() { sort -n | awk '{v[NR]=$1} END {print (NR % 2) ? v[(NR+1)/2] : int((v[NR/2] + v[NR/2+1]) / 2)}'; }
 

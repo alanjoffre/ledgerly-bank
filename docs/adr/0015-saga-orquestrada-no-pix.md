@@ -56,9 +56,22 @@ ninguém.
 Compensar no tempo esgotado parece prudente, e é um erro caro. O teste
 [`tempoEsgotadoNaoEhRecusa`](../../servicos/pix/src/test/java/io/github/alanjoffre/ledgerly/pix/integracao/TransferenciaIT.java)
 faz o razão **creditar** e só depois demorar a responder: para o Pix, foi "sem resposta". Se a Saga
-estornasse ali, o pagador teria o dinheiro de volta **e** o recebedor ficaria com ele — R$ 80
-criados do nada. Repetindo o passo, o razão devolve o lançamento original, e a Saga conclui sem
-estorno.
+estornasse ali, o pagador teria o dinheiro de volta **e** o recebedor ficaria com ele. Repetindo o
+passo, o razão devolve o lançamento original, e a Saga conclui sem estorno.
+
+**Prova reversa** (27/10/2026): a Saga foi alterada de propósito para estornar no "sem resposta", com
+R$ 500,00 de outro cliente em trânsito na Liquidação Pix — o normal num banco com movimento:
+
+| | Esperado | Com o erro |
+|---|---|---|
+| Pagador (tinha R$ 300,00, pagou R$ 80,00) | R$ 220,00 | **R$ 300,00** — pagou e recebeu de volta |
+| Recebedor | R$ 80,00 | R$ 80,00 — e ficou com o dinheiro |
+| Liquidação Pix (R$ 500,00 do outro cliente) | R$ 500,00 | **R$ 420,00** — o estorno saiu do dinheiro de outra pessoa |
+
+Sem outro Pix em trânsito, a regra "a Liquidação Pix não fica negativa" recusaria o estorno, e a
+transferência iria para análise: a defesa do razão segura o caso isolado, não o banco movimentado.
+Na mesma prova, o teste do razão fora do ar também falhou (o Pix virou `REJEITADA` em vez de
+esperar).
 
 **Para não fazer o mesmo passo duas vezes ao mesmo tempo**, cada execução **reserva** a
 transferência por 30 s (um `UPDATE ... WHERE reservada_ate < now() RETURNING *`, atômico). A

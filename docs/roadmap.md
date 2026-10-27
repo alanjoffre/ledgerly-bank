@@ -34,19 +34,37 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 - [Demonstração](guias/demo-fase-1.md) de ponta a ponta com os dois serviços rodando
 - ADRs 0008–0012
 
-## ⬜ Fase 2 — Pix e eventos (Quarkus)
+## ✅ Fase 2 — Pix e eventos (Quarkus)
 
-- Serviço **pix**: chaves Pix, transferência, QR Code
-- **Saga** orquestrada com compensação (estorno)
-- **Outbox Pattern** + Kafka
-- Serviço **extrato** em CQRS sobre MongoDB
-- Comparação **medida** entre Spring Boot e Quarkus (tempo de subida, memória)
+- Serviço **pix** em Quarkus ([README](../servicos/pix/README.md)): chaves CPF, e-mail, telefone e
+  aleatória (o CPF só se for do titular, conferido sem o CPF sair do serviço de contas); QR Code
+  estático no padrão **BR Code** (EMV + CRC16), em texto e em SVG
+- **Saga orquestrada** com conta de liquidação e estorno ([ADR-0015](adr/0015-saga-orquestrada-no-pix.md)):
+  "sem resposta não é recusa" — com o razão fora do ar, o Pix responde `202` e termina sozinho
+  quando ele volta; reserva por tempo e retomada automática se o serviço morrer no meio
+- **Redis** como trava rápida contra o segundo clique, com o `UNIQUE` do banco como garantia
+  ([ADR-0018](adr/0018-redis-na-frente-do-banco-no-pix.md)) — sem Redis, o Pix continua certo
+- **Outbox Pattern** + Kafka nos três serviços que publicam ([ADR-0013](adr/0013-outbox-para-publicar-eventos.md)):
+  `acks=all`, produtor idempotente, `FOR UPDATE SKIP LOCKED`, testado com o Kafka pausado
+- **Contas avisa o razão por evento** ([ADR-0014](adr/0014-contas-avisa-o-razao-por-evento.md)):
+  abrir e bloquear conta não dependem mais do razão no ar; só o encerramento continua síncrono
+- Serviço **extrato** em **CQRS** sobre MongoDB ([README](../servicos/extrato/README.md),
+  [ADR-0016](adr/0016-extrato-em-cqrs-no-mongodb.md)): montado pelos eventos do razão e do Pix, em
+  qualquer ordem; reconstruído do zero a partir do tópico
+- [Contrato dos eventos](arquitetura/eventos.md): envelope, tópicos, *dead letter topic*
+- Comparação **medida** entre Spring Boot e Quarkus, JVM e nativo ([ADR-0017](adr/0017-quarkus-no-pix.md))
+- 629 testes no build (490 de unidade, 139 de integração com Testcontainers e Dev Services);
+  cobertura de linhas entre 93% e 98% nos quatro serviços
+- [Demonstração](guias/demo-fase-2.md) de ponta a ponta com os quatro serviços rodando
+- ADRs 0013–0018
 
 ## ⬜ Fase 3 — Concorrência e desempenho
 
 - *Virtual threads*, *Structured Concurrency*, *Scoped Values*
 - Processamento em lote: conciliação diária de milhões de lançamentos
 - *Benchmarks* com JMH; teste de carga com Gatling ou k6; relatório com números
+- As **contas quentes** (Caixa e Liquidação Pix): quanto seguram sob carga, e o que fazer quando
+  viram gargalo
 
 ## ⬜ Fase 4 — Segurança e front-end React
 

@@ -25,7 +25,9 @@ jobs:
   build:
     name: Compilar e testar (Java 25)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Os testes de integração sobem PostgreSQL, MongoDB, Kafka e Redis em contêiner, e a Fase 2
+    # dobrou o tempo do build. O limite é só a folga contra um build travado.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -71,6 +73,18 @@ jobs:
             exit 1
           fi
           echo "Isolamento confirmado."
+
+      - name: Conferir os tópicos do Kafka
+        run: |
+          # A criação automática está desligada: os serviços dependem destes seis tópicos.
+          topicos=$(docker compose -f infra/docker/compose.yaml exec -T kafka \
+            /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list </dev/null)
+          for t in contas.eventos.v1 razao.lancamentos.v1 pix.transferencias.v1; do
+            for nome in "$t" "$t.dlt"; do
+              grep -qx "$nome" <<< "$topicos" || { echo "::error::Falta o tópico $nome"; exit 1; }
+            done
+          done
+          echo "Tópicos confirmados."
 
       - name: Derrubar
         if: always()

@@ -27,5 +27,11 @@ sem que se saiba o que se perde. O formato segue o modelo de Michael Nygard, o m
 | [0008](0008-persistencia-jdbcclient-no-razao-jpa-em-contas.md) | SQL explícito no razão, JPA no serviço de contas | Aceita |
 | [0009](0009-concorrencia-com-trava-pessimista-ordenada.md) | Trava pessimista ordenada no razão, otimista nas contas | Aceita |
 | [0010](0010-idempotencia-pela-chave-no-banco.md) | Idempotência pela chave no banco de dados | Aceita |
-| [0011](0011-contas-chama-razao-dentro-da-transacao.md) | Contas chama o razão dentro da transação local (provisório) | Aceita (sai na Fase 2) |
+| [0011](0011-contas-chama-razao-dentro-da-transacao.md) | Contas chama o razão dentro da transação local (provisório) | Substituída pela [0014](0014-contas-avisa-o-razao-por-evento.md) |
 | [0012](0012-erros-problem-details-e-dinheiro-como-texto.md) | Erros em Problem Details e dinheiro como texto no JSON | Aceita |
+| [0013](0013-outbox-para-publicar-eventos.md) | Outbox para publicar eventos | Aceita |
+| [0014](0014-contas-avisa-o-razao-por-evento.md) | Contas avisa o razão por evento; só o encerramento continua síncrono | Aceita |
+| [0015](0015-saga-orquestrada-no-pix.md) | Saga orquestrada no Pix, com conta de liquidação e estorno | Aceita |
+| [0016](0016-extrato-em-cqrs-no-mongodb.md) | Extrato em CQRS, num modelo de leitura no MongoDB | Aceita |
+| [0017](0017-quarkus-no-pix.md) | Quarkus no Pix, com a comparação medida contra o Spring Boot | Aceita |
+| [0018](0018-redis-na-frente-do-banco-no-pix.md) | Redis como trava rápida na frente do banco, no Pix | Aceita |

@@ -59,13 +59,15 @@ flowchart TB
     pgContas[("PostgreSQL<br/>contas")]
     pgRazao[("PostgreSQL<br/>razao")]
     pgPix[("PostgreSQL<br/>pix")]
-    redis[("Redis<br/><small>idempotência,<br/>velocidade</small>")]
+    redis[("Redis<br/><small>trava rápida<br/>contra pedido repetido</small>")]
     mongo[("MongoDB<br/>extrato")]
 
     web & backoffice --> gateway
     gateway --> contas & pix & extrato & antifraude
     pix -- "avaliar risco (síncrono)" --> antifraude
-    pix -- "debitar/creditar (síncrono)" --> razao
+    pix -- "debitar/creditar/estornar (síncrono)" --> razao
+    pix -- "titular, titularidade (síncrono)" --> contas
+    contas -- "encerrar (síncrono)" --> razao
 
     contas --- pgContas
     razao --- pgRazao
@@ -74,15 +76,23 @@ flowchart TB
     antifraude --- redis
     extrato --- mongo
 
+    contas -- "ContaAberta, ContaBloqueada...<br/>(via Outbox)" --> kafka
     razao -- "LancamentoRegistrado<br/>(via Outbox)" --> kafka
-    pix -- "PixConcluido / PixEstornado" --> kafka
+    pix -- "PixConcluido / PixEstornado<br/>(via Outbox)" --> kafka
+    kafka --> razao
     kafka --> extrato
     kafka --> antifraude
 ```
 
-### O que já roda (Fase 1)
+O formato de cada evento e de cada API interna está no [contrato dos eventos](eventos.md).
 
-Hoje rodam os serviços **contas** e **razao**. Abrir uma conta atravessa os dois:
+### O que já roda (Fase 2)
+
+Rodam os serviços **contas**, **razao**, **pix** e **extrato**. Front-end, gateway, Keycloak
+(Fase 4) e antifraude (Fase 5) ainda não existem: hoje a API é chamada direto.
+
+Abrir uma conta **não depende mais do razão no ar** ([ADR-0014](../adr/0014-contas-avisa-o-razao-por-evento.md)):
+o serviço de contas grava a conta e o evento juntos, e o razão abre a dele quando o evento chega.
 
 ```mermaid
 sequenceDiagram
@@ -90,50 +100,54 @@ sequenceDiagram
     actor C as Cliente da API
     participant CT as contas (8081)
     participant DBC as Postgres contas
+    participant K as Kafka
     participant RZ as razao (8082)
-    participant DBR as Postgres razao
 
     C->>CT: POST /v1/contas {clienteId}
-    CT->>DBC: BEGIN · INSERT conta (número da sequência)
-    CT->>RZ: PUT /v1/contas/{id} {moeda: BRL} (idempotente, tempo-limite 5 s)
-    RZ->>DBR: INSERT ... ON CONFLICT DO NOTHING
-    RZ-->>CT: 201 Created
-    CT->>DBC: COMMIT
+    CT->>DBC: BEGIN · INSERT conta · INSERT outbox (ContaAberta) · COMMIT
     CT-->>C: 201 Created {agencia, numero, situacao}
-    Note over CT,RZ: Se o razão falhar ou demorar: ROLLBACK aqui e 503 ao cliente (ADR-0011)
+    CT->>K: publicador do Outbox (a cada 100 ms)
+    K->>RZ: ContaAberta
+    RZ->>RZ: INSERT conta ... ON CONFLICT DO NOTHING (idempotente)
+    Note over K,RZ: Razão fora do ar? O evento espera no Kafka e é aplicado quando ele volta.
 ```
 
-E uma transferência, dentro do razão, numa transação só:
+Uma transferência Pix é uma **Saga** ([ADR-0015](../adr/0015-saga-orquestrada-no-pix.md)): o pedido
+mora no pix, o dinheiro no razão, e o dinheiro em trânsito numa conta interna, a Liquidação Pix.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor C as Cliente da API
-    participant RZ as razao
-    participant DB as Postgres razao
+    participant PX as pix (8083)
+    participant RZ as razao (8082)
+    participant K as Kafka
+    participant EX as extrato (8084)
 
-    C->>RZ: POST /v1/transferencias + Idempotency-Key
-    RZ->>DB: BEGIN
-    RZ->>DB: SELECT contas ORDER BY id FOR UPDATE (trava em ordem)
-    RZ->>DB: SELECT lançamento pela chave (já existe? devolve o original)
-    Note over RZ: Domínio: saldo, situação, partidas dobradas
-    RZ->>DB: INSERT lançamento + partidas · UPDATE saldos
-    RZ->>DB: COMMIT (gatilho confere débitos = créditos)
-    RZ-->>C: 201 Created + Location
+    C->>PX: POST /v1/transferencias + Idempotency-Key
+    Note over PX: Redis: segundo clique? 409 na hora (ADR-0018)
+    PX->>PX: INSERT transferência CRIADA
+    PX->>RZ: POST /v1/pix/envios (pagador → Liquidação Pix)
+    PX->>PX: DEBITADA
+    PX->>RZ: POST /v1/pix/recebimentos (Liquidação Pix → recebedor)
+    PX->>PX: CONCLUIDA + PixConcluido no Outbox (mesma transação)
+    PX-->>C: 201 Created
+    RZ-)K: LancamentoRegistrado (pelo Outbox do razão)
+    PX-)K: PixConcluido
+    K-)EX: os dois, em qualquer ordem → "Pix enviado para Maria"
+    Note over PX,RZ: Crédito recusado → estorno. Razão sem resposta → 202 e o mesmo passo de novo, até responder.
 ```
 
-### Como uma transferência Pix atravessará o sistema (visão da Fase 2)
+O **extrato** é o lado de leitura do CQRS ([ADR-0016](../adr/0016-extrato-em-cqrs-no-mongodb.md)):
+não calcula saldo, só guarda o que o razão já calculou, num formato pronto para mostrar. Se o
+MongoDB for apagado, ele se reconstrói lendo o tópico `razao.lancamentos.v1` desde o começo.
 
-1. O cliente pede um Pix no internet banking; o **gateway** confere o token de acesso.
-2. O serviço **pix** registra o pedido com uma **chave de idempotência** (no Redis): se o mesmo
-   pedido chegar duas vezes (o cliente clicou duas vezes, a rede repetiu), ele é processado uma só.
-3. O **antifraude** devolve uma nota de risco em milissegundos. Risco alto → o Pix para e vai para
-   o analista.
-4. O **razão** debita a conta de origem e credita a de destino numa única transação de banco, com
-   **partidas dobradas** — e grava, na mesma transação, o evento numa tabela de **Outbox**.
-5. Um publicador lê o Outbox e manda o evento ao **Kafka**. O **extrato** consome e atualiza o
-   MongoDB; o cliente vê a transação na tela.
-6. Se um passo falhar depois do débito, a **Saga** executa a compensação (o estorno).
+### O que muda nas próximas fases
+
+- **Fase 4:** o cliente entra pelo **gateway**, que confere o token do Keycloak; as APIs internas
+  passam a exigir token de serviço.
+- **Fase 5:** entre o débito e o crédito, o pix pergunta ao **antifraude** a nota de risco. Risco
+  alto → a transferência para e vai para o analista.
 
 ## Princípios
 
