@@ -1,0 +1,165 @@
+<!doctype html>
+<!--
+  Imagem do post da Fase 2. Gera o PNG com:
+    chrome-headless-shell --screenshot=fase-2.png --window-size=1080,1350 \
+      --force-device-scale-factor=2 --virtual-time-budget=4000 fase-2.html
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ledgerly Bank — Fase 2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=block" rel="stylesheet">
+<style>
+  :root {
+    --fundo: #0b1220;
+    --cartao: #111a2e;
+    --linha: #1f2a44;
+    --texto: #e6ebf5;
+    --suave: #93a0bd;
+    --verde: #34d399;
+    --verde-fundo: rgba(52, 211, 153, 0.12);
+    --vermelho: #f87171;
+    --vermelho-fundo: rgba(248, 113, 113, 0.12);
+    --destaque: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1350px; }
+  body {
+    background:
+      radial-gradient(900px 600px at 100% 0%, rgba(96, 165, 250, 0.16), transparent 60%),
+      radial-gradient(700px 500px at 0% 100%, rgba(52, 211, 153, 0.10), transparent 60%),
+      var(--fundo);
+    color: var(--texto);
+    font-family: "Inter", "DejaVu Sans", sans-serif;
+    padding: 72px 72px 64px;
+    display: flex;
+    flex-direction: column;
+  }
+  .topo {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--suave); font-weight: 600;
+  }
+  .marca { display: flex; align-items: center; gap: 14px; color: var(--texto); letter-spacing: 0.04em; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--destaque), var(--verde));
+    display: grid; place-items: center; color: #0b1220; font-weight: 800; font-size: 24px; letter-spacing: 0;
+  }
+  .fase {
+    border: 1px solid var(--linha); border-radius: 999px; padding: 8px 18px; font-size: 19px;
+  }
+  h1 {
+    margin-top: 56px;
+    font-size: 58px; line-height: 1.1; font-weight: 800; letter-spacing: -0.025em;
+  }
+  h1 .vermelho { color: var(--vermelho); }
+  .sub {
+    margin-top: 24px; font-size: 26px; line-height: 1.4; color: var(--suave); max-width: 920px;
+  }
+  table {
+    margin-top: 30px; width: 100%; border-collapse: separate; border-spacing: 0 12px;
+  }
+  th {
+    text-align: left; font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--suave); font-weight: 600; padding: 0 22px;
+  }
+  th.com { color: var(--verde); }
+  th.sem { color: var(--vermelho); }
+  td {
+    background: var(--cartao); font-size: 24px; padding: 18px 22px; line-height: 1.3;
+    border-top: 1px solid var(--linha); border-bottom: 1px solid var(--linha);
+  }
+  td:first-child { border-left: 1px solid var(--linha); border-radius: 16px 0 0 16px; color: var(--texto); width: 46%; }
+  td:last-child { border-right: 1px solid var(--linha); border-radius: 0 16px 16px 0; }
+  td.com { color: var(--verde); font-weight: 700; background: linear-gradient(var(--verde-fundo), var(--verde-fundo)), var(--cartao); }
+  td.sem { color: var(--vermelho); font-weight: 700; background: linear-gradient(var(--vermelho-fundo), var(--vermelho-fundo)), var(--cartao); }
+  td.igual { color: var(--suave); font-weight: 700; }
+  td small { display: block; font-size: 17px; color: var(--suave); font-weight: 500; margin-top: 4px; }
+  .regra {
+    margin-top: 22px;
+    background: #0a0f1c; border: 1px solid var(--linha); border-radius: 18px;
+    padding: 22px 30px;
+    font-family: "JetBrains Mono", "DejaVu Sans Mono", monospace; font-size: 23px; line-height: 1.6;
+    color: #c9d4ea;
+  }
+  .regra .kw { color: #c084fc; }
+  .regra .ok { color: var(--verde); font-weight: 600; background: var(--verde-fundo); padding: 2px 8px; border-radius: 6px; }
+  .regra .cm { color: #64748b; }
+  .medida { margin-top: 26px; }
+  .medida .titulo {
+    font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--suave); font-weight: 600;
+  }
+  .numeros { margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .numero {
+    background: var(--cartao); border: 1px solid var(--linha); border-radius: 16px; padding: 16px 20px;
+  }
+  .numero b { display: block; font-size: 38px; font-weight: 800; letter-spacing: -0.02em; }
+  .numero span { font-size: 18px; color: var(--suave); }
+  .numero.nativo { border-color: rgba(52, 211, 153, 0.5); background: linear-gradient(var(--verde-fundo), var(--verde-fundo)), var(--cartao); }
+  .numero.nativo b { color: var(--verde); }
+  .rodape {
+    margin-top: auto;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 1px solid var(--linha); padding-top: 26px;
+  }
+  .stack { font-size: 21px; color: var(--suave); line-height: 1.5; }
+  .stack b { color: var(--texto); font-weight: 600; }
+  .autor { text-align: right; font-size: 21px; color: var(--suave); line-height: 1.5; }
+  .autor b { color: var(--texto); font-size: 25px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="topo">
+    <div class="marca"><div class="logo">L</div>Ledgerly Bank</div>
+    <div class="fase">Fase 2 · Pix e eventos</div>
+  </div>
+
+  <h1>O razão não respondeu.<br>Estornar “por segurança” tirou <span class="vermelho">R$&nbsp;80 de outro cliente</span>.</h1>
+
+  <p class="sub">Prova reversa: a Saga do Pix alterada de propósito para estornar quando o razão demora, com outro Pix em trânsito.</p>
+
+  <table>
+    <thead>
+      <tr><th>Conta</th><th class="com">Certo</th><th class="sem">Estornando</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>João, o pagador<small>tinha R$ 300, pagou R$ 80</small></td>
+        <td class="com">R$ 220</td>
+        <td class="sem">R$ 300<small>pagou e recebeu de volta</small></td>
+      </tr>
+      <tr>
+        <td>Maria, a recebedora</td>
+        <td class="com">R$ 80</td>
+        <td class="igual">R$ 80<small>e ficou com o dinheiro</small></td>
+      </tr>
+      <tr>
+        <td>Dinheiro em trânsito<small>R$ 500 do Pix de outro cliente</small></td>
+        <td class="com">R$ 500</td>
+        <td class="sem">R$ 420<small>o estorno saiu daqui</small></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="regra">
+    <span class="kw">recusou</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ estorna <span class="cm">// certeza: nada se moveu</span><br>
+    <span class="kw">sem resposta</span> → <span class="ok">repete o passo, mesma chave</span> <span class="cm">// não se sabe</span>
+  </div>
+
+  <div class="medida">
+    <div class="titulo">Pronto para receber tráfego — medido</div>
+    <div class="numeros">
+      <div class="numero"><b>~6 s</b><span>Spring Boot · JVM</span></div>
+      <div class="numero"><b>~2 s</b><span>Quarkus · JVM</span></div>
+      <div class="numero nativo"><b>~0,1 s</b><span>Quarkus nativo · 80 MB</span></div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <div class="stack"><b>Java 25 · Quarkus · Spring Boot · Kafka · MongoDB</b><br>629 testes · Saga · Outbox · CQRS</div>
+    <div class="autor"><b>Alan Joffre</b><br>github.com/alanjoffre/ledgerly-bank</div>
+  </div>
+</body>
+</html>
