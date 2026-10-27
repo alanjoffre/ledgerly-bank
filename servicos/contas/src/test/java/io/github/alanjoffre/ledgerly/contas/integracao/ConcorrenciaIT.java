@@ -70,7 +70,7 @@ class ConcorrenciaIT extends TesteDeIntegracao {
 
     @Test
     @DisplayName("50 pedidos simultâneos de bloqueio da mesma conta: exatamente 1 vence; "
-            + "os outros recebem conflito ou transição inválida — nunca dois bloqueios gravados")
+            + "os outros recebem conflito ou transição inválida — nunca dois bloqueios nem dois eventos gravados")
     void umSoVence() throws Exception {
         Conta conta = novaConta();
 
@@ -88,6 +88,9 @@ class ConcorrenciaIT extends TesteDeIntegracao {
         assertThat(jdbc.queryForObject("SELECT versao FROM conta WHERE id = ?", Long.class, conta.id()))
                 .as("uma única gravação: versão 0 → 1")
                 .isEqualTo(1L);
+        assertThat(eventosNoOutbox(conta.id()))
+                .as("só quem venceu a trava grava o evento: o razão recebe UM bloqueio")
+                .containsExactly("ContaAberta", "ContaBloqueada");
     }
 
     @Test

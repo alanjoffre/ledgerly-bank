@@ -4,20 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.jayway.jsonpath.JsonPath;
 import io.github.alanjoffre.ledgerly.contas.dominio.CpfsDeTeste;
-import io.github.alanjoffre.ledgerly.contas.dominio.SituacaoConta;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
 @DisplayName("API REST de contas")
-@AutoConfigureMockMvc
 class ApiIT extends TesteDeIntegracao {
 
     @Autowired
@@ -103,7 +100,7 @@ class ApiIT extends TesteDeIntegracao {
     class Contas {
 
         @Test
-        @DisplayName("abrir: 201, agência 0001, número com dígito, e a conta nasce também no razão")
+        @DisplayName("abrir: 201, agência 0001, número com dígito, e o evento ContaAberta fica no Outbox")
         void abrir() throws Exception {
             MvcTestResult resultado = abrirContaDe(novoCliente());
             assertThat(resultado).hasStatus(HttpStatus.CREATED)
@@ -111,13 +108,14 @@ class ApiIT extends TesteDeIntegracao {
                     .hasPathSatisfying("$.agencia", v -> v.assertThat().isEqualTo("0001"))
                     .hasPathSatisfying("$.numero", v -> v.assertThat().asString().matches("\\d{6}-\\d"))
                     .hasPathSatisfying("$.situacao", v -> v.assertThat().isEqualTo("ATIVA"));
-            assertThat(razao().conhece(id(resultado))).isTrue();
+            assertThat(eventosNoOutbox(id(resultado))).containsExactly("ContaAberta");
         }
 
         @Test
-        @DisplayName("abrir para cliente inexistente: 404")
+        @DisplayName("abrir para cliente inexistente: 404 e nenhum evento")
         void clienteInexistente() {
             assertThat(abrirContaDe(UUID.randomUUID())).hasStatus(HttpStatus.NOT_FOUND);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM outbox", Long.class)).isZero();
         }
 
         @Test
@@ -133,23 +131,32 @@ class ApiIT extends TesteDeIntegracao {
         }
 
         @Test
-        @DisplayName("bloquear e desbloquear refletem no razão; transição inválida: 422")
+        @DisplayName("consultar conta que o razão ainda não conhece (evento a caminho): saldo 0.00")
+        void consultarAntesDoRazao() throws Exception {
+            UUID conta = novaConta(); // o falso só conhece a conta depois de definirSaldo
+            assertThat(http.get().uri("/v1/contas/{id}", conta))
+                    .hasStatusOk().bodyJson()
+                    .hasPathSatisfying("$.saldo", v -> v.assertThat().isEqualTo("0.00"))
+                    .hasPathSatisfying("$.moeda", v -> v.assertThat().isEqualTo("BRL"));
+        }
+
+        @Test
+        @DisplayName("bloquear e desbloquear gravam os eventos em ordem; transição inválida: 422 e nenhum evento")
         void bloqueio() throws Exception {
             UUID conta = novaConta();
             assertThat(http.delete().uri("/v1/contas/{id}/bloqueio", conta))
                     .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
                     .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:transicao-invalida"));
+            assertThat(eventosNoOutbox(conta)).containsExactly("ContaAberta");
 
             assertThat(http.post().uri("/v1/contas/{id}/bloqueio", conta)).hasStatusOk()
                     .bodyJson().hasPathSatisfying("$.situacao", v -> v.assertThat().isEqualTo("BLOQUEADA"));
-            assertThat(razao().situacao(conta)).isEqualTo(SituacaoConta.BLOQUEADA);
-
             assertThat(http.delete().uri("/v1/contas/{id}/bloqueio", conta)).hasStatusOk();
-            assertThat(razao().situacao(conta)).isEqualTo(SituacaoConta.ATIVA);
+            assertThat(eventosNoOutbox(conta)).containsExactly("ContaAberta", "ContaBloqueada", "ContaDesbloqueada");
         }
 
         @Test
-        @DisplayName("encerrar com saldo: 422 e a conta continua ATIVA aqui e no razão")
+        @DisplayName("encerrar com saldo: 422, a conta continua ATIVA e o ContaEncerrada NÃO fica gravado")
         void encerrarComSaldo() throws Exception {
             UUID conta = novaConta();
             razao().definirSaldo(conta, "5.00");
@@ -157,16 +164,61 @@ class ApiIT extends TesteDeIntegracao {
                     .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
                     .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:encerramento-com-saldo"));
             assertThat(situacaoNoBanco(conta)).isEqualTo("ATIVA");
-            assertThat(razao().situacao(conta)).isEqualTo(SituacaoConta.ATIVA);
+            assertThat(razao().encerrada(conta)).isFalse();
+            assertThat(eventosNoOutbox(conta)).containsExactly("ContaAberta");
         }
 
         @Test
-        @DisplayName("encerrar com saldo zero: 200, com data de encerramento")
+        @DisplayName("encerrar com saldo zero: 200, com data de encerramento, no razão e com o evento")
         void encerrar() throws Exception {
             UUID conta = novaConta();
+            razao().definirSaldo(conta, "0.00");
             assertThat(http.post().uri("/v1/contas/{id}/encerramento", conta))
                     .hasStatusOk().bodyJson().hasPath("$.encerradaEm");
             assertThat(situacaoNoBanco(conta)).isEqualTo("ENCERRADA");
+            assertThat(razao().encerrada(conta)).isTrue();
+            assertThat(eventosNoOutbox(conta)).containsExactly("ContaAberta", "ContaEncerrada");
+        }
+    }
+
+    @Nested
+    @DisplayName("titularidade")
+    class Titularidade {
+
+        @Test
+        @DisplayName("CPF do titular (com ou sem máscara): confere; outro CPF válido: não confere")
+        void confere() throws Exception {
+            String cpf = CpfsDeTeste.gerar();
+            UUID conta = id(abrirContaDe(id(cadastrar("Maria Exemplo", cpf))));
+            String comMascara = cpf.substring(0, 3) + "." + cpf.substring(3, 6) + "." + cpf.substring(6, 9) + "-" + cpf.substring(9);
+
+            assertThat(titularidade(conta, cpf)).hasStatusOk()
+                    .bodyJson().hasPathSatisfying("$.confere", v -> v.assertThat().isEqualTo(true));
+            assertThat(titularidade(conta, comMascara)).hasStatusOk()
+                    .bodyJson().hasPathSatisfying("$.confere", v -> v.assertThat().isEqualTo(true));
+            assertThat(titularidade(conta, CpfsDeTeste.gerar())).hasStatusOk()
+                    .bodyJson().hasPathSatisfying("$.confere", v -> v.assertThat().isEqualTo(false));
+        }
+
+        @Test
+        @DisplayName("a resposta não traz o CPF; conta inexistente: 404; CPF mal formado: 400 cpf-invalido")
+        void erros() throws Exception {
+            String cpf = CpfsDeTeste.gerar();
+            UUID conta = id(abrirContaDe(id(cadastrar("Maria Exemplo", cpf))));
+
+            assertThat(titularidade(conta, cpf).getResponse().getContentAsString()).doesNotContain(cpf.substring(3, 9));
+            assertThat(titularidade(UUID.randomUUID(), cpf)).hasStatus(HttpStatus.NOT_FOUND);
+            assertThat(titularidade(conta, "123"))
+                    .hasStatus(HttpStatus.BAD_REQUEST)
+                    .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:cpf-invalido"));
+            assertThat(titularidade(conta, ""))
+                    .hasStatus(HttpStatus.BAD_REQUEST)
+                    .bodyJson().hasPath("$.campos.cpf");
+        }
+
+        private MvcTestResult titularidade(UUID conta, String cpf) {
+            return http.post().uri("/v1/contas/{id}/titularidade", conta).contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"cpf\":\"%s\"}".formatted(cpf)).exchange();
         }
     }
 
@@ -175,26 +227,45 @@ class ApiIT extends TesteDeIntegracao {
     class RazaoForaDoAr {
 
         @Test
-        @DisplayName("abrir conta: 503 + Retry-After, e NENHUMA conta fica gravada pela metade")
+        @DisplayName("abrir conta FUNCIONA: a conta e o evento ficam gravados; o razão recebe quando voltar")
         void abrirSemRazao() throws Exception {
             UUID cliente = novoCliente();
             razao().derrubar();
 
-            assertThat(abrirContaDe(cliente))
-                    .hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
-                    .headers().hasValue("Retry-After", "5");
-            assertThat(jdbc.queryForObject("SELECT count(*) FROM conta", Long.class)).isZero();
+            MvcTestResult resultado = abrirContaDe(cliente);
+            assertThat(resultado).hasStatus(HttpStatus.CREATED);
+            assertThat(eventosNoOutbox(id(resultado))).containsExactly("ContaAberta");
         }
 
         @Test
-        @DisplayName("bloquear: 503, e a conta continua ATIVA (a transação local foi desfeita)")
+        @DisplayName("bloquear FUNCIONA: só avisa o razão, por evento")
         void bloquearSemRazao() throws Exception {
             UUID conta = novaConta();
             razao().derrubar();
-            assertThat(http.post().uri("/v1/contas/{id}/bloqueio", conta))
+            assertThat(http.post().uri("/v1/contas/{id}/bloqueio", conta)).hasStatusOk();
+            assertThat(situacaoNoBanco(conta)).isEqualTo("BLOQUEADA");
+        }
+
+        @Test
+        @DisplayName("consultar: 503 + Retry-After (o saldo é do razão)")
+        void consultarSemRazao() throws Exception {
+            UUID conta = novaConta();
+            razao().derrubar();
+            assertThat(http.get().uri("/v1/contas/{id}", conta))
+                    .hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
+                    .headers().hasValue("Retry-After", "5");
+        }
+
+        @Test
+        @DisplayName("encerrar: 503, a conta continua ATIVA e o ContaEncerrada não fica gravado")
+        void encerrarSemRazao() throws Exception {
+            UUID conta = novaConta();
+            razao().derrubar();
+            assertThat(http.post().uri("/v1/contas/{id}/encerramento", conta))
                     .hasStatus(HttpStatus.SERVICE_UNAVAILABLE)
                     .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:razao-indisponivel"));
             assertThat(situacaoNoBanco(conta)).isEqualTo("ATIVA");
+            assertThat(eventosNoOutbox(conta)).containsExactly("ContaAberta");
         }
     }
 

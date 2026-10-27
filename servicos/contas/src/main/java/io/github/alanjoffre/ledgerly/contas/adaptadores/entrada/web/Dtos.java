@@ -20,6 +20,11 @@ final class Dtos {
 
     record AbrirContaRequisicao(@NotNull UUID clienteId) {}
 
+    record TitularidadeRequisicao(@NotBlank String cpf) {}
+
+    /** Só sim ou não: o CPF completo do titular nunca sai deste serviço. */
+    record TitularidadeResposta(boolean confere) {}
+
     /** O CPF sai mascarado: quem consulta não precisa do número inteiro (LGPD — minimização). */
     record ClienteResposta(UUID id, String nome, String cpf, Instant cadastradoEm) {
 

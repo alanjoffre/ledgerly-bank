@@ -26,12 +26,37 @@ spring:
       enabled: true
   messages:
     basename: mensagens
+  # Kafka: só produz (o serviço de contas publica eventos, não consome). Ver ADR-0013.
+  kafka:
+    bootstrap-servers: ${CONTAS_KAFKA:localhost:19092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      # acks=all: o Kafka só confirma depois de gravar em todas as réplicas sincronizadas.
+      acks: all
+      properties:
+        # Produtor idempotente: se uma nova tentativa interna do cliente Kafka reenviar a mesma
+        # mensagem, o broker descarta a cópia (não evita a repetição do Outbox, que é outra).
+        enable.idempotence: true
+        # Com o Kafka fora do ar, falhar em segundos — e o Outbox tenta de novo — em vez de prender
+        # o publicador por um minuto (o padrão do cliente).
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+        linger.ms: 5
 
 ledgerly:
   razao:
     url: ${CONTAS_RAZAO_URL:http://localhost:8082}
     tempo-conexao: 2s
     tempo-resposta: 5s
+  # Publicador do Outbox (ADR-0013).
+  outbox:
+    intervalo-ms: ${CONTAS_OUTBOX_INTERVALO_MS:100}
+    lote: 100
+    # Espera máxima pela confirmação do Kafka; acima disso, a rodada é desfeita e repetida.
+    tempo-limite-envio: 15s
+    retencao: 7d
 
 management:
   endpoints:
