@@ -216,6 +216,24 @@ class ApiIT extends TesteDeIntegracao {
                     .bodyJson().hasPath("$.campos.cpf");
         }
 
+        @Test
+        @DisplayName("titular: nome, cliente e situação, sem saldo e sem CPF; conta inexistente: 404")
+        void titular() throws Exception {
+            String cpf = CpfsDeTeste.gerar();
+            UUID cliente = id(cadastrar("Maria Exemplo", cpf));
+            UUID conta = id(abrirContaDe(cliente));
+            http.post().uri("/v1/contas/{id}/bloqueio", conta).exchange();
+
+            MvcTestResult resposta = http.get().uri("/v1/contas/{id}/titular", conta).exchange();
+            assertThat(resposta).hasStatusOk().bodyJson()
+                    .hasPathSatisfying("$.nome", v -> v.assertThat().isEqualTo("Maria Exemplo"))
+                    .hasPathSatisfying("$.clienteId", v -> v.assertThat().isEqualTo(cliente.toString()))
+                    .hasPathSatisfying("$.situacao", v -> v.assertThat().isEqualTo("BLOQUEADA"))
+                    .doesNotHavePath("$.saldo");
+            assertThat(resposta.getResponse().getContentAsString()).doesNotContain(cpf.substring(3, 9));
+            assertThat(http.get().uri("/v1/contas/{id}/titular", UUID.randomUUID())).hasStatus(HttpStatus.NOT_FOUND);
+        }
+
         private MvcTestResult titularidade(UUID conta, String cpf) {
             return http.post().uri("/v1/contas/{id}/titularidade", conta).contentType(MediaType.APPLICATION_JSON)
                     .content("{\"cpf\":\"%s\"}".formatted(cpf)).exchange();
@@ -244,6 +262,15 @@ class ApiIT extends TesteDeIntegracao {
             razao().derrubar();
             assertThat(http.post().uri("/v1/contas/{id}/bloqueio", conta)).hasStatusOk();
             assertThat(situacaoNoBanco(conta)).isEqualTo("BLOQUEADA");
+        }
+
+        @Test
+        @DisplayName("titular: responde normalmente — nome e situação não dependem do razão")
+        void titularSemRazao() throws Exception {
+            UUID conta = novaConta();
+            razao().derrubar();
+            assertThat(http.get().uri("/v1/contas/{id}/titular", conta)).hasStatusOk()
+                    .bodyJson().hasPathSatisfying("$.situacao", v -> v.assertThat().isEqualTo("ATIVA"));
         }
 
         @Test

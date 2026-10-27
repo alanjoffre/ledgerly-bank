@@ -109,6 +109,20 @@ public class ContaService {
         return contas.listarDoCliente(clienteId);
     }
 
+    /** A conta e o nome do titular, sem o saldo. */
+    public record ContaComTitular(Conta conta, String titularNome) {}
+
+    /**
+     * A conta e o titular, <b>sem consultar o razão</b>: é o que o Pix precisa para montar uma
+     * transferência ("Pix de João da Silva"), e não pode depender de o razão estar no ar — se o
+     * razão cair, a Saga do Pix espera por ele, mas o pedido tem de poder nascer.
+     */
+    @Transactional(readOnly = true)
+    public ContaComTitular consultarTitular(UUID id) {
+        Conta conta = buscar(id);
+        return new ContaComTitular(conta, clientes.consultar(conta.clienteId()).nome());
+    }
+
     /**
      * O CPF informado é o do titular da conta? Responde só sim ou não: o CPF completo do titular não
      * sai deste serviço. Usado pelo Pix para conferir uma chave do tipo CPF.

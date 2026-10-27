@@ -3,6 +3,7 @@ package io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web;
 import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.AbrirContaRequisicao;
 import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.ContaResposta;
 import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.TitularidadeRequisicao;
+import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.TitularResposta;
 import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.TitularidadeResposta;
 import io.github.alanjoffre.ledgerly.contas.aplicacao.ContaService;
 import io.github.alanjoffre.ledgerly.contas.dominio.Cpf;
@@ -42,6 +43,14 @@ class ContaController {
     @GetMapping("/{id}")
     ContaResposta consultar(@PathVariable UUID id) {
         return ContaResposta.de(contas.consultar(id));
+    }
+
+    /** Titular e situação, sem o saldo: responde mesmo com o razão fora do ar. Usado pelo Pix. */
+    @GetMapping("/{id}/titular")
+    TitularResposta consultarTitular(@PathVariable UUID id) {
+        var titular = contas.consultarTitular(id);
+        return new TitularResposta(
+                titular.conta().id(), titular.conta().clienteId(), titular.titularNome(), titular.conta().situacao());
     }
 
     @PostMapping("/{id}/bloqueio")

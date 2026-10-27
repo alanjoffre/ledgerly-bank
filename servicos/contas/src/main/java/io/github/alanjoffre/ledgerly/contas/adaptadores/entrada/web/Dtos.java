@@ -22,6 +22,9 @@ final class Dtos {
 
     record TitularidadeRequisicao(@NotBlank String cpf) {}
 
+    /** Titular e situação, sem saldo e sem CPF — o que outro serviço (o Pix) precisa saber da conta. */
+    record TitularResposta(UUID contaId, UUID clienteId, String nome, SituacaoConta situacao) {}
+
     /** Só sim ou não: o CPF completo do titular nunca sai deste serviço. */
     record TitularidadeResposta(boolean confere) {}
 

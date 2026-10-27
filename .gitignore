@@ -20,3 +20,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Cópias de trabalho (worktrees) dos agentes do Claude Code
+.claude/
