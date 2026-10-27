@@ -48,11 +48,23 @@ MARIA=$(campo id)
 chamar POST "$CONTAS/v1/clientes" "{\"nome\":\"Joana Exemplo\",\"cpf\":\"$(gerar_cpf)\"}"; exigir 201
 JOANA=$(campo id)
 
-passo "2. Abrir uma conta para cada (nasce aqui e no razão)"
+# Desde a Fase 2, o razão fica sabendo da conta pelo evento ContaAberta (Outbox + Kafka, ADR-0014):
+# alguns milissegundos depois de ela nascer no serviço de contas.
+esperar_no_razao() {
+  for _ in {1..50}; do
+    [[ $(curl -s -o /dev/null -w '%{http_code}' "$RAZAO/v1/contas/$1") == 200 ]] && return
+    sleep 0.1
+  done
+  echo "  ✘ o razão não recebeu a conta $1 em 5 s" >&2; exit 1
+}
+
+passo "2. Abrir uma conta para cada (nasce aqui; o razão recebe pelo evento ContaAberta)"
 chamar POST "$CONTAS/v1/contas" "{\"clienteId\":\"$MARIA\"}"; exigir 201
 CONTA_MARIA=$(campo id)
 chamar POST "$CONTAS/v1/contas" "{\"clienteId\":\"$JOANA\"}"; exigir 201
 CONTA_JOANA=$(campo id)
+esperar_no_razao "$CONTA_MARIA"; esperar_no_razao "$CONTA_JOANA"
+ok "as duas contas já existem no razão"
 
 passo "3. Depositar R\$ 1.000,00 na conta da Maria"
 CHAVE="deposito-$CONTA_MARIA"
@@ -75,6 +87,8 @@ chamar GET "$CONTAS/v1/contas/$CONTA_JOANA"; exigir 200; ok "Joana: R\$ $(campo 
 
 passo "8. Bloquear a conta da Joana: recebe, mas não paga"
 chamar POST "$CONTAS/v1/contas/$CONTA_JOANA/bloqueio"; exigir 200
+# O bloqueio chega ao razão pelo evento ContaBloqueada.
+for _ in {1..50}; do curl -s "$RAZAO/v1/contas/$CONTA_JOANA" | grep -q BLOQUEADA && break; sleep 0.1; done
 chamar POST "$RAZAO/v1/saques" "{\"contaId\":\"$CONTA_JOANA\",\"valor\":\"1.00\"}" "saque-$RANDOM$RANDOM"; exigir 422
 chamar POST "$RAZAO/v1/transferencias" "{\"origemId\":\"$CONTA_MARIA\",\"destinoId\":\"$CONTA_JOANA\",\"valor\":\"10.00\"}" "transf-$RANDOM$RANDOM"; exigir 201
 chamar DELETE "$CONTAS/v1/contas/$CONTA_JOANA/bloqueio"; exigir 200

@@ -4,7 +4,7 @@ O **razão contábil** do Ledgerly Bank: guarda cada movimento de dinheiro como 
 **partidas dobradas** e mantém o saldo das contas. É o coração do banco e o ponto mais disputado do
 sistema — aqui ficam a trava de concorrência e a idempotência.
 
-**Stack:** Java 25 · Spring Boot 4 (Web MVC, JDBC) · PostgreSQL 18 · Flyway · porta `8082`
+**Stack:** Java 25 · Spring Boot 4 (Web MVC, JDBC, Kafka) · PostgreSQL 18 · Flyway · Kafka 4 · porta `8082`
 
 ## Como funciona
 
@@ -17,6 +17,26 @@ Um depósito de R$ 100,00 vira um lançamento com duas partidas:
 
 Débitos = créditos, sempre. A soma das contas devedoras é igual à das credoras — o **balanço fecha**,
 e `GET /v1/integridade` confere isso a qualquer momento.
+
+### Contas internas
+
+| Conta | Id | Natureza | Para quê |
+|---|---|---|---|
+| Caixa | `00000000-0000-0000-0000-000000000001` | devedora | o dinheiro que entra nos depósitos e sai nos saques |
+| Liquidação Pix | `00000000-0000-0000-0000-000000000002` | credora | o dinheiro de um Pix em andamento, entre o pagador e o recebedor ([ADR-0015](../../docs/adr/0015-saga-orquestrada-no-pix.md)) |
+
+Nenhuma das duas é movimentada, aberta ou bloqueada pela API, e nenhuma fica negativa: o razão
+recusa creditar um Pix que nunca saiu de ninguém.
+
+### Eventos (Fase 2)
+
+| Direção | Tópico | Eventos |
+|---|---|---|
+| publica | `razao.lancamentos.v1` | `LancamentoRegistrado` — um por lançamento, gravado no Outbox na mesma transação ([ADR-0013](../../docs/adr/0013-outbox-para-publicar-eventos.md)) |
+| consome | `contas.eventos.v1` | `ContaAberta`, `ContaBloqueada`, `ContaDesbloqueada`, `ContaEncerrada` — idempotente; evento para conta já encerrada é descartado ([ADR-0014](../../docs/adr/0014-contas-avisa-o-razao-por-evento.md)) |
+
+Mensagem que não dá para processar vai para `contas.eventos.v1.dlt` em vez de travar a fila.
+Formatos em [eventos.md](../../docs/arquitetura/eventos.md).
 
 ### Organização interna (arquitetura hexagonal)
 
@@ -81,6 +101,9 @@ Todo pedido que move dinheiro exige o cabeçalho `Idempotency-Key`. Valores em d
 | `POST /v1/depositos` | `{"contaId","valor","descricao"?}` | 201 · 200 repetido |
 | `POST /v1/saques` | `{"contaId","valor","descricao"?}` | 201 · 200 repetido |
 | `POST /v1/transferencias` | `{"origemId","destinoId","valor","descricao"?}` | 201 · 200 repetido |
+| `POST /v1/pix/envios` | `{"contaId","valor","descricao"?}` — cliente → Liquidação Pix | 201 · 200 repetido |
+| `POST /v1/pix/recebimentos` | Liquidação Pix → cliente | 201 · 200 repetido |
+| `POST /v1/pix/estornos` | Liquidação Pix → cliente (a compensação da Saga) | 201 · 200 repetido |
 | `GET /v1/lancamentos/{id}` | Um lançamento com as partidas | 200 |
 | `GET /v1/integridade` | Conferência do razão inteiro | 200 (`"integro": true/false`) |
 | `GET /actuator/health` | Saúde do serviço | 200 |
@@ -101,7 +124,7 @@ Formato Problem Details (RFC 9457). Decida pelo `type`, nunca pelo texto.
 | `encerramento-com-saldo` | 422 | Encerrar conta com saldo diferente de zero |
 | `lancamento-invalido` | 422 | Valor zero, moeda diferente, chave de idempotência mal formada |
 | `chave-idempotencia-reutilizada` | 422 | A chave já foi usada num pedido diferente |
-| `operacao-nao-permitida` | 422 | Movimentar a conta interna Caixa; transferir para a mesma conta |
+| `operacao-nao-permitida` | 422 | Movimentar uma conta interna (Caixa, Liquidação Pix); transferir para a mesma conta |
 | `conta-ja-existe` | 422 | Abrir de novo a mesma conta com outra moeda |
 
 ## Rodar
@@ -112,12 +135,13 @@ docker compose -f infra/docker/compose.yaml up -d --wait     # na raiz do projet
 java -jar servicos/razao/target/razao-0.1.0-SNAPSHOT.jar
 ```
 
-Variáveis de ambiente: `RAZAO_PORTA`, `RAZAO_DB_URL`, `RAZAO_DB_USUARIO`, `RAZAO_DB_SENHA`, `RAZAO_DB_POOL`.
+Variáveis de ambiente: `RAZAO_PORTA`, `RAZAO_DB_URL`, `RAZAO_DB_USUARIO`, `RAZAO_DB_SENHA`, `RAZAO_DB_POOL`,
+`RAZAO_KAFKA`, `RAZAO_OUTBOX_INTERVALO_MS`.
 
 ## Testes
 
 ```bash
-./mvnw -pl servicos/razao -am verify     # precisa de Docker (Testcontainers)
+./mvnw -pl servicos/razao -am verify     # precisa de Docker (Testcontainers: PostgreSQL e Kafka)
 ```
 
 | Tipo | Classe | O que prova |
@@ -128,8 +152,11 @@ Variáveis de ambiente: `RAZAO_PORTA`, `RAZAO_DB_URL`, `RAZAO_DB_USUARIO`, `RAZA
 | Integração | `ConcorrenciaIT` | 1.500 saques simultâneos sem gasto duplo; 400 transferências cruzadas sem deadlock; idempotência sob disputa |
 | Integração | `BancoDeDadosIT` | O banco recusa sozinho: saldo negativo, lançamento desbalanceado, alteração do razão |
 | Integração | `ApiIT` | API de ponta a ponta: códigos HTTP, Problem Details, `Idempotency-Key` |
+| Integração | `PixIT` | Envio, recebimento e estorno; a Liquidação Pix nunca negativa; contas internas protegidas |
+| Integração | `CaixaDeSaidaIT` | O evento sai no formato do contrato, só de fato que aconteceu; **Kafka pausado no meio**: o depósito funciona e o evento sai quando ele volta |
+| Integração | `ConsumidorDeEventosDeContaIT` | Abertura idempotente, ordem dos eventos, conta encerrada, tipo desconhecido, mensagem venenosa → DLT |
 
 **Prova reversa:** com a trava `FOR UPDATE` removida, o `ConcorrenciaIT` falha — 1.500 saques
 aprovados numa conta de R$ 1.000,00. Números na [ADR-0009](../../docs/adr/0009-concorrencia-com-trava-pessimista-ordenada.md).
 
-Cobertura (unidade + integração): **98% das linhas, 96% dos ramos**.
+Cobertura (unidade + integração): **96% das linhas, 93% dos ramos**.

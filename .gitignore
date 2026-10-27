@@ -23,3 +23,6 @@ Thumbs.db
 
 # Cópias de trabalho (worktrees) dos agentes do Claude Code
 .claude/
+
+# Logs e pids dos serviços que o scripts/servicos.sh sobe
+.servicos/
