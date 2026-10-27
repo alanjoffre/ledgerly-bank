@@ -2,7 +2,10 @@ package io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web;
 
 import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.AbrirContaRequisicao;
 import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.ContaResposta;
+import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.TitularidadeRequisicao;
+import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.TitularidadeResposta;
 import io.github.alanjoffre.ledgerly.contas.aplicacao.ContaService;
+import io.github.alanjoffre.ledgerly.contas.dominio.Cpf;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
@@ -54,5 +57,15 @@ class ContaController {
     @PostMapping("/{id}/encerramento")
     ContaResposta encerrar(@PathVariable UUID id) {
         return ContaResposta.de(contas.encerrar(id));
+    }
+
+    /**
+     * O CPF informado é o do titular? Usado pelo serviço de Pix para conferir uma chave do tipo CPF.
+     * {@code POST}, e não {@code GET} com o CPF na URL: endereços vão parar em logs de acesso.
+     */
+    @PostMapping("/{id}/titularidade")
+    TitularidadeResposta conferirTitularidade(
+            @PathVariable UUID id, @Valid @RequestBody TitularidadeRequisicao requisicao) {
+        return new TitularidadeResposta(contas.titularTemCpf(id, Cpf.de(requisicao.cpf())));
     }
 }

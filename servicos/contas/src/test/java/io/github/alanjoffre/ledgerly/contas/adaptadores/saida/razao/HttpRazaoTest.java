@@ -11,7 +11,6 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import io.github.alanjoffre.ledgerly.contas.aplicacao.RazaoIndisponivelException;
 import io.github.alanjoffre.ledgerly.contas.dominio.EncerramentoComSaldoException;
-import io.github.alanjoffre.ledgerly.contas.dominio.SituacaoConta;
 import io.github.alanjoffre.ledgerly.nucleo.Dinheiro;
 import java.net.SocketTimeoutException;
 import java.util.UUID;
@@ -22,6 +21,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.test.web.client.ResponseCreator;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -44,13 +44,20 @@ class HttpRazaoTest {
     }
 
     @Test
-    @DisplayName("abrir conta: PUT /v1/contas/{id} com a moeda BRL")
-    void abrirConta() {
-        servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA))
+    @DisplayName("encerrar: PUT /v1/contas/{id}/situacao com ENCERRADA")
+    void encerrar() {
+        servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA + "/situacao"))
                 .andExpect(method(HttpMethod.PUT))
-                .andExpect(content().json("{\"moeda\":\"BRL\"}"))
-                .andRespond(withStatus(HttpStatus.CREATED));
-        razao.abrirConta(CONTA);
+                .andExpect(content().json("{\"situacao\":\"ENCERRADA\"}"))
+                .andRespond(withSuccess());
+        razao.encerrarConta(CONTA);
+    }
+
+    @Test
+    @DisplayName("encerrar conta que o razão ainda não conhece (404 conta-nao-encontrada): sucesso")
+    void encerrarDesconhecida() {
+        servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA + "/situacao")).andRespond(contaNaoEncontrada());
+        razao.encerrarConta(CONTA);
     }
 
     @Test
@@ -60,7 +67,21 @@ class HttpRazaoTest {
                 .andRespond(withSuccess("""
                         {"id":"%s","natureza":"CREDORA","moeda":"BRL","saldo":"10.50","situacao":"ATIVA"}
                         """.formatted(CONTA), MediaType.APPLICATION_JSON));
-        assertThat(razao.consultarSaldo(CONTA)).isEqualTo(Dinheiro.reais("10.50"));
+        assertThat(razao.consultarSaldo(CONTA)).contains(Dinheiro.reais("10.50"));
+    }
+
+    @Test
+    @DisplayName("consultar conta que o razão ainda não conhece: vazio")
+    void consultarDesconhecida() {
+        servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA)).andRespond(contaNaoEncontrada());
+        assertThat(razao.consultarSaldo(CONTA)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("404 de outro tipo (endereço errado, por exemplo): erro, nunca \"saldo zero\"")
+    void outro404() {
+        servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA)).andRespond(withStatus(HttpStatus.NOT_FOUND));
+        assertThatThrownBy(() -> razao.consultarSaldo(CONTA)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -74,14 +95,13 @@ class HttpRazaoTest {
     @DisplayName("encerrar com saldo: o 422 do razão vira EncerramentoComSaldoException")
     void encerramentoComSaldo() {
         servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA + "/situacao"))
-                .andExpect(content().json("{\"situacao\":\"ENCERRADA\"}"))
                 .andRespond(withStatus(HttpStatus.UNPROCESSABLE_CONTENT)
                         .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                         .body("""
                                 {"type":"urn:ledgerly:erro:encerramento-com-saldo","status":422,
                                  "detail":"A conta tem saldo BRL 5.00; só encerra com saldo zero"}
                                 """));
-        assertThatThrownBy(() -> razao.alterarSituacao(CONTA, SituacaoConta.ENCERRADA))
+        assertThatThrownBy(() -> razao.encerrarConta(CONTA))
                 .isInstanceOf(EncerramentoComSaldoException.class)
                 .hasMessageContaining("BRL 5.00");
     }
@@ -93,8 +113,7 @@ class HttpRazaoTest {
                 .andRespond(withStatus(HttpStatus.BAD_REQUEST)
                         .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                         .body("{\"type\":\"urn:ledgerly:erro:requisicao-invalida\",\"status\":400}"));
-        assertThatThrownBy(() -> razao.alterarSituacao(CONTA, SituacaoConta.BLOQUEADA))
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> razao.encerrarConta(CONTA)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -102,15 +121,15 @@ class HttpRazaoTest {
     void semProblema() {
         servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA + "/situacao"))
                 .andRespond(withStatus(HttpStatus.UNPROCESSABLE_CONTENT));
-        assertThatThrownBy(() -> razao.alterarSituacao(CONTA, SituacaoConta.BLOQUEADA))
-                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> razao.encerrarConta(CONTA)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test
     @DisplayName("razão com erro 5xx: RazaoIndisponivelException")
     void erroInterno() {
-        servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA)).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
-        assertThatThrownBy(() -> razao.abrirConta(CONTA)).isInstanceOf(RazaoIndisponivelException.class);
+        servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA + "/situacao"))
+                .andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE));
+        assertThatThrownBy(() -> razao.encerrarConta(CONTA)).isInstanceOf(RazaoIndisponivelException.class);
     }
 
     @Test
@@ -118,5 +137,11 @@ class HttpRazaoTest {
     void tempoEsgotado() {
         servidor.expect(requestTo(BASE + "/v1/contas/" + CONTA)).andRespond(withException(new SocketTimeoutException()));
         assertThatThrownBy(() -> razao.consultarSaldo(CONTA)).isInstanceOf(RazaoIndisponivelException.class);
+    }
+
+    private static ResponseCreator contaNaoEncontrada() {
+        return withStatus(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body("{\"type\":\"urn:ledgerly:erro:conta-nao-encontrada\",\"status\":404}");
     }
 }

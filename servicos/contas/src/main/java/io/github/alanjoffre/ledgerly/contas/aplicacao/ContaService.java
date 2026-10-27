@@ -2,30 +2,37 @@ package io.github.alanjoffre.ledgerly.contas.aplicacao;
 
 import io.github.alanjoffre.ledgerly.contas.aplicacao.porta.ContaRepository;
 import io.github.alanjoffre.ledgerly.contas.aplicacao.porta.Razao;
+import io.github.alanjoffre.ledgerly.contas.aplicacao.porta.RegistroDeEventos;
 import io.github.alanjoffre.ledgerly.contas.dominio.Conta;
 import io.github.alanjoffre.ledgerly.contas.dominio.ContaNaoEncontradaException;
+import io.github.alanjoffre.ledgerly.contas.dominio.Cpf;
+import io.github.alanjoffre.ledgerly.contas.dominio.EventoDeConta;
+import io.github.alanjoffre.ledgerly.contas.dominio.EventoDeConta.ContaAberta;
+import io.github.alanjoffre.ledgerly.contas.dominio.EventoDeConta.ContaBloqueada;
+import io.github.alanjoffre.ledgerly.contas.dominio.EventoDeConta.ContaDesbloqueada;
+import io.github.alanjoffre.ledgerly.contas.dominio.EventoDeConta.ContaEncerrada;
 import io.github.alanjoffre.ledgerly.contas.dominio.NumeroConta;
 import io.github.alanjoffre.ledgerly.nucleo.Dinheiro;
 import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Casos de uso de conta.
  *
- * <p><b>Coordenação com o razão (ADR-0011):</b> cada operação muda a conta aqui e avisa o razão
- * DENTRO da mesma transação local, antes do COMMIT:
+ * <p><b>Coordenação com o razão (ADR-0014):</b>
  *
  * <ul>
- *   <li>o razão recusou ou está fora do ar → exceção → a transação local é desfeita: nada mudou;</li>
- *   <li>o razão aceitou e o COMMIT local falhou (raro) → o razão ficou adiantado. Como as chamadas
- *       ao razão são idempotentes, repetir a operação acerta os dois lados.</li>
+ *   <li><b>abrir, bloquear, desbloquear</b> — a mudança e o evento que avisa o razão são gravados na
+ *       MESMA transação local (<i>Outbox</i>, ADR-0013). Não há chamada ao razão: com ele fora do
+ *       ar, a operação funciona, e o evento chega quando ele voltar;</li>
+ *   <li><b>encerrar</b> — continua síncrono: só o razão sabe se o saldo é zero, e a resposta decide
+ *       se a conta pode ser encerrada. O evento {@code ContaEncerrada} também é gravado.</li>
  * </ul>
- *
- * Essa janela é aceita na Fase 1 e fechada na Fase 2 com o <i>Outbox Pattern</i>.
  */
 @Service
 public class ContaService {
@@ -33,12 +40,15 @@ public class ContaService {
     private final ContaRepository contas;
     private final ClienteService clientes;
     private final Razao razao;
+    private final RegistroDeEventos eventos;
     private final Clock relogio;
 
-    public ContaService(ContaRepository contas, ClienteService clientes, Razao razao, Clock relogio) {
+    public ContaService(
+            ContaRepository contas, ClienteService clientes, Razao razao, RegistroDeEventos eventos, Clock relogio) {
         this.contas = contas;
         this.clientes = clientes;
         this.razao = razao;
+        this.eventos = eventos;
         this.relogio = relogio;
     }
 
@@ -50,30 +60,47 @@ public class ContaService {
         clientes.consultar(clienteId);
         Conta conta = Conta.abrir(clienteId, NumeroConta.novo(contas.proximoNumero()), relogio.instant());
         contas.inserir(conta);
-        razao.abrirConta(conta.id());
+        eventos.registrar(new ContaAberta(conta.id(), clienteId, Dinheiro.REAL, conta.abertaEm()));
         return conta;
     }
 
     @Transactional
     public Conta bloquear(UUID id) {
-        return alterar(id, Conta::bloquear);
+        return alterar(id, Conta::bloquear, conta -> new ContaBloqueada(conta.id(), relogio.instant()));
     }
 
     @Transactional
     public Conta desbloquear(UUID id) {
-        return alterar(id, Conta::desbloquear);
+        return alterar(id, Conta::desbloquear, conta -> new ContaDesbloqueada(conta.id(), relogio.instant()));
     }
 
-    /** Encerra a conta; o razão recusa se o saldo não for zero, e aí nada muda aqui. */
+    /**
+     * Encerra a conta. O razão é chamado por último, ainda dentro da transação: se ele recusar
+     * (saldo diferente de zero) ou estiver fora do ar, a transação é desfeita — nem a conta muda
+     * aqui, nem o evento {@code ContaEncerrada} fica gravado.
+     */
     @Transactional
     public Conta encerrar(UUID id) {
-        return alterar(id, conta -> conta.encerrar(relogio.instant()));
+        Conta conta = alterar(
+                id, c -> c.encerrar(relogio.instant()), c -> new ContaEncerrada(c.id(), c.encerradaEm()));
+        razao.encerrarConta(id);
+        return conta;
     }
 
+    /**
+     * Conta com o saldo do razão.
+     *
+     * <p>Se o razão ainda não conhece a conta, o saldo é zero — e isso é exato, não um palpite: o
+     * razão só aceita movimento numa conta que ele conhece, e ele só passa a conhecê-la quando
+     * consome o evento {@code ContaAberta}. Antes disso, nenhum depósito foi possível. É a janela da
+     * consistência eventual (<i>eventual consistency</i>): normalmente o intervalo do publicador do
+     * Outbox (100 ms) mais o tempo de o razão consumir o evento.
+     */
     @Transactional(readOnly = true)
     public ContaComSaldo consultar(UUID id) {
         Conta conta = buscar(id);
-        return new ContaComSaldo(conta, razao.consultarSaldo(id));
+        Dinheiro saldo = razao.consultarSaldo(id).orElseGet(() -> Dinheiro.zero(Dinheiro.REAL));
+        return new ContaComSaldo(conta, saldo);
     }
 
     @Transactional(readOnly = true)
@@ -82,11 +109,21 @@ public class ContaService {
         return contas.listarDoCliente(clienteId);
     }
 
-    private Conta alterar(UUID id, Consumer<Conta> transicao) {
+    /**
+     * O CPF informado é o do titular da conta? Responde só sim ou não: o CPF completo do titular não
+     * sai deste serviço. Usado pelo Pix para conferir uma chave do tipo CPF.
+     */
+    @Transactional(readOnly = true)
+    public boolean titularTemCpf(UUID contaId, Cpf cpf) {
+        Conta conta = buscar(contaId);
+        return clientes.consultar(conta.clienteId()).cpf().equals(cpf);
+    }
+
+    private Conta alterar(UUID id, Consumer<Conta> transicao, Function<Conta, EventoDeConta> evento) {
         Conta conta = buscar(id);
         transicao.accept(conta); // regra da máquina de estados, no domínio
         contas.atualizar(conta); // trava otimista: falha se outra transação mudou a conta
-        razao.alterarSituacao(id, conta.situacao());
+        eventos.registrar(evento.apply(conta)); // só chega aqui quem venceu a trava
         return conta;
     }
 
