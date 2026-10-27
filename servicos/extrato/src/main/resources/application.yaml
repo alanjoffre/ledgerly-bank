@@ -1,0 +1,39 @@
+# Configuração do serviço extrato. Valores entre ${...:padrão} podem ser trocados por variável
+# de ambiente (por exemplo EXTRATO_MONGO_URI) sem recompilar.
+
+server:
+  port: ${EXTRATO_PORTA:8084}
+
+spring:
+  application:
+    name: extrato
+  # Virtual threads: cada requisição (e cada consumidor do Kafka) roda numa thread leve.
+  threads:
+    virtual:
+      enabled: true
+  mongodb:
+    # Usuário próprio do extrato, que só enxerga o banco "extrato" (infra/docker/mongo/init).
+    uri: ${EXTRATO_MONGO_URI:mongodb://extrato:extrato_local@localhost:17017/extrato?authSource=extrato}
+  kafka:
+    bootstrap-servers: ${EXTRATO_KAFKA:localhost:19092}
+    consumer:
+      group-id: extrato
+      # Grupo novo (ou reconstrução): começa do primeiro evento guardado, não do próximo a chegar.
+      auto-offset-reset: earliest
+    producer:
+      # Só para a DLT: a mensagem morta só conta como guardada quando todas as réplicas confirmam.
+      acks: all
+    listener:
+      # Uma thread por partição (os tópicos têm 3).
+      concurrency: 3
+  mvc:
+    problemdetails:
+      enabled: true
+  messages:
+    basename: mensagens
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
