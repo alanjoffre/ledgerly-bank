@@ -86,7 +86,7 @@ flowchart TB
 
 O formato de cada evento e de cada API interna está no [contrato dos eventos](eventos.md).
 
-### O que já roda (Fase 2)
+### O que já roda (Fases 2 e 3)
 
 Rodam os serviços **contas**, **razao**, **pix** e **extrato**. Front-end, gateway, Keycloak
 (Fase 4) e antifraude (Fase 5) ainda não existem: hoje a API é chamada direto.
@@ -129,7 +129,7 @@ sequenceDiagram
     PX->>PX: INSERT transferência CRIADA
     PX->>RZ: POST /v1/pix/envios (pagador → Liquidação Pix)
     PX->>PX: DEBITADA
-    PX->>RZ: POST /v1/pix/recebimentos (Liquidação Pix → recebedor)
+    PX->>RZ: POST /v1/pix/recebimentos + lancamentoEnvioId (Liquidação Pix → recebedor)
     PX->>PX: CONCLUIDA + PixConcluido no Outbox (mesma transação)
     PX-->>C: 201 Created
     RZ-)K: LancamentoRegistrado (pelo Outbox do razão)
@@ -141,6 +141,25 @@ sequenceDiagram
 O **extrato** é o lado de leitura do CQRS ([ADR-0016](../adr/0016-extrato-em-cqrs-no-mongodb.md)):
 não calcula saldo, só guarda o que o razão já calculou, num formato pronto para mostrar. Se o
 MongoDB for apagado, ele se reconstrói lendo o tópico `razao.lancamentos.v1` desde o começo.
+
+### Desempenho (Fase 3)
+
+O Caixa e a Liquidação Pix são **contas quentes**: quase todo lançamento passa por uma delas, e a
+trava de cada lançamento fazia todos os depósitos e todos os Pix esperarem na mesma linha. Cada
+uma virou 16 **sub-contas**, e cada lançamento trava só a do cliente
+([ADR-0019](../adr/0019-contas-quentes-em-subcontas.md)). Por isso o crédito e o estorno do Pix
+apontam o envio (`lancamentoEnvioId`): o dinheiro sai da mesma sub-conta em que entrou, uma vez só.
+
+Fora dos serviços, três módulos de medição e lote, que não vão para produção:
+
+| Módulo | O que faz |
+| --- | --- |
+| `desempenho/carga` | Teste de carga com o Gatling contra o razão no ar ([ADR-0021](../adr/0021-teste-de-carga-com-gatling.md)) |
+| `desempenho/jmh` | Micro-benchmarks com o JMH ([ADR-0023](../adr/0023-micro-benchmarks-com-jmh.md)) |
+| `lotes/conciliacao` | Conciliação Pix × razão em lote, em paralelo com *Structured Concurrency* ([ADR-0022](../adr/0022-conciliacao-em-lote-com-structured-concurrency.md)) |
+
+Hoje a conciliação lê uma base sintética; ligá-la aos bancos do Pix e do razão é implementar a
+interface `Fonte` com uma consulta por faixa de ids.
 
 ### O que muda nas próximas fases
 

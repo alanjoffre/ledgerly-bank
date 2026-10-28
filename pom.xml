@@ -38,6 +38,11 @@
         <module>servicos/contas</module>
         <module>servicos/pix</module>
         <module>servicos/extrato</module>
+        <!-- Fase 3: medições. Compilam no build; rodam só quando alguém pede (ver cada pom). -->
+        <module>desempenho/carga</module>
+        <module>desempenho/jmh</module>
+        <!-- Fase 3: a conciliação em lote (Java puro, com recursos em preview: só aqui). -->
+        <module>lotes/conciliacao</module>
     </modules>
 
     <properties>

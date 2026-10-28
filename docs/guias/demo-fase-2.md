@@ -38,7 +38,7 @@ fictícios com CPFs gerados na hora e confere o código HTTP de cada passo:
 | 8 | Pix para a conta encerrada da Joana: o crédito é recusado e a Saga **estorna** → `ESTORNADA` |
 | 9 | **O razão é derrubado** e o João faz um Pix: `202 Accepted`. O razão volta, e o Pix termina sozinho → `CONCLUIDA` |
 | 10 | Extrato do João, montado pelos eventos no MongoDB: o saldo bate com o do razão |
-| 11 | Liquidação Pix zerada (nenhum dinheiro parado em trânsito) e o razão íntegro |
+| 11 | A Liquidação Pix voltou ao saldo do início (nenhum dinheiro da demonstração parado em trânsito) e o razão íntegro |
 
 Saída esperada (resumida):
 
@@ -56,8 +56,8 @@ Saída esperada (resumida):
 ▶ 10. Extrato do João, montado pelos eventos (CQRS no MongoDB)
   ✔ saldo do extrato = saldo do razão: R$ 787.50
 
-▶ 11. Conferência: Liquidação Pix zerada e o razão íntegro
-  ✔ nenhum dinheiro parado em trânsito
+▶ 11. Conferência: a Liquidação Pix voltou ao que era e o razão está íntegro
+  ✔ nenhum dinheiro desta demonstração parado em trânsito (Liquidação Pix: R$ 0.00)
   ✔ razão íntegro: o balanço fecha
 ```
 

@@ -58,6 +58,16 @@ final class Dtos {
             @NotBlank @Pattern(regexp = PADRAO_VALOR, message = MENSAGEM_VALOR) String valor,
             @Size(max = Lancamento.TAMANHO_MAXIMO_DESCRICAO) String descricao) {}
 
+    /**
+     * Recebimento ou estorno de Pix: além do movimento, o lançamento de envio de onde sai o dinheiro
+     * (ADR-0019).
+     */
+    record SaidaDaLiquidacaoRequisicao(
+            @NotNull UUID contaId,
+            @NotBlank @Pattern(regexp = PADRAO_VALOR, message = MENSAGEM_VALOR) String valor,
+            @Size(max = Lancamento.TAMANHO_MAXIMO_DESCRICAO) String descricao,
+            @NotNull UUID lancamentoEnvioId) {}
+
     record TransferenciaRequisicao(
             @NotNull UUID origemId,
             @NotNull UUID destinoId,
@@ -132,11 +142,15 @@ final class Dtos {
 
     record BalancoResposta(String moeda, String devedoras, String credoras, boolean fecha) {}
 
+    /** Uma conta interna somada; {@code subcontasNegativas} é normal no Caixa (ADR-0019). */
+    record ContaInternaResposta(UUID conta, String saldo, int subcontasNegativas) {}
+
     record IntegridadeResposta(
             boolean integro,
             List<BalancoResposta> balancos,
             List<UUID> contasComSaldoDivergente,
-            List<UUID> lancamentosDesbalanceados) {
+            List<UUID> lancamentosDesbalanceados,
+            List<ContaInternaResposta> contasInternas) {
 
         static IntegridadeResposta de(RelatorioIntegridade relatorio) {
             return new IntegridadeResposta(
@@ -149,7 +163,10 @@ final class Dtos {
                                     b.fecha()))
                             .toList(),
                     relatorio.contasComSaldoDivergente(),
-                    relatorio.lancamentosDesbalanceados());
+                    relatorio.lancamentosDesbalanceados(),
+                    relatorio.contasInternas().stream()
+                            .map(c -> new ContaInternaResposta(c.conta(), texto(c.saldo()), c.subcontasNegativas()))
+                            .toList());
         }
     }
 

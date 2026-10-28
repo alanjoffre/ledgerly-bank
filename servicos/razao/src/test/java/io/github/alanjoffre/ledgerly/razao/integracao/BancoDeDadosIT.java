@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.alanjoffre.ledgerly.razao.aplicacao.Comandos;
+import io.github.alanjoffre.ledgerly.razao.dominio.ContaRazao;
+import io.github.alanjoffre.ledgerly.razao.dominio.ContasQuentes;
+import io.github.alanjoffre.ledgerly.razao.dominio.Lancamento;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.UUID;
@@ -97,5 +100,59 @@ class BancoDeDadosIT extends TesteDeIntegracao {
         assertThat(relatorio.integro()).isFalse();
         assertThat(relatorio.contasComSaldoDivergente()).containsExactly(conta);
         assertThat(relatorio.balancos().getFirst().fecha()).isFalse();
+    }
+
+    @Test
+    @DisplayName("sub-conta do Caixa pode ficar negativa; sub-conta da Liquidação Pix, não (ADR-0019)")
+    void subcontasNoBanco() {
+        UUID caixa3 = ContasQuentes.subconta(ContaRazao.CAIXA, 3);
+        UUID liquidacao3 = ContasQuentes.subconta(ContaRazao.LIQUIDACAO_PIX, 3);
+
+        assertThat(jdbc.sql("UPDATE conta_razao SET saldo = -5 WHERE id = :id").param("id", caixa3).update())
+                .isEqualTo(1);
+        assertThatThrownBy(() -> jdbc.sql("UPDATE conta_razao SET saldo = -5 WHERE id = :id")
+                        .param("id", liquidacao3)
+                        .update())
+                .isInstanceOf(DataAccessException.class)
+                .hasMessageContaining("saldo_nao_negativo");
+        assertThat(jdbc.sql("SELECT count(*) FROM conta_razao WHERE id::text LIKE '00000000-0000-0000-0000-%'")
+                        .query(Long.class).single())
+                .isEqualTo(2L * ContasQuentes.MAXIMO_DE_SUBCONTAS);
+    }
+
+    @Test
+    @DisplayName("uma segunda saída do mesmo envio de Pix: recusada pelo índice único, mesmo gravada por fora")
+    void umaSaidaPorEnvioNoBanco() {
+        UUID pagador = novaContaCom("100.00");
+        UUID recebedor = novaConta();
+        Lancamento envio = lancamentos.enviarPix(new Comandos.MovimentoPix(chave(), pagador, reais("30.00"), "Pix"))
+                .lancamento();
+        lancamentos.receberPix(new Comandos.SaidaDaLiquidacao(chave(), recebedor, reais("30.00"), "Pix", envio.id()));
+
+        assertThatThrownBy(() -> jdbc.sql("INSERT INTO lancamento (id, chave_idempotencia, tipo, registrado_em, envio_pix_id) "
+                                + "VALUES (:id, 'manual', 'PIX_ESTORNO', :agora, :envio)")
+                        .param("id", UUID.randomUUID())
+                        .param("agora", Timestamp.from(Instant.now()))
+                        .param("envio", envio.id())
+                        .update())
+                .isInstanceOf(DataAccessException.class)
+                .hasMessageContaining("uma_saida_por_envio");
+    }
+
+    @Test
+    @DisplayName("referência a envio num lançamento que não sai da Liquidação Pix: recusada pela restrição CHECK")
+    void envioSoNaSaidaNoBanco() {
+        UUID pagador = novaContaCom("100.00");
+        Lancamento envio = lancamentos.enviarPix(new Comandos.MovimentoPix(chave(), pagador, reais("30.00"), "Pix"))
+                .lancamento();
+
+        assertThatThrownBy(() -> jdbc.sql("INSERT INTO lancamento (id, chave_idempotencia, tipo, registrado_em, envio_pix_id) "
+                                + "VALUES (:id, 'manual', 'DEPOSITO', :agora, :envio)")
+                        .param("id", UUID.randomUUID())
+                        .param("agora", Timestamp.from(Instant.now()))
+                        .param("envio", envio.id())
+                        .update())
+                .isInstanceOf(DataAccessException.class)
+                .hasMessageContaining("envio_pix_so_na_saida");
     }
 }

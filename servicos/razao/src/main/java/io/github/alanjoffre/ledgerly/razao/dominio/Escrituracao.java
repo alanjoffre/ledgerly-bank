@@ -26,7 +26,8 @@ public final class Escrituracao {
      * mexer em qualquer conta. Se uma conta recusar a partida (saldo insuficiente, conta
      * bloqueada), a exceção sobe e a transação de banco inteira é desfeita por quem chamou.
      *
-     * @param contas as contas envolvidas, por id; precisam estar travadas para atualização
+     * @param contas     as contas envolvidas, por id; precisam estar travadas para atualização
+     * @param envioPixId no recebimento e no estorno de Pix, o envio de onde sai o dinheiro; senão {@code null}
      */
     public static Lancamento escriturar(
             ChaveIdempotencia chave,
@@ -34,7 +35,8 @@ public final class Escrituracao {
             String descricao,
             List<PedidoDePartida> pedidos,
             Map<UUID, ContaRazao> contas,
-            Instant agora) {
+            Instant agora,
+            UUID envioPixId) {
         Lancamento.exigirPartidasDobradas(pedidos);
         Lancamento.validarDescricao(descricao);
 
@@ -47,6 +49,17 @@ public final class Escrituracao {
             var saldoApos = conta.aplicar(pedido.tipo(), pedido.valor());
             partidas.add(new Partida(pedido.contaId(), pedido.tipo(), pedido.valor(), saldoApos));
         }
-        return new Lancamento(UUID.randomUUID(), chave, tipo, descricao, partidas, agora);
+        return new Lancamento(UUID.randomUUID(), chave, tipo, descricao, partidas, agora, envioPixId);
+    }
+
+    /** Escritura um lançamento que não aponta para um envio de Pix. */
+    public static Lancamento escriturar(
+            ChaveIdempotencia chave,
+            TipoOperacao tipo,
+            String descricao,
+            List<PedidoDePartida> pedidos,
+            Map<UUID, ContaRazao> contas,
+            Instant agora) {
+        return escriturar(chave, tipo, descricao, pedidos, contas, agora, null);
     }
 }

@@ -32,6 +32,11 @@ chamar() {
 
 campo() { grep -o "\"$1\":\"[^\"]*\"" <<< "$CORPO" | head -1 | cut -d'"' -f4; }
 
+# O saldo da Liquidação Pix é a soma das sub-contas (ADR-0019): vem da conferência de integridade.
+liquidacao() {
+  curl -s "$RAZAO/v1/integridade" | grep -o "\"conta\":\"$LIQUIDACAO\",\"saldo\":\"[^\"]*\"" | cut -d'"' -f8
+}
+
 exigir() { [[ $CODIGO == "$1" ]] || { echo "  ✘ esperado HTTP $1, veio $CODIGO" >&2; exit 1; }; }
 
 # Espera (até 10 s) o comando dar certo — para o que chega por evento, alguns ms depois.
@@ -65,6 +70,9 @@ nova_conta() { # nome cpf → imprime o id da conta
 pix() { # chave-idempotencia pagador chave valor
   chamar POST "$PIX/v1/transferencias" "{\"pagadorContaId\":\"$2\",\"chave\":\"$3\",\"valor\":\"$4\",\"descricao\":\"demo\"}" "$1"
 }
+
+LIQUIDACAO_ANTES=$(liquidacao)
+[[ -n $LIQUIDACAO_ANTES ]] || { echo "  ✘ o razão não respondeu a conferência de integridade" >&2; exit 1; }
 
 passo "1. Três clientes com conta: João, Maria e Joana (o razão recebe cada conta pelo evento ContaAberta)"
 CPF_MARIA=$(gerar_cpf)
@@ -127,9 +135,9 @@ SALDO_EXTRATO=$(grep -o '"saldo":"[^"]*"' <<< "$CORPO" | head -1 | cut -d'"' -f4
 chamar GET "$RAZAO/v1/contas/$JOAO"; exigir 200
 [[ $(campo saldo) == "$SALDO_EXTRATO" ]] && ok "saldo do extrato = saldo do razão: R\$ $SALDO_EXTRATO"
 
-passo "11. Conferência: Liquidação Pix zerada e o razão íntegro"
-chamar GET "$RAZAO/v1/contas/$LIQUIDACAO"; exigir 200
-[[ $(campo saldo) == 0.00 ]] && ok "nenhum dinheiro parado em trânsito"
+passo "11. Conferência: a Liquidação Pix voltou ao que era e o razão está íntegro"
+# Compara com o início, e não com zero: um teste de carga (Fase 3) deixa envios sem Saga no banco.
+[[ $(liquidacao) == "$LIQUIDACAO_ANTES" ]] && ok "nenhum dinheiro desta demonstração parado em trânsito (Liquidação Pix: R\$ $LIQUIDACAO_ANTES)"
 chamar GET "$RAZAO/v1/integridade"; exigir 200
 grep -q '"integro":true' <<< "$CORPO" && ok "razão íntegro: o balanço fecha"
 

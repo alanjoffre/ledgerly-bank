@@ -13,5 +13,15 @@ import java.util.UUID;
  */
 public interface Razao {
 
-    ResultadoDoPasso executar(Passo passo, String chaveDeIdempotencia, UUID contaId, Dinheiro valor, String descricao);
+    /**
+     * @param lancamentoEnvioId no crédito e no estorno, o lançamento do envio (o razão tira o dinheiro
+     *     da sub-conta da Liquidação Pix em que ele entrou, ADR-0019); no débito, {@code null}
+     */
+    ResultadoDoPasso executar(
+            Passo passo,
+            String chaveDeIdempotencia,
+            UUID contaId,
+            Dinheiro valor,
+            String descricao,
+            UUID lancamentoEnvioId);
 }

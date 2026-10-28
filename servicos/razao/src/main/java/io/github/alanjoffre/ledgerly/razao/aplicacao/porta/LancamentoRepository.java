@@ -24,6 +24,9 @@ public interface LancamentoRepository {
      */
     List<Long> inserir(Lancamento lancamento);
 
+    /** Diz se o envio de Pix já teve a sua saída da Liquidação Pix (um recebimento ou um estorno). */
+    boolean envioJaTeveSaida(UUID envioPixId);
+
     /** As últimas partidas da conta, da mais nova para a mais antiga. */
     List<ItemExtrato> extrato(UUID contaId, int limite);
 }

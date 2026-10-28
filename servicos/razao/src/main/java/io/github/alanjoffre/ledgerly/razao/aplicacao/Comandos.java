@@ -24,6 +24,14 @@ public final class Comandos {
      */
     public record MovimentoPix(ChaveIdempotencia chave, UUID contaId, Dinheiro valor, String descricao) {}
 
+    /**
+     * Recebimento ou estorno de Pix: o dinheiro sai da Liquidação Pix. Aponta para o lançamento de
+     * envio que pôs esse dinheiro lá — o razão tira da mesma sub-conta e confere que o envio ainda
+     * não teve saída (ADR-0019).
+     */
+    public record SaidaDaLiquidacao(
+            ChaveIdempotencia chave, UUID contaId, Dinheiro valor, String descricao, UUID lancamentoEnvioId) {}
+
     public record Transferencia(
             ChaveIdempotencia chave, UUID origemId, UUID destinoId, Dinheiro valor, String descricao) {}
 }

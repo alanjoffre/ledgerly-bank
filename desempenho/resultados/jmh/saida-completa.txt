@@ -1,0 +1,518 @@
+Quando: 2026-10-28 19:37 · máquina: Intel Core i7-13620H, 16 threads de hardware, 17 GB · openjdk version "25.0.5" 2026-10-20 LTS
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 16 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.atomicLongNoMesmoContador
+
+# Run progress: 0.00% complete, ETA 00:02:40
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 61.458 ops/us
+# Warmup Iteration   2: 56.660 ops/us
+# Warmup Iteration   3: 58.862 ops/us
+Iteration   1: 56.865 ops/us
+Iteration   2: 58.958 ops/us
+Iteration   3: 58.098 ops/us
+Iteration   4: 57.400 ops/us
+Iteration   5: 53.776 ops/us
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.atomicLongNoMesmoContador":
+  57.020 ±(99.9%) 7.607 ops/us [Average]
+  (min, avg, max) = (53.776, 57.020, 58.958), stdev = 1.975
+  CI (99.9%): [49.413, 64.626] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 16 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.longAdderEmCelulas
+
+# Run progress: 5.00% complete, ETA 00:02:38
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 1400.298 ops/us
+# Warmup Iteration   2: 1374.539 ops/us
+# Warmup Iteration   3: 1488.628 ops/us
+Iteration   1: 1407.294 ops/us
+Iteration   2: 1320.667 ops/us
+Iteration   3: 1420.125 ops/us
+Iteration   4: 1496.397 ops/us
+Iteration   5: 1469.538 ops/us
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.longAdderEmCelulas":
+  1422.804 ±(99.9%) 260.309 ops/us [Average]
+  (min, avg, max) = (1320.667, 1422.804, 1496.397), stdev = 67.601
+  CI (99.9%): [1162.495, 1683.113] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 16 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.reentrantLockNoMesmoContador
+
+# Run progress: 10.00% complete, ETA 00:02:29
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 40.341 ops/us
+# Warmup Iteration   2: 40.977 ops/us
+# Warmup Iteration   3: 35.050 ops/us
+Iteration   1: 39.729 ops/us
+Iteration   2: 40.522 ops/us
+Iteration   3: 40.397 ops/us
+Iteration   4: 39.363 ops/us
+Iteration   5: 38.199 ops/us
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.reentrantLockNoMesmoContador":
+  39.642 ±(99.9%) 3.609 ops/us [Average]
+  (min, avg, max) = (38.199, 39.642, 40.522), stdev = 0.937
+  CI (99.9%): [36.034, 43.251] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 16 threads, will synchronize iterations
+# Benchmark mode: Throughput, ops/time
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.synchronizedNoMesmoContador
+
+# Run progress: 15.00% complete, ETA 00:02:20
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 10.023 ops/us
+# Warmup Iteration   2: 9.712 ops/us
+# Warmup Iteration   3: 9.730 ops/us
+Iteration   1: 9.857 ops/us
+Iteration   2: 9.943 ops/us
+Iteration   3: 10.106 ops/us
+Iteration   4: 9.836 ops/us
+Iteration   5: 9.906 ops/us
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.synchronizedNoMesmoContador":
+  9.930 ±(99.9%) 0.413 ops/us [Average]
+  (min, avg, max) = (9.836, 9.930, 10.106), stdev = 0.107
+  CI (99.9%): [9.517, 10.343] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.compararBigDecimal
+
+# Run progress: 20.00% complete, ETA 00:02:12
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 0.793 us/op
+# Warmup Iteration   2: 0.751 us/op
+# Warmup Iteration   3: 0.733 us/op
+Iteration   1: 0.768 us/op
+Iteration   2: 0.749 us/op
+Iteration   3: 0.770 us/op
+Iteration   4: 0.761 us/op
+Iteration   5: 0.749 us/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.compararBigDecimal":
+  0.759 ±(99.9%) 0.038 us/op [Average]
+  (min, avg, max) = (0.749, 0.759, 0.770), stdev = 0.010
+  CI (99.9%): [0.721, 0.797] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.compararLong
+
+# Run progress: 25.00% complete, ETA 00:02:03
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 0.168 us/op
+# Warmup Iteration   2: 0.169 us/op
+# Warmup Iteration   3: 0.166 us/op
+Iteration   1: 0.157 us/op
+Iteration   2: 0.160 us/op
+Iteration   3: 0.152 us/op
+Iteration   4: 0.153 us/op
+Iteration   5: 0.156 us/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.compararLong":
+  0.156 ±(99.9%) 0.013 us/op [Average]
+  (min, avg, max) = (0.152, 0.156, 0.160), stdev = 0.003
+  CI (99.9%): [0.142, 0.169] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.somarBigDecimal
+
+# Run progress: 30.00% complete, ETA 00:01:55
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 5.094 us/op
+# Warmup Iteration   2: 4.340 us/op
+# Warmup Iteration   3: 3.954 us/op
+Iteration   1: 4.288 us/op
+Iteration   2: 4.316 us/op
+Iteration   3: 3.988 us/op
+Iteration   4: 4.533 us/op
+Iteration   5: 3.909 us/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.somarBigDecimal":
+  4.207 ±(99.9%) 0.984 us/op [Average]
+  (min, avg, max) = (3.909, 4.207, 4.533), stdev = 0.256
+  CI (99.9%): [3.223, 5.191] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 1 s each
+# Measurement: 5 iterations, 1 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.somarLong
+
+# Run progress: 35.00% complete, ETA 00:01:47
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 0.298 us/op
+# Warmup Iteration   2: 0.303 us/op
+# Warmup Iteration   3: 0.280 us/op
+Iteration   1: 0.288 us/op
+Iteration   2: 0.284 us/op
+Iteration   3: 0.289 us/op
+Iteration   4: 0.290 us/op
+Iteration   5: 0.307 us/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.somarLong":
+  0.292 ±(99.9%) 0.035 us/op [Average]
+  (min, avg, max) = (0.284, 0.292, 0.307), stdev = 0.009
+  CI (99.9%): [0.256, 0.327] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 2 s each
+# Measurement: 5 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaDoTamanhoDaMaquina
+# Parameters: (tarefa = espera)
+
+# Run progress: 40.00% complete, ETA 00:01:38
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 6356.337 ms/op
+# Warmup Iteration   2: 6346.341 ms/op
+# Warmup Iteration   3: 6351.066 ms/op
+Iteration   1: 6349.770 ms/op
+Iteration   2: 6349.921 ms/op
+Iteration   3: 6349.846 ms/op
+Iteration   4: 6347.111 ms/op
+Iteration   5: 6345.109 ms/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaDoTamanhoDaMaquina":
+  6348.352 ±(99.9%) 8.339 ms/op [Average]
+  (min, avg, max) = (6345.109, 6348.352, 6349.921), stdev = 2.166
+  CI (99.9%): [6340.013, 6356.690] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 2 s each
+# Measurement: 5 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaDoTamanhoDaMaquina
+# Parameters: (tarefa = calculo)
+
+# Run progress: 50.00% complete, ETA 00:01:56
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 43.021 ms/op
+# Warmup Iteration   2: 44.279 ms/op
+# Warmup Iteration   3: 50.812 ms/op
+Iteration   1: 45.208 ms/op
+Iteration   2: 44.162 ms/op
+Iteration   3: 43.047 ms/op
+Iteration   4: 46.641 ms/op
+Iteration   5: 46.371 ms/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaDoTamanhoDaMaquina":
+  45.086 ±(99.9%) 5.807 ms/op [Average]
+  (min, avg, max) = (43.047, 45.086, 46.641), stdev = 1.508
+  CI (99.9%): [39.279, 50.893] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 2 s each
+# Measurement: 5 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaEmPool
+# Parameters: (tarefa = espera)
+
+# Run progress: 60.00% complete, ETA 00:01:28
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 525.027 ms/op
+# Warmup Iteration   2: 508.859 ms/op
+# Warmup Iteration   3: 510.153 ms/op
+Iteration   1: 509.959 ms/op
+Iteration   2: 509.194 ms/op
+Iteration   3: 508.694 ms/op
+Iteration   4: 509.254 ms/op
+Iteration   5: 509.322 ms/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaEmPool":
+  509.285 ±(99.9%) 1.737 ms/op [Average]
+  (min, avg, max) = (508.694, 509.285, 509.959), stdev = 0.451
+  CI (99.9%): [507.547, 511.022] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 2 s each
+# Measurement: 5 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaEmPool
+# Parameters: (tarefa = calculo)
+
+# Run progress: 70.00% complete, ETA 00:01:04
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 48.240 ms/op
+# Warmup Iteration   2: 51.978 ms/op
+# Warmup Iteration   3: 53.328 ms/op
+Iteration   1: 59.332 ms/op
+Iteration   2: 52.874 ms/op
+Iteration   3: 53.307 ms/op
+Iteration   4: 59.750 ms/op
+Iteration   5: 61.900 ms/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaEmPool":
+  57.433 ±(99.9%) 15.728 ms/op [Average]
+  (min, avg, max) = (52.874, 57.433, 61.900), stdev = 4.084
+  CI (99.9%): [41.705, 73.160] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 2 s each
+# Measurement: 5 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.virtualThreads
+# Parameters: (tarefa = espera)
+
+# Run progress: 80.00% complete, ETA 00:00:41
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 30.067 ms/op
+# Warmup Iteration   2: 22.841 ms/op
+# Warmup Iteration   3: 26.151 ms/op
+Iteration   1: 26.069 ms/op
+Iteration   2: 32.743 ms/op
+Iteration   3: 31.676 ms/op
+Iteration   4: 29.545 ms/op
+Iteration   5: 29.483 ms/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.virtualThreads":
+  29.903 ±(99.9%) 9.857 ms/op [Average]
+  (min, avg, max) = (26.069, 29.903, 32.743), stdev = 2.560
+  CI (99.9%): [20.046, 39.761] (assumes normal distribution)
+
+
+# JMH version: 1.37
+# VM version: JDK 25.0.5, OpenJDK 64-Bit Server VM, 25.0.5+8-LTS
+# VM invoker: /Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java
+# VM options: <none>
+# Blackhole mode: compiler (auto-detected, use -Djmh.blackhole.autoDetect=false to disable)
+# Warmup: 3 iterations, 2 s each
+# Measurement: 5 iterations, 2 s each
+# Timeout: 10 min per iteration
+# Threads: 1 thread, will synchronize iterations
+# Benchmark mode: Average time, time/op
+# Benchmark: io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.virtualThreads
+# Parameters: (tarefa = calculo)
+
+# Run progress: 90.00% complete, ETA 00:00:20
+# Fork: 1 of 1
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by org.openjdk.jmh.util.Utils (file:/Users/alanjoffre/dev/projetos/ledgerly-bank/desempenho/jmh/target/benchmarks.jar)
+WARNING: Please consider reporting this to the maintainers of class org.openjdk.jmh.util.Utils
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+# Warmup Iteration   1: 44.937 ms/op
+# Warmup Iteration   2: 42.718 ms/op
+# Warmup Iteration   3: 41.932 ms/op
+Iteration   1: 42.625 ms/op
+Iteration   2: 47.337 ms/op
+Iteration   3: 45.845 ms/op
+Iteration   4: 42.846 ms/op
+Iteration   5: 41.581 ms/op
+
+
+Result "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.virtualThreads":
+  44.047 ±(99.9%) 9.354 ms/op [Average]
+  (min, avg, max) = (41.581, 44.047, 47.337), stdev = 2.429
+  CI (99.9%): [34.693, 53.400] (assumes normal distribution)
+
+
+# Run complete. Total time: 00:03:18
+
+REMEMBER: The numbers below are just data. To gain reusable insights, you need to follow up on
+why the numbers are the way they are. Use profilers (see -prof, -lprof), design factorial
+experiments, perform baseline and negative tests that provide experimental control, make sure
+the benchmarking environment is safe on JVM/OS/HW level, ask for reviews from the domain experts.
+Do not assume the numbers tell you what you want them to tell.
+
+NOTE: Current JVM experimentally supports Compiler Blackholes, and they are in use. Please exercise
+extra caution when trusting the results, look into the generated code to check the benchmark still
+works, and factor in a small probability of new VM bugs. Additionally, while comparisons between
+different JVMs are already problematic, the performance difference caused by different Blackhole
+modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
+
+Benchmark                                               (tarefa)   Mode  Cnt     Score     Error   Units
+ContadorBenchmark.atomicLongNoMesmoContador                  N/A  thrpt    5    57.020 ±   7.607  ops/us
+ContadorBenchmark.longAdderEmCelulas                         N/A  thrpt    5  1422.804 ± 260.309  ops/us
+ContadorBenchmark.reentrantLockNoMesmoContador               N/A  thrpt    5    39.642 ±   3.609  ops/us
+ContadorBenchmark.synchronizedNoMesmoContador                N/A  thrpt    5     9.930 ±   0.413  ops/us
+DinheiroBenchmark.compararBigDecimal                         N/A   avgt    5     0.759 ±   0.038   us/op
+DinheiroBenchmark.compararLong                               N/A   avgt    5     0.156 ±   0.013   us/op
+DinheiroBenchmark.somarBigDecimal                            N/A   avgt    5     4.207 ±   0.984   us/op
+DinheiroBenchmark.somarLong                                  N/A   avgt    5     0.292 ±   0.035   us/op
+ThreadsBenchmark.threadsDePlataformaDoTamanhoDaMaquina    espera   avgt    5  6348.352 ±   8.339   ms/op
+ThreadsBenchmark.threadsDePlataformaDoTamanhoDaMaquina   calculo   avgt    5    45.086 ±   5.807   ms/op
+ThreadsBenchmark.threadsDePlataformaEmPool                espera   avgt    5   509.285 ±   1.737   ms/op
+ThreadsBenchmark.threadsDePlataformaEmPool               calculo   avgt    5    57.433 ±  15.728   ms/op
+ThreadsBenchmark.virtualThreads                           espera   avgt    5    29.903 ±   9.857   ms/op
+ThreadsBenchmark.virtualThreads                          calculo   avgt    5    44.047 ±   9.354   ms/op
+
+Benchmark result is saved to desempenho/resultados/jmh/resultados.json

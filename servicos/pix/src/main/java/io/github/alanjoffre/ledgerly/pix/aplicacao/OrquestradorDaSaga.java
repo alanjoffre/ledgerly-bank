@@ -64,7 +64,8 @@ public class OrquestradorDaSaga {
                     passo.chaveDeIdempotencia(transferencia.id()),
                     passo == Passo.CREDITAR ? transferencia.recebedor().contaId() : transferencia.pagador().contaId(),
                     transferencia.valor(),
-                    descricao(passo, transferencia));
+                    descricao(passo, transferencia),
+                    passo == Passo.DEBITAR ? null : transferencia.lancamentoEnvioId());
             registro.registrar(transferencia, passo, resultado);
 
             if (resultado instanceof ResultadoDoPasso.SemResposta semResposta) {

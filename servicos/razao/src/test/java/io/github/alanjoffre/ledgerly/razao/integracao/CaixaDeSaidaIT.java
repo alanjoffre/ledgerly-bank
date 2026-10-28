@@ -7,6 +7,7 @@ import static org.awaitility.Awaitility.await;
 
 import io.github.alanjoffre.ledgerly.razao.aplicacao.Comandos;
 import io.github.alanjoffre.ledgerly.razao.dominio.ContaRazao;
+import io.github.alanjoffre.ledgerly.razao.dominio.ContasQuentes;
 import io.github.alanjoffre.ledgerly.razao.dominio.Lancamento;
 import io.github.alanjoffre.ledgerly.razao.dominio.SaldoInsuficienteException;
 import java.nio.charset.StandardCharsets;
@@ -72,7 +73,9 @@ class CaixaDeSaidaIT extends TesteDeIntegracao {
 
         JsonNode caixa = dados.path("partidas").get(0);
         JsonNode cliente = dados.path("partidas").get(1);
-        assertThat(caixa.path("contaId").asString()).isEqualTo(ContaRazao.CAIXA.toString());
+        // O depósito cai numa sub-conta do Caixa (ADR-0019); a conta-mãe é o Caixa.
+        assertThat(ContasQuentes.contaMae(UUID.fromString(caixa.path("contaId").asString())))
+                .isEqualTo(ContaRazao.CAIXA);
         assertThat(caixa.path("contaInterna").asBoolean()).isTrue();
         assertThat(cliente.path("contaId").asString()).isEqualTo(conta.toString());
         assertThat(cliente.path("contaInterna").asBoolean()).isFalse();

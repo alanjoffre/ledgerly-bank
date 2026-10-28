@@ -25,8 +25,23 @@ e `GET /v1/integridade` confere isso a qualquer momento.
 | Caixa | `00000000-0000-0000-0000-000000000001` | devedora | o dinheiro que entra nos depósitos e sai nos saques |
 | Liquidação Pix | `00000000-0000-0000-0000-000000000002` | credora | o dinheiro de um Pix em andamento, entre o pagador e o recebedor ([ADR-0015](../../docs/adr/0015-saga-orquestrada-no-pix.md)) |
 
-Nenhuma das duas é movimentada, aberta ou bloqueada pela API, e nenhuma fica negativa: o razão
-recusa creditar um Pix que nunca saiu de ninguém.
+Nenhuma das duas é movimentada, aberta ou bloqueada pela API.
+
+**Contas quentes, em sub-contas (Fase 3, [ADR-0019](../../docs/adr/0019-contas-quentes-em-subcontas.md)).**
+Todo depósito passa pelo Caixa e todo Pix pela Liquidação Pix, e cada lançamento trava as suas
+contas: medido, o razão fazia 124 depósitos por segundo contra 954 transferências entre clientes.
+Por isso cada uma é dividida em **16 sub-contas**, e cada lançamento trava só a do cliente (pelo
+hash do id da conta dele). O saldo da conta é a soma; `GET /v1/integridade` mostra a soma de cada
+uma em `contasInternas`.
+
+| Sub-conta | Id | Pode ficar negativa? |
+| --- | --- | --- |
+| Caixa, sub-conta *k* (0 a 15) | `00000000-0000-0000-0000-000000000k01` (em hexadecimal: `...0301` é a 3) | **sim** — o total, não (é a soma de clientes e Liquidação, conferida na integridade) |
+| Liquidação Pix, sub-conta *k* | `00000000-0000-0000-0000-000000000k02` | **não** — o recebimento e o estorno saem da mesma sub-conta em que o envio entrou |
+
+A sub-conta 0 é o id antigo. O razão recusa creditar um Pix que nunca saiu de ninguém, e cada envio
+tem **no máximo uma saída** (recebimento ou estorno), conferido na aplicação e por um índice único
+no banco.
 
 ### Eventos (Fase 2)
 
@@ -102,8 +117,8 @@ Todo pedido que move dinheiro exige o cabeçalho `Idempotency-Key`. Valores em d
 | `POST /v1/saques` | `{"contaId","valor","descricao"?}` | 201 · 200 repetido |
 | `POST /v1/transferencias` | `{"origemId","destinoId","valor","descricao"?}` | 201 · 200 repetido |
 | `POST /v1/pix/envios` | `{"contaId","valor","descricao"?}` — cliente → Liquidação Pix | 201 · 200 repetido |
-| `POST /v1/pix/recebimentos` | Liquidação Pix → cliente | 201 · 200 repetido |
-| `POST /v1/pix/estornos` | Liquidação Pix → cliente (a compensação da Saga) | 201 · 200 repetido |
+| `POST /v1/pix/recebimentos` | `{"contaId","valor","descricao"?,"lancamentoEnvioId"}` — Liquidação Pix → recebedor | 201 · 200 repetido |
+| `POST /v1/pix/estornos` | o mesmo corpo — Liquidação Pix → pagador (a compensação da Saga) | 201 · 200 repetido |
 | `GET /v1/lancamentos/{id}` | Um lançamento com as partidas | 200 |
 | `GET /v1/integridade` | Conferência do razão inteiro | 200 (`"integro": true/false`) |
 | `GET /actuator/health` | Saúde do serviço | 200 |
@@ -126,6 +141,7 @@ Formato Problem Details (RFC 9457). Decida pelo `type`, nunca pelo texto.
 | `chave-idempotencia-reutilizada` | 422 | A chave já foi usada num pedido diferente |
 | `operacao-nao-permitida` | 422 | Movimentar uma conta interna (Caixa, Liquidação Pix); transferir para a mesma conta |
 | `conta-ja-existe` | 422 | Abrir de novo a mesma conta com outra moeda |
+| `envio-pix-invalido` | 422 | Recebimento ou estorno que aponta um lançamento que não é envio de Pix, com outro valor, estorno para quem não pagou, ou envio que já teve a sua saída |
 
 ## Rodar
 
@@ -136,7 +152,8 @@ java -jar servicos/razao/target/razao-0.1.0-SNAPSHOT.jar
 ```
 
 Variáveis de ambiente: `RAZAO_PORTA`, `RAZAO_DB_URL`, `RAZAO_DB_USUARIO`, `RAZAO_DB_SENHA`, `RAZAO_DB_POOL`,
-`RAZAO_KAFKA`, `RAZAO_OUTBOX_INTERVALO_MS`.
+`RAZAO_KAFKA`, `RAZAO_OUTBOX_INTERVALO_MS`, `RAZAO_SUBCONTAS` (1 a 16, padrão 16 — com 1, sem divisão das
+contas quentes), `RAZAO_THREADS_VIRTUAIS` (padrão `false`: threads de plataforma, que mediram mais vazão, [ADR-0020](../../docs/adr/0020-virtual-threads-medidas-no-razao.md)).
 
 ## Testes
 
@@ -146,17 +163,17 @@ Variáveis de ambiente: `RAZAO_PORTA`, `RAZAO_DB_URL`, `RAZAO_DB_USUARIO`, `RAZA
 
 | Tipo | Classe | O que prova |
 |---|---|---|
-| Unidade | `ContaRazaoTest`, `LancamentoTest`, `EscrituracaoTest` | Regras do domínio, sem banco (milissegundos) |
+| Unidade | `ContaRazaoTest`, `LancamentoTest`, `EscrituracaoTest`, `ContasQuentesTest` | Regras do domínio, sem banco (milissegundos); ids das sub-contas e o espalhamento dos clientes |
 | Arquitetura | `ArquiteturaTest` | Domínio sem framework; camadas em ordem |
 | Integração | `LancamentoServiceIT` | Casos de uso com PostgreSQL real; integridade conferida após cada teste |
 | Integração | `ConcorrenciaIT` | 1.500 saques simultâneos sem gasto duplo; 400 transferências cruzadas sem deadlock; idempotência sob disputa |
-| Integração | `BancoDeDadosIT` | O banco recusa sozinho: saldo negativo, lançamento desbalanceado, alteração do razão |
+| Integração | `BancoDeDadosIT` | O banco recusa sozinho: saldo negativo (menos na sub-conta do Caixa), lançamento desbalanceado, alteração do razão, segunda saída do mesmo envio de Pix |
 | Integração | `ApiIT` | API de ponta a ponta: códigos HTTP, Problem Details, `Idempotency-Key` |
-| Integração | `PixIT` | Envio, recebimento e estorno; a Liquidação Pix nunca negativa; contas internas protegidas |
+| Integração | `PixIT` | Envio, recebimento e estorno pela mesma sub-conta; saída que não bate com o envio; **recebimento e estorno do mesmo envio ao mesmo tempo: exatamente um passa**; contas internas protegidas |
 | Integração | `CaixaDeSaidaIT` | O evento sai no formato do contrato, só de fato que aconteceu; **Kafka pausado no meio**: o depósito funciona e o evento sai quando ele volta |
 | Integração | `ConsumidorDeEventosDeContaIT` | Abertura idempotente, ordem dos eventos, conta encerrada, tipo desconhecido, mensagem venenosa → DLT |
 
 **Prova reversa:** com a trava `FOR UPDATE` removida, o `ConcorrenciaIT` falha — 1.500 saques
 aprovados numa conta de R$ 1.000,00. Números na [ADR-0009](../../docs/adr/0009-concorrencia-com-trava-pessimista-ordenada.md).
 
-Cobertura (unidade + integração): **96% das linhas, 93% dos ramos**.
+Cobertura (unidade + integração): **97% das linhas, 92% dos ramos**.

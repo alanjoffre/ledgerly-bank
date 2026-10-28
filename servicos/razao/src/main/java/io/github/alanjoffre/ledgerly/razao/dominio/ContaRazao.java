@@ -27,9 +27,13 @@ public final class ContaRazao {
      */
     public static final UUID LIQUIDACAO_PIX = UUID.fromString("00000000-0000-0000-0000-000000000002");
 
-    /** Diz se o id é de uma conta do próprio banco (Caixa, Liquidação Pix), e não de um cliente. */
+    /**
+     * Diz se o id é de uma conta do próprio banco (Caixa, Liquidação Pix ou uma das suas
+     * sub-contas, ver {@link ContasQuentes}), e não de um cliente. Toda conta interna tem os 64 bits
+     * altos zerados; um UUID de cliente (versão 4, aleatório) nunca tem.
+     */
     public static boolean ehInterna(UUID id) {
-        return CAIXA.equals(id) || LIQUIDACAO_PIX.equals(id);
+        return id.getMostSignificantBits() == 0L;
     }
 
     private final UUID id;

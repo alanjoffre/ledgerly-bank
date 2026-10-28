@@ -97,14 +97,54 @@ class LancamentoTest {
     @DisplayName("correspondeA: mesmo tipo e mesmas partidas (em qualquer ordem) = mesmo pedido")
     void correspondeA() {
         Lancamento l = lancamento(List.of(partida(A, TipoPartida.DEBITO, "10"), partida(B, TipoPartida.CREDITO, "10")));
-        assertThat(l.correspondeA(TipoOperacao.TRANSFERENCIA, List.of(credito(B, reais("10")), debito(A, reais("10")))))
+        assertThat(l.correspondeA(TipoOperacao.TRANSFERENCIA, List.of(credito(B, reais("10")), debito(A, reais("10"))), null))
                 .isTrue();
-        assertThat(l.correspondeA(TipoOperacao.TRANSFERENCIA, List.of(debito(A, reais("11")), credito(B, reais("11")))))
+        assertThat(l.correspondeA(TipoOperacao.TRANSFERENCIA, List.of(debito(A, reais("11")), credito(B, reais("11"))), null))
                 .as("valor diferente")
                 .isFalse();
-        assertThat(l.correspondeA(TipoOperacao.DEPOSITO, List.of(debito(A, reais("10")), credito(B, reais("10")))))
+        assertThat(l.correspondeA(TipoOperacao.DEPOSITO, List.of(debito(A, reais("10")), credito(B, reais("10"))), null))
                 .as("tipo diferente")
                 .isFalse();
+    }
+
+    @Test
+    @DisplayName("correspondeA: a sub-conta do Caixa conta como o Caixa — mudar o número de sub-contas não quebra a repetição")
+    void correspondeASubcontas() {
+        UUID caixa3 = ContasQuentes.subconta(ContaRazao.CAIXA, 3);
+        UUID caixa7 = ContasQuentes.subconta(ContaRazao.CAIXA, 7);
+        Lancamento deposito = new Lancamento(UUID.randomUUID(), CHAVE, TipoOperacao.DEPOSITO, null,
+                List.of(partida(caixa3, TipoPartida.DEBITO, "10"), partida(A, TipoPartida.CREDITO, "10")), Instant.EPOCH);
+
+        assertThat(deposito.correspondeA(TipoOperacao.DEPOSITO, List.of(debito(caixa7, reais("10")), credito(A, reais("10"))), null))
+                .isTrue();
+        assertThat(deposito.correspondeA(TipoOperacao.DEPOSITO,
+                        List.of(debito(ContasQuentes.subconta(ContaRazao.LIQUIDACAO_PIX, 3), reais("10")), credito(A, reais("10"))), null))
+                .as("outra conta-mãe")
+                .isFalse();
+    }
+
+    @Test
+    @DisplayName("envioPixId: só o recebimento e o estorno apontam para um envio, e ele entra na comparação")
+    void envioPixId() {
+        UUID liquidacao = ContasQuentes.subconta(ContaRazao.LIQUIDACAO_PIX, 2);
+        UUID envio = UUID.randomUUID();
+        var partidas = List.of(partida(liquidacao, TipoPartida.DEBITO, "5"), partida(A, TipoPartida.CREDITO, "5"));
+        Lancamento recebimento = new Lancamento(
+                UUID.randomUUID(), CHAVE, TipoOperacao.PIX_RECEBIMENTO, null, partidas, Instant.EPOCH, envio);
+        var pedidos = List.of(debito(liquidacao, reais("5")), credito(A, reais("5")));
+
+        assertThat(recebimento.correspondeA(TipoOperacao.PIX_RECEBIMENTO, pedidos, envio)).isTrue();
+        assertThat(recebimento.correspondeA(TipoOperacao.PIX_RECEBIMENTO, pedidos, UUID.randomUUID()))
+                .as("outro envio")
+                .isFalse();
+        assertThat(recebimento.subcontaInterna(ContaRazao.LIQUIDACAO_PIX)).contains(liquidacao);
+        assertThat(recebimento.subcontaInterna(ContaRazao.CAIXA)).isEmpty();
+        assertThat(recebimento.contaDeClienteCom(TipoPartida.CREDITO)).contains(A);
+        assertThat(recebimento.contaDeClienteCom(TipoPartida.DEBITO)).isEmpty();
+        assertThatThrownBy(() -> new Lancamento(
+                        UUID.randomUUID(), CHAVE, TipoOperacao.PIX_ENVIO, null, partidas, Instant.EPOCH, envio))
+                .isInstanceOf(LancamentoInvalidoException.class)
+                .hasMessageContaining("Só o recebimento e o estorno");
     }
 
     @Test

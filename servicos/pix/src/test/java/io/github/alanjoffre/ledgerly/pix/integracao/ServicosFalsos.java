@@ -76,7 +76,8 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
     /** O razão falso: saldos em memória, a Liquidação Pix, idempotência e falhas sob encomenda. */
     public static final class RazaoFalso {
 
-        private record Lancamento(UUID id, String caminho, UUID contaId, BigDecimal valor) {}
+        /** {@code envio}: no recebimento e no estorno, o envio de onde o dinheiro sai (ADR-0019). */
+        private record Lancamento(UUID id, String caminho, UUID contaId, BigDecimal valor, UUID envio) {}
 
         private final Map<UUID, BigDecimal> saldos = new HashMap<>();
         private final Map<UUID, Boolean> encerradas = new HashMap<>();
@@ -120,7 +121,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             BigDecimal v = new BigDecimal(valor);
             saldos.merge(conta, v.negate(), BigDecimal::add);
             liquidacao = liquidacao.add(v);
-            porChave.put(chave, new Lancamento(id, "envios", conta, v));
+            porChave.put(chave, new Lancamento(id, "envios", conta, v, null));
             return id;
         }
 
@@ -155,6 +156,8 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             JsonNode corpo = JSON.readTree(troca.getRequestBody());
             UUID conta = UUID.fromString(corpo.path("contaId").asText());
             BigDecimal valor = new BigDecimal(corpo.path("valor").asText());
+            String envioInformado = corpo.path("lancamentoEnvioId").asText("");
+            UUID envio = envioInformado.isBlank() ? null : UUID.fromString(envioInformado);
 
             long atraso;
             Object[] resposta;
@@ -164,7 +167,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
                     resposta = new Object[] {503, problema(503, "indisponivel", "fora do ar")};
                     atraso = 0;
                 } else {
-                    resposta = aplicar(caminho, chave, conta, valor);
+                    resposta = aplicar(caminho, chave, conta, valor, envio);
                     atraso = caminho.equals(caminhoAtrasado) ? atrasoAposAplicarMs : 0;
                     if (atraso > 0) {
                         atrasoAposAplicarMs = 0;
@@ -181,7 +184,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             responder(troca, (int) resposta[0], resposta[1]);
         }
 
-        private Object[] aplicar(String caminho, String chave, UUID conta, BigDecimal valor) {
+        private Object[] aplicar(String caminho, String chave, UUID conta, BigDecimal valor, UUID envio) {
             Lancamento existente = porChave.get(chave);
             if (existente != null) {
                 return new Object[] {200, Map.of("id", existente.id().toString())};
@@ -201,6 +204,14 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
                     if (encerradas.getOrDefault(conta, false)) {
                         return new Object[] {422, problema(422, "conta-inativa", "A conta %s está encerrada".formatted(conta))};
                     }
+                    // Como o razão de verdade: a saída aponta para o envio, com o mesmo valor, uma vez só.
+                    if (envio == null) {
+                        return new Object[] {400, problema(400, "requisicao-invalida", "lancamentoEnvioId é obrigatório")};
+                    }
+                    String recusa = recusaDaSaida(caminho, conta, valor, envio);
+                    if (recusa != null) {
+                        return new Object[] {422, problema(422, "envio-pix-invalido", recusa)};
+                    }
                     if (liquidacao.compareTo(valor) < 0) {
                         return new Object[] {422, problema(422, "saldo-insuficiente", "Liquidação Pix sem saldo")};
                     }
@@ -211,9 +222,29 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
                     return new Object[] {404, problema(404, "nao-encontrado", caminho)};
                 }
             }
-            Lancamento novo = new Lancamento(UUID.randomUUID(), caminho, conta, valor);
+            Lancamento novo = new Lancamento(UUID.randomUUID(), caminho, conta, valor, envio);
             porChave.put(chave, novo);
             return new Object[] {201, Map.of("id", novo.id().toString())};
+        }
+
+        private String recusaDaSaida(String caminho, UUID conta, BigDecimal valor, UUID envio) {
+            Lancamento original = porChave.values().stream()
+                    .filter(l -> l.id().equals(envio) && l.caminho().equals("envios"))
+                    .findFirst()
+                    .orElse(null);
+            if (original == null) {
+                return "O lançamento %s não é um envio de Pix".formatted(envio);
+            }
+            if (original.valor().compareTo(valor) != 0) {
+                return "O envio %s foi de %s".formatted(envio, original.valor());
+            }
+            if (caminho.equals("estornos") && !original.contaId().equals(conta)) {
+                return "O estorno do envio %s só pode voltar para a conta que pagou".formatted(envio);
+            }
+            if (porChave.values().stream().anyMatch(l -> envio.equals(l.envio()))) {
+                return "O envio %s já teve a sua saída da Liquidação Pix".formatted(envio);
+            }
+            return null;
         }
     }
 

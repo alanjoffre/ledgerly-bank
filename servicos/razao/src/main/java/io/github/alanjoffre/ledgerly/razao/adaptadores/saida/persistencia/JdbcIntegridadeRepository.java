@@ -3,6 +3,7 @@ package io.github.alanjoffre.ledgerly.razao.adaptadores.saida.persistencia;
 import io.github.alanjoffre.ledgerly.nucleo.Dinheiro;
 import io.github.alanjoffre.ledgerly.razao.aplicacao.RelatorioIntegridade;
 import io.github.alanjoffre.ledgerly.razao.aplicacao.RelatorioIntegridade.BalancoPorMoeda;
+import io.github.alanjoffre.ledgerly.razao.aplicacao.RelatorioIntegridade.ContaInterna;
 import io.github.alanjoffre.ledgerly.razao.aplicacao.porta.IntegridadeRepository;
 import java.util.Currency;
 import java.util.UUID;
@@ -66,6 +67,25 @@ class JdbcIntegridadeRepository implements IntegridadeRepository {
                 .query(UUID.class)
                 .list();
 
-        return new RelatorioIntegridade(balancos, divergentes, desbalanceados);
+        // 4. Cada conta interna somada: as sub-contas têm os 64 bits altos zerados e o último byte
+        //    diz a conta-mãe (ver ContasQuentes). O lado direito do id, em texto, termina em "01"
+        //    (Caixa) ou "02" (Liquidação Pix).
+        var internas = jdbc.sql("""
+                        SELECT ('00000000-0000-0000-0000-0000000000' || right(id::text, 2))::uuid AS mae,
+                               moeda,
+                               SUM(saldo) AS saldo,
+                               COUNT(*) FILTER (WHERE saldo < 0) AS negativas
+                          FROM conta_razao
+                         WHERE id::text LIKE '00000000-0000-0000-0000-%'
+                         GROUP BY 1, moeda
+                         ORDER BY 1
+                        """)
+                .query((rs, n) -> new ContaInterna(
+                        rs.getObject("mae", UUID.class),
+                        Dinheiro.de(rs.getBigDecimal("saldo"), Currency.getInstance(rs.getString("moeda"))),
+                        rs.getInt("negativas")))
+                .list();
+
+        return new RelatorioIntegridade(balancos, divergentes, desbalanceados, internas);
     }
 }

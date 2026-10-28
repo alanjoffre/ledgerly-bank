@@ -1,0 +1,736 @@
+[
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.atomicLongNoMesmoContador",
+        "mode" : "thrpt",
+        "threads" : 16,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 57.01956041345194,
+            "scoreError" : 7.606825376056191,
+            "scoreConfidence" : [
+                49.41273503739575,
+                64.62638578950813
+            ],
+            "scorePercentiles" : {
+                "0.0" : 53.776242191331164,
+                "50.0" : 57.40017152453662,
+                "90.0" : 58.95819845737887,
+                "95.0" : 58.95819845737887,
+                "99.0" : 58.95819845737887,
+                "99.9" : 58.95819845737887,
+                "99.99" : 58.95819845737887,
+                "99.999" : 58.95819845737887,
+                "99.9999" : 58.95819845737887,
+                "100.0" : 58.95819845737887
+            },
+            "scoreUnit" : "ops/us",
+            "rawData" : [
+                [
+                    56.86488824860561,
+                    58.95819845737887,
+                    58.098301645407446,
+                    57.40017152453662,
+                    53.776242191331164
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.longAdderEmCelulas",
+        "mode" : "thrpt",
+        "threads" : 16,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 1422.80409220692,
+            "scoreError" : 260.3087287074944,
+            "scoreConfidence" : [
+                1162.4953634994254,
+                1683.1128209144144
+            ],
+            "scorePercentiles" : {
+                "0.0" : 1320.6665726456336,
+                "50.0" : 1420.1248143595653,
+                "90.0" : 1496.397188718973,
+                "95.0" : 1496.397188718973,
+                "99.0" : 1496.397188718973,
+                "99.9" : 1496.397188718973,
+                "99.99" : 1496.397188718973,
+                "99.999" : 1496.397188718973,
+                "99.9999" : 1496.397188718973,
+                "100.0" : 1496.397188718973
+            },
+            "scoreUnit" : "ops/us",
+            "rawData" : [
+                [
+                    1407.2942849212702,
+                    1320.6665726456336,
+                    1420.1248143595653,
+                    1496.397188718973,
+                    1469.5376003891588
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.reentrantLockNoMesmoContador",
+        "mode" : "thrpt",
+        "threads" : 16,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 39.64210749039691,
+            "scoreError" : 3.6085718716978743,
+            "scoreConfidence" : [
+                36.033535618699034,
+                43.250679362094786
+            ],
+            "scorePercentiles" : {
+                "0.0" : 38.198957861853735,
+                "50.0" : 39.728842356607586,
+                "90.0" : 40.522323501612895,
+                "95.0" : 40.522323501612895,
+                "99.0" : 40.522323501612895,
+                "99.9" : 40.522323501612895,
+                "99.99" : 40.522323501612895,
+                "99.999" : 40.522323501612895,
+                "99.9999" : 40.522323501612895,
+                "100.0" : 40.522323501612895
+            },
+            "scoreUnit" : "ops/us",
+            "rawData" : [
+                [
+                    39.728842356607586,
+                    40.522323501612895,
+                    40.39717824408381,
+                    39.363235487826536,
+                    38.198957861853735
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ContadorBenchmark.synchronizedNoMesmoContador",
+        "mode" : "thrpt",
+        "threads" : 16,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 9.929736090722477,
+            "scoreError" : 0.41284696609166716,
+            "scoreConfidence" : [
+                9.51688912463081,
+                10.342583056814144
+            ],
+            "scorePercentiles" : {
+                "0.0" : 9.835819565944512,
+                "50.0" : 9.906106576215356,
+                "90.0" : 10.1062156675612,
+                "95.0" : 10.1062156675612,
+                "99.0" : 10.1062156675612,
+                "99.9" : 10.1062156675612,
+                "99.99" : 10.1062156675612,
+                "99.999" : 10.1062156675612,
+                "99.9999" : 10.1062156675612,
+                "100.0" : 10.1062156675612
+            },
+            "scoreUnit" : "ops/us",
+            "rawData" : [
+                [
+                    9.857141750464562,
+                    9.943396893426755,
+                    10.1062156675612,
+                    9.835819565944512,
+                    9.906106576215356
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.compararBigDecimal",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 0.7593089516284688,
+            "scoreError" : 0.038184565226318995,
+            "scoreConfidence" : [
+                0.7211243864021498,
+                0.7974935168547878
+            ],
+            "scorePercentiles" : {
+                "0.0" : 0.7489967034983207,
+                "50.0" : 0.7606787375324332,
+                "90.0" : 0.7698659273867641,
+                "95.0" : 0.7698659273867641,
+                "99.0" : 0.7698659273867641,
+                "99.9" : 0.7698659273867641,
+                "99.99" : 0.7698659273867641,
+                "99.999" : 0.7698659273867641,
+                "99.9999" : 0.7698659273867641,
+                "100.0" : 0.7698659273867641
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    0.7677852538835365,
+                    0.7489967034983207,
+                    0.7698659273867641,
+                    0.7606787375324332,
+                    0.7492181358412893
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.compararLong",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 0.1556355558923561,
+            "scoreError" : 0.013407138795596985,
+            "scoreConfidence" : [
+                0.1422284170967591,
+                0.16904269468795308
+            ],
+            "scorePercentiles" : {
+                "0.0" : 0.15190866059813996,
+                "50.0" : 0.15638720530718722,
+                "90.0" : 0.16037480608104196,
+                "95.0" : 0.16037480608104196,
+                "99.0" : 0.16037480608104196,
+                "99.9" : 0.16037480608104196,
+                "99.99" : 0.16037480608104196,
+                "99.999" : 0.16037480608104196,
+                "99.9999" : 0.16037480608104196,
+                "100.0" : 0.16037480608104196
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    0.15699190259569942,
+                    0.16037480608104196,
+                    0.15190866059813996,
+                    0.15251520487971196,
+                    0.15638720530718722
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.somarBigDecimal",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 4.206889461159851,
+            "scoreError" : 0.984260610898674,
+            "scoreConfidence" : [
+                3.2226288502611773,
+                5.191150072058525
+            ],
+            "scorePercentiles" : {
+                "0.0" : 3.909233033840478,
+                "50.0" : 4.288173148406182,
+                "90.0" : 4.532856138061054,
+                "95.0" : 4.532856138061054,
+                "99.0" : 4.532856138061054,
+                "99.9" : 4.532856138061054,
+                "99.99" : 4.532856138061054,
+                "99.999" : 4.532856138061054,
+                "99.9999" : 4.532856138061054,
+                "100.0" : 4.532856138061054
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    4.288173148406182,
+                    4.316224288821377,
+                    3.987960696670162,
+                    4.532856138061054,
+                    3.909233033840478
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.DinheiroBenchmark.somarLong",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "1 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "1 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 0.2915503883762249,
+            "scoreError" : 0.035096891811954994,
+            "scoreConfidence" : [
+                0.25645349656426986,
+                0.3266472801881799
+            ],
+            "scorePercentiles" : {
+                "0.0" : 0.28360081232810685,
+                "50.0" : 0.289224452002783,
+                "90.0" : 0.30728466868501614,
+                "95.0" : 0.30728466868501614,
+                "99.0" : 0.30728466868501614,
+                "99.9" : 0.30728466868501614,
+                "99.99" : 0.30728466868501614,
+                "99.999" : 0.30728466868501614,
+                "99.9999" : 0.30728466868501614,
+                "100.0" : 0.30728466868501614
+            },
+            "scoreUnit" : "us/op",
+            "rawData" : [
+                [
+                    0.2880374881505124,
+                    0.28360081232810685,
+                    0.289224452002783,
+                    0.289604520714706,
+                    0.30728466868501614
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaDoTamanhoDaMaquina",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "tarefa" : "espera"
+        },
+        "primaryMetric" : {
+            "score" : 6348.3515638,
+            "scoreError" : 8.338805591534877,
+            "scoreConfidence" : [
+                6340.012758208465,
+                6356.690369391535
+            ],
+            "scorePercentiles" : {
+                "0.0" : 6345.109378,
+                "50.0" : 6349.769956,
+                "90.0" : 6349.9211,
+                "95.0" : 6349.9211,
+                "99.0" : 6349.9211,
+                "99.9" : 6349.9211,
+                "99.99" : 6349.9211,
+                "99.999" : 6349.9211,
+                "99.9999" : 6349.9211,
+                "100.0" : 6349.9211
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    6349.769956,
+                    6349.9211,
+                    6349.846035,
+                    6347.11135,
+                    6345.109378
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaDoTamanhoDaMaquina",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "tarefa" : "calculo"
+        },
+        "primaryMetric" : {
+            "score" : 45.08613877291792,
+            "scoreError" : 5.8068610482153735,
+            "scoreConfidence" : [
+                39.279277724702546,
+                50.892999821133294
+            ],
+            "scorePercentiles" : {
+                "0.0" : 43.04735872340426,
+                "50.0" : 45.20828282222222,
+                "90.0" : 46.641463860465116,
+                "95.0" : 46.641463860465116,
+                "99.0" : 46.641463860465116,
+                "99.9" : 46.641463860465116,
+                "99.99" : 46.641463860465116,
+                "99.999" : 46.641463860465116,
+                "99.9999" : 46.641463860465116,
+                "100.0" : 46.641463860465116
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    45.20828282222222,
+                    44.162102913043476,
+                    43.04735872340426,
+                    46.641463860465116,
+                    46.37148554545455
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaEmPool",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "tarefa" : "espera"
+        },
+        "primaryMetric" : {
+            "score" : 509.28465505,
+            "scoreError" : 1.737496855534859,
+            "scoreConfidence" : [
+                507.54715819446517,
+                511.0221519055349
+            ],
+            "scorePercentiles" : {
+                "0.0" : 508.69429375,
+                "50.0" : 509.25356125,
+                "90.0" : 509.95941925,
+                "95.0" : 509.95941925,
+                "99.0" : 509.95941925,
+                "99.9" : 509.95941925,
+                "99.99" : 509.95941925,
+                "99.999" : 509.95941925,
+                "99.9999" : 509.95941925,
+                "100.0" : 509.95941925
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    509.95941925,
+                    509.194025,
+                    508.69429375,
+                    509.25356125,
+                    509.321976
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.threadsDePlataformaEmPool",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "tarefa" : "calculo"
+        },
+        "primaryMetric" : {
+            "score" : 57.432546337010976,
+            "scoreError" : 15.727896684918983,
+            "scoreConfidence" : [
+                41.704649652091994,
+                73.16044302192996
+            ],
+            "scorePercentiles" : {
+                "0.0" : 52.87370328947368,
+                "50.0" : 59.33228232352941,
+                "90.0" : 61.89970781818182,
+                "95.0" : 61.89970781818182,
+                "99.0" : 61.89970781818182,
+                "99.9" : 61.89970781818182,
+                "99.99" : 61.89970781818182,
+                "99.999" : 61.89970781818182,
+                "99.9999" : 61.89970781818182,
+                "100.0" : 61.89970781818182
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    59.33228232352941,
+                    52.87370328947368,
+                    53.30749784210526,
+                    59.749540411764706,
+                    61.89970781818182
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.virtualThreads",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "tarefa" : "espera"
+        },
+        "primaryMetric" : {
+            "score" : 29.90320830400922,
+            "scoreError" : 9.857404087363529,
+            "scoreConfidence" : [
+                20.045804216645692,
+                39.760612391372746
+            ],
+            "scorePercentiles" : {
+                "0.0" : 26.069282883116884,
+                "50.0" : 29.54459043478261,
+                "90.0" : 32.74335014516129,
+                "95.0" : 32.74335014516129,
+                "99.0" : 32.74335014516129,
+                "99.9" : 32.74335014516129,
+                "99.99" : 32.74335014516129,
+                "99.999" : 32.74335014516129,
+                "99.9999" : 32.74335014516129,
+                "100.0" : 32.74335014516129
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    26.069282883116884,
+                    32.74335014516129,
+                    31.67590546875,
+                    29.54459043478261,
+                    29.482912588235294
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.37",
+        "benchmark" : "io.github.alanjoffre.ledgerly.jmh.ThreadsBenchmark.virtualThreads",
+        "mode" : "avgt",
+        "threads" : 1,
+        "forks" : 1,
+        "jvm" : "/Users/alanjoffre/.local/share/java/jdk-25.0.5+8/bin/java",
+        "jvmArgs" : [
+        ],
+        "jdkVersion" : "25.0.5",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "25.0.5+8-LTS",
+        "warmupIterations" : 3,
+        "warmupTime" : "2 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 5,
+        "measurementTime" : "2 s",
+        "measurementBatchSize" : 1,
+        "params" : {
+            "tarefa" : "calculo"
+        },
+        "primaryMetric" : {
+            "score" : 44.046770185440906,
+            "scoreError" : 9.353555188414035,
+            "scoreConfidence" : [
+                34.69321499702687,
+                53.40032537385494
+            ],
+            "scorePercentiles" : {
+                "0.0" : 41.5808683877551,
+                "50.0" : 42.84593576595745,
+                "90.0" : 47.33670539534884,
+                "95.0" : 47.33670539534884,
+                "99.0" : 47.33670539534884,
+                "99.9" : 47.33670539534884,
+                "99.99" : 47.33670539534884,
+                "99.999" : 47.33670539534884,
+                "99.9999" : 47.33670539534884,
+                "100.0" : 47.33670539534884
+            },
+            "scoreUnit" : "ms/op",
+            "rawData" : [
+                [
+                    42.62511678723404,
+                    47.33670539534884,
+                    45.84522459090909,
+                    42.84593576595745,
+                    41.5808683877551
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

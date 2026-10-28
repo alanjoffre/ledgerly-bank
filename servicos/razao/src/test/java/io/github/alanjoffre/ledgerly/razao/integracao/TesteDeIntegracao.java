@@ -6,7 +6,7 @@ import io.github.alanjoffre.ledgerly.razao.aplicacao.ContaRazaoService;
 import io.github.alanjoffre.ledgerly.razao.aplicacao.LancamentoService;
 import io.github.alanjoffre.ledgerly.razao.dominio.ChaveIdempotencia;
 import io.github.alanjoffre.ledgerly.razao.dominio.ContaRazao;
-import java.util.List;
+import io.github.alanjoffre.ledgerly.razao.dominio.ContasQuentes;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +22,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 @Import(ContainersDeTeste.class)
 abstract class TesteDeIntegracao {
 
-    private static final List<UUID> INTERNAS = List.of(ContaRazao.CAIXA, ContaRazao.LIQUIDACAO_PIX);
-
     @Autowired
     protected LancamentoService lancamentos;
 
@@ -37,8 +35,9 @@ abstract class TesteDeIntegracao {
     void limparRazao() {
         // TRUNCATE não dispara os gatilhos de linha que protegem o razão — só serve em teste.
         jdbc.sql("TRUNCATE partida, lancamento, outbox").update();
-        jdbc.sql("DELETE FROM conta_razao WHERE id NOT IN (:internas)").param("internas", INTERNAS).update();
-        jdbc.sql("UPDATE conta_razao SET saldo = 0 WHERE id IN (:internas)").param("internas", INTERNAS).update();
+        // As contas internas (e as suas sub-contas, ADR-0019) têm os 64 bits altos zerados.
+        jdbc.sql("DELETE FROM conta_razao WHERE id::text NOT LIKE '00000000-0000-0000-0000-%'").update();
+        jdbc.sql("UPDATE conta_razao SET saldo = 0 WHERE id::text LIKE '00000000-0000-0000-0000-%'").update();
     }
 
     protected UUID novaConta() {
@@ -53,8 +52,16 @@ abstract class TesteDeIntegracao {
         return id;
     }
 
+    /** O saldo da conta; numa conta interna (Caixa, Liquidação Pix), a soma das sub-contas. */
     protected Dinheiro saldo(UUID conta) {
-        return contas.consultar(conta).saldo();
+        if (!ContaRazao.ehInterna(conta)) {
+            return contas.consultar(conta).saldo();
+        }
+        var soma = jdbc.sql("SELECT COALESCE(SUM(saldo), 0) FROM conta_razao WHERE id IN (:ids)")
+                .param("ids", ContasQuentes.todasAsSubcontas(conta))
+                .query(java.math.BigDecimal.class)
+                .single();
+        return Dinheiro.de(soma, Dinheiro.REAL);
     }
 
     protected static ChaveIdempotencia chave() {

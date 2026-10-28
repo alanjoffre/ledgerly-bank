@@ -36,8 +36,9 @@ class HttpRazao implements Razao {
     }
 
     @Override
-    public ResultadoDoPasso executar(Passo passo, String chave, UUID contaId, Dinheiro valor, String descricao) {
-        var corpo = new RazaoCliente.MovimentoPix(contaId, valor.valor().toPlainString(), descricao);
+    public ResultadoDoPasso executar(
+            Passo passo, String chave, UUID contaId, Dinheiro valor, String descricao, UUID lancamentoEnvioId) {
+        var corpo = new RazaoCliente.MovimentoPix(contaId, valor.valor().toPlainString(), descricao, lancamentoEnvioId);
         try (Response resposta = switch (passo) {
             case DEBITAR -> cliente.enviar(chave, corpo);
             case CREDITAR -> cliente.receber(chave, corpo);

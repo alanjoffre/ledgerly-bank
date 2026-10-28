@@ -58,13 +58,31 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 - [Demonstração](guias/demo-fase-2.md) de ponta a ponta com os quatro serviços rodando
 - ADRs 0013–0018
 
-## ⬜ Fase 3 — Concorrência e desempenho
+## ✅ Fase 3 — Concorrência e desempenho
 
-- *Virtual threads*, *Structured Concurrency*, *Scoped Values*
-- Processamento em lote: conciliação diária de milhões de lançamentos
-- *Benchmarks* com JMH; teste de carga com Gatling ou k6; relatório com números
-- As **contas quentes** (Caixa e Liquidação Pix): quanto seguram sob carga, e o que fazer quando
-  viram gargalo
+- **Teste de carga** com o Gatling, em Java ([ADR-0021](adr/0021-teste-de-carga-com-gatling.md)):
+  depósitos, envios de Pix e transferências, 64 clientes simultâneos, com a integridade do razão
+  conferida depois de cada rodada; os resumos de cada medição ficam no Git
+  (`desempenho/resultados/`)
+- **Contas quentes em sub-contas** ([ADR-0019](adr/0019-contas-quentes-em-subcontas.md)): o Caixa e
+  a Liquidação Pix viraram 16 sub-contas cada. Depósitos de 99 para 489 pedidos/s e envios de Pix de
+  114 para 543 (quase 5×), p99 de ~1 s para ~0,25 s, medidos na mesma sessão
+- Um buraco fechado no caminho: o razão aceitava **receber e também estornar** o mesmo envio de Pix.
+  Agora é no máximo uma saída por envio, na aplicação e num índice único do banco, com teste de
+  disputa simultânea
+- **Virtual threads medidas** ([ADR-0020](adr/0020-virtual-threads-medidas-no-razao.md)) em rodadas
+  alternadas: no razão, as threads de plataforma atenderam de 14% a 28% mais, e viraram o padrão. O
+  gargalo de verdade era o pool de conexões: com 64 conexões em vez de 20, a vazão quase dobrou
+- **Conciliação em lote** Pix × razão ([ADR-0022](adr/0022-conciliacao-em-lote-com-structured-concurrency.md)):
+  *merge join* em memória constante, em paralelo com *Structured Concurrency* e *Scoped Values*.
+  100 milhões de registros por lado em menos de 1,5 s, com o mesmo resultado da execução em sequência
+- **Micro-benchmarks com o JMH** ([ADR-0023](adr/0023-micro-benchmarks-com-jmh.md)): `BigDecimal` ×
+  `long`; `synchronized`, `ReentrantLock`, `AtomicLong` e `LongAdder` sob disputa; *virtual threads* ×
+  pools de threads de plataforma, em tarefas de espera e de cálculo
+- 670 testes no build (524 de unidade, 146 de integração com Testcontainers e Dev Services);
+  cobertura de linhas entre 93% e 98% nos quatro serviços e na conciliação
+- [Demonstração](guias/demo-fase-3.md): a mesma carga com 1 e com 16 sub-contas, e a conciliação
+- ADRs 0019–0023
 
 ## ⬜ Fase 4 — Segurança e front-end React
 

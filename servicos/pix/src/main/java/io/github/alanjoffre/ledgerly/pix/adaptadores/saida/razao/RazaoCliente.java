@@ -1,5 +1,6 @@
 package io.github.alanjoffre.ledgerly.pix.adaptadores.saida.razao;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -18,7 +19,13 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 @Path("/v1/pix")
 public interface RazaoCliente {
 
-    record MovimentoPix(UUID contaId, String valor, String descricao) {}
+    /**
+     * O corpo dos três pedidos. {@code lancamentoEnvioId}: no recebimento e no estorno, o
+     * lançamento do envio de onde o dinheiro sai (o razão confere valor e conta, e aceita uma saída
+     * só por envio — ADR-0019); no envio, {@code null}, e o campo nem vai no JSON.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    record MovimentoPix(UUID contaId, String valor, String descricao, UUID lancamentoEnvioId) {}
 
     @POST
     @Path("/envios")

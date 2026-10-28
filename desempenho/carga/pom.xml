@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Teste de carga do Ledgerly Bank, com o Gatling (Fase 3).
+
+  O que é: um teste de carga dispara muitos pedidos ao mesmo tempo contra o serviço no ar e mede
+  quantos ele atende por segundo (vazão) e quanto cada um demora (latência). Não é um teste de
+  correção — é uma medição. Por isso não roda no "./mvnw verify": roda quando alguém pede.
+
+  Por que Gatling: as simulações são escritas em Java (o mesmo idioma do projeto), e ele gera um
+  relatório HTML com os gráficos. Ver docs/adr/0021.
+
+  Uso (com a infraestrutura e o razão no ar):
+    ./mvnw -pl desempenho/carga gatling:test -Dcenario=depositos
+  O relatório fica em desempenho/carga/target/gatling/<simulação>-<data>/index.html.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.alanjoffre.ledgerly</groupId>
+        <artifactId>ledgerly-bank</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>carga</artifactId>
+    <name>Ledgerly Bank :: Teste de carga (Gatling)</name>
+
+    <properties>
+        <gatling.version>3.16.0</gatling.version>
+        <gatling-maven-plugin.version>4.21.12</gatling-maven-plugin.version>
+        <!-- Nada daqui vai para produção: não há o que medir de cobertura. -->
+        <jacoco.skip>true</jacoco.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.gatling.highcharts</groupId>
+            <artifactId>gatling-charts-highcharts</artifactId>
+            <version>${gatling.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.gatling</groupId>
+                <artifactId>gatling-maven-plugin</artifactId>
+                <version>${gatling-maven-plugin.version}</version>
+                <configuration>
+                    <simulationClass>io.github.alanjoffre.ledgerly.carga.ContasQuentesSimulacao</simulationClass>
+                    <!-- Repassa -Dcenario, -Dusuarios etc. para a simulação. -->
+                    <propagateSystemProperties>true</propagateSystemProperties>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

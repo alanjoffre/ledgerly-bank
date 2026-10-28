@@ -1,0 +1,21 @@
+Cenário: depositos · rótulo: depois-1-subconta · 64 usuários simultâneos por 30 s
+Quando: 2026-10-28 18:53 · máquina: 16 núcleos, 17 GB
+Integridade do razão depois da carga: {"integro":true,"balancos":[{"moeda":"BRL","devedoras":"8000030347.00","credoras":"8000030347.00","fecha":true}],"contasComSaldoDivergente":[],"lancamentosDesbalanceados":[],"contasInternas":[{"conta":"00000000-0000-0000-0000-000000000001","saldo":"8000030347.00","subcontasNegativas":0},{"conta":"00000000-0000-0000-0000-000000000002","saldo":"24100.00","subcontasNegativas":0}]}
+---- Global Information -------------------------------------------------------------|---Total---|-----OK----|----KO----
+> request count                                                                      |     3,553 |     3,553 |         -
+> min response time (ms)                                                             |        31 |        31 |         -
+> max response time (ms)                                                             |     1,567 |     1,567 |         -
+> mean response time (ms)                                                            |       590 |       590 |         -
+> response time std deviation (ms)                                                   |       165 |       165 |         -
+> response time 50th percentile (ms)                                                 |       564 |       564 |         -
+> response time 75th percentile (ms)                                                 |       682 |       682 |         -
+> response time 95th percentile (ms)                                                 |       890 |       890 |         -
+> response time 99th percentile (ms)                                                 |     1,043 |     1,043 |         -
+> mean throughput (rps)                                                              |     98.69 |     98.69 |         -
+---- Response Time Distribution ----------------------------------------------------------------------------------------
+> OK: t < 800 ms                                                                                          3,168 (89.16%)
+> OK: 800 ms <= t < 1200 ms                                                                                 376 (10.58%)
+> OK: t >= 1200 ms                                                                                            9  (0.25%)
+> KO                                                                                                          0     (0%)
+========================================================================================================================
+Relatório com gráficos: desempenho/carga/target/gatling/contasquentessimulacao-20261028215301800/index.html

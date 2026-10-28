@@ -40,7 +40,7 @@ está registrada numa [ADR](docs/adr/README.md), com as alternativas descartadas
 | **Front-end com React** | Internet banking e backoffice de fraude em React + TypeScript (planejado: Fase 4) |
 | **Arquitetura de sistemas** | Microsserviços orientados a eventos, [Saga](docs/adr/0015-saga-orquestrada-no-pix.md), [Outbox](docs/adr/0013-outbox-para-publicar-eventos.md), [CQRS](docs/adr/0016-extrato-em-cqrs-no-mongodb.md) — [visão geral](docs/arquitetura/visao-geral.md) |
 | **Software design e system design** | DDD, arquitetura hexagonal, *value objects*, diagramas C4, [ADRs](docs/adr/README.md) |
-| **Concorrência e multithreading em Java** | Prova de saldo sem gasto duplo sob 1.500 saques simultâneos, *virtual threads*; *Structured Concurrency* e JMH (planejado: Fase 3) |
+| **Concorrência e multithreading em Java** | Prova de saldo sem gasto duplo sob 1.500 saques simultâneos; [contas quentes em sub-contas](docs/adr/0019-contas-quentes-em-subcontas.md), medidas com Gatling; [*virtual threads* medidas](docs/adr/0020-virtual-threads-medidas-no-razao.md); conciliação em lote com [*Structured Concurrency* e *Scoped Values*](docs/adr/0022-conciliacao-em-lote-com-structured-concurrency.md); [JMH](docs/adr/0023-micro-benchmarks-com-jmh.md) |
 | **Infra e nuvem: Docker, Kubernetes e AWS** | Docker Compose; Kubernetes com Helm e Terraform da AWS validado no CI (planejado: Fase 6) |
 | **Bancos relacionais e NoSQL** | PostgreSQL (um banco por serviço), MongoDB, Redis; pgvector (planejado: Fase 5) |
 | **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, cobertura mínima no build; contrato (Pact) e *mutation testing* (PIT) (planejado: Fase 7) |
@@ -74,7 +74,7 @@ evento, no [contrato dos eventos](docs/arquitetura/eventos.md).
 | 0 | Fundação: monorepo, `Dinheiro`, infraestrutura local, CI, documentação | ✅ |
 | 1 | Razão contábil e contas (Spring Boot), prova de concorrência, idempotência | ✅ |
 | 2 | Pix em Quarkus, Saga com estorno, Outbox + Kafka, extrato em CQRS (MongoDB) | ✅ |
-| 3 | Concorrência e desempenho: *virtual threads*, JMH, teste de carga | ⬜ |
+| 3 | Concorrência e desempenho: contas quentes em sub-contas, teste de carga, conciliação em lote, JMH | ✅ |
 | 4 | Segurança (Keycloak) e front-end React | ⬜ |
 | 5 | IA aplicada: antifraude e assistente do extrato | ⬜ |
 | 6 | Kubernetes, Terraform da AWS e observabilidade | ⬜ |
@@ -103,9 +103,42 @@ docker compose -f infra/docker/compose.yaml up -d --wait
 
 # Pix de ponta a ponta, com o razão derrubado no meio de uma transferência
 ./scripts/demo-fase-2.sh
+
+# As contas quentes medidas antes e depois, e a conciliação em lote
+./scripts/demo-fase-3.sh
 ```
 
-O que cada passo da demonstração mostra está na [demonstração da Fase 2](docs/guias/demo-fase-2.md).
+O que cada passo mostra está nas demonstrações da [Fase 2](docs/guias/demo-fase-2.md) e da
+[Fase 3](docs/guias/demo-fase-3.md).
+
+## Destaque: medir antes de acreditar
+
+Todo depósito passa pelo **Caixa** e todo Pix passa pela **Liquidação Pix**. Cada lançamento trava
+a linha das suas contas até o `COMMIT`, então pedidos de clientes **diferentes** faziam fila na
+mesma linha. É a **conta quente** (*hot account*). O
+[teste de carga](docs/adr/0021-teste-de-carga-com-gatling.md) mostrou o tamanho do problema, e a
+solução foi dividir cada conta quente em 16 sub-contas, com o saldo sendo a soma delas
+([ADR-0019](docs/adr/0019-contas-quentes-em-subcontas.md)):
+
+| 64 clientes simultâneos, mesma sessão | Caixa numa linha só | 16 sub-contas |
+| --- | --- | --- |
+| Depósitos por segundo | 99 | **489** (5,0×) |
+| Envios de Pix por segundo | 114 | **543** (4,8×) |
+| Latência p99 dos depósitos | 1.043 ms | **288 ms** |
+
+No caminho apareceu um buraco que nenhum teste pegava: o razão aceitava **receber e também
+estornar** o mesmo Pix, e o dinheiro aparecia do nada. Agora um envio tem no máximo uma saída, na
+aplicação e num índice único do banco.
+
+E nem toda promessa se cumpriu. As *virtual threads*, ligadas no razão desde a Fase 1, foram
+medidas em rodadas alternadas contra as threads de plataforma, e **perderam** (de 14% a 28% a menos
+de vazão). O gargalo era o *pool* de conexões com o banco: com 64 conexões em vez de 20, a vazão
+quase dobrou nos dois modos. O razão voltou às threads de plataforma, com os números na
+[ADR-0020](docs/adr/0020-virtual-threads-medidas-no-razao.md).
+
+Já na [conciliação em lote](docs/adr/0022-conciliacao-em-lote-com-structured-concurrency.md), o
+paralelo vale a pena: **100 milhões de lançamentos por lado em menos de 1,5 s**, com *Structured
+Concurrency* (se uma faixa falha, as outras param) e o mesmo resultado da execução em sequência.
 
 ## Destaque: sem resposta não é recusa
 
@@ -206,6 +239,12 @@ ledgerly-bank/
 │   ├── razao/                  # razão contábil (Spring Boot + JDBC)
 │   ├── pix/                    # chaves, QR Code e a Saga (Quarkus)
 │   └── extrato/                # extrato em CQRS (Spring Boot + MongoDB)
+├── lotes/
+│   └── conciliacao/            # conciliação em lote Pix × razão (Structured Concurrency)
+├── desempenho/                 # medições: carga, micro-benchmarks e os números
+│   ├── carga/                  # teste de carga (Gatling)
+│   ├── jmh/                    # micro-benchmarks (JMH)
+│   └── resultados/             # os números de cada medição
 ├── infra/
 │   └── docker/                 # Docker Compose, bancos e tópicos do Kafka
 ├── scripts/                    # subir os serviços, demonstrações, medições
@@ -226,9 +265,12 @@ ledgerly-bank/
 - [Glossário](docs/glossario.md) — termos de banco e de tecnologia explicados
 - [Guia de ambiente local](docs/guias/ambiente-local.md)
 - [Contrato dos eventos](docs/arquitetura/eventos.md) — tópicos do Kafka e formato de cada evento
-- Demonstrações: [Fase 1](docs/guias/demo-fase-1.md) · [Fase 2](docs/guias/demo-fase-2.md)
+- Demonstrações: [Fase 1](docs/guias/demo-fase-1.md) · [Fase 2](docs/guias/demo-fase-2.md) ·
+  [Fase 3](docs/guias/demo-fase-3.md)
 - Serviços: [razão](servicos/razao/README.md) · [contas](servicos/contas/README.md) ·
   [pix](servicos/pix/README.md) · [extrato](servicos/extrato/README.md)
+- [Conciliação em lote](lotes/conciliacao/README.md) · [Medições de desempenho](desempenho/README.md)
+  (carga e micro-benchmarks)
 - [Histórico de versões](CHANGELOG.md)
 - [Como contribuir](CONTRIBUTING.md)
 

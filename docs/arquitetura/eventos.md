@@ -96,7 +96,7 @@ Produzido pelo **razao**, um evento por lançamento. O extrato consome.
   "registradoEm": "2026-10-27T18:30:00.123456Z",
   "partidas": [
     { "sequencia": 1041, "contaId": "c1…", "contaInterna": false, "tipo": "DEBITO",  "valor": "1200.00", "saldoApos": "300.00" },
-    { "sequencia": 1042, "contaId": "00000000-0000-0000-0000-000000000002", "contaInterna": true, "tipo": "CREDITO", "valor": "1200.00", "saldoApos": "1200.00" }
+    { "sequencia": 1042, "contaId": "00000000-0000-0000-0000-000000000702", "contaInterna": true, "tipo": "CREDITO", "valor": "1200.00", "saldoApos": "1200.00" }
   ]
 }
 ```
@@ -105,7 +105,7 @@ Produzido pelo **razao**, um evento por lançamento. O extrato consome.
 |---|---|
 | `tipo` | `DEPOSITO`, `SAQUE`, `TRANSFERENCIA`, `PIX_ENVIO`, `PIX_RECEBIMENTO`, `PIX_ESTORNO` |
 | `partidas[].sequencia` | Número da partida no razão: cresce sempre. Numa conta, a partida de maior sequência tem o saldo atual. |
-| `partidas[].contaInterna` | `true` para as contas do próprio banco (Caixa, Liquidação Pix) — o extrato do cliente as ignora. |
+| `partidas[].contaInterna` | `true` para as contas do próprio banco (Caixa, Liquidação Pix) — o extrato do cliente as ignora. Desde a Fase 3, o `contaId` de uma conta interna é uma das suas 16 sub-contas (no exemplo, a sub-conta 7 da Liquidação Pix, [ADR-0019](../adr/0019-contas-quentes-em-subcontas.md)): quem precisar da conta-mãe usa o último byte do id (`01` Caixa, `02` Liquidação Pix). |
 | `partidas[].saldoApos` | Saldo da conta logo depois desta partida, calculado pelo razão (o extrato não recalcula nada). |
 
 Os eventos de lançamentos diferentes podem chegar fora de ordem entre si (chaves diferentes,
@@ -155,11 +155,14 @@ Chamadas de serviço para serviço. Na Fase 4 passam a exigir token de serviço.
 ### razao — movimentos do Pix
 
 Três operações que passam pela conta interna **Liquidação Pix**
-(`00000000-0000-0000-0000-000000000002`, natureza credora): o dinheiro de um Pix em andamento fica
-nela, entre sair do pagador e chegar ao recebedor.
+(`00000000-0000-0000-0000-000000000002`, natureza credora, dividida em 16 sub-contas desde a Fase 3):
+o dinheiro de um Pix em andamento fica nela, entre sair do pagador e chegar ao recebedor.
 
-Todas exigem `Idempotency-Key`, recebem `{"contaId", "valor", "descricao"?}` e respondem como
-`POST /v1/transferencias` (201 novo · 200 repetido, mesmos erros).
+Todas exigem `Idempotency-Key` e respondem como `POST /v1/transferencias` (201 novo · 200 repetido,
+mesmos erros). O envio recebe `{"contaId", "valor", "descricao"?}`. O recebimento e o estorno
+recebem também **`lancamentoEnvioId`** (Fase 3): o lançamento do envio de onde o dinheiro sai. O
+razão confere se é mesmo um envio, se o valor é o mesmo, se o estorno volta para quem pagou e se o
+envio ainda não teve saída; senão, `422 envio-pix-invalido`.
 
 | Método e caminho | Débito | Crédito | `tipo` |
 |---|---|---|---|

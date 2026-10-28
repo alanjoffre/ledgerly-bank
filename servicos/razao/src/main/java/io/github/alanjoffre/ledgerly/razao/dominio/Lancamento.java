@@ -6,8 +6,10 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Um lançamento: o registro de um fato contábil (depósito, saque, transferência), com duas ou
@@ -25,6 +27,9 @@ import java.util.UUID;
  * @param descricao    texto livre para o extrato (opcional, até 140 caracteres)
  * @param partidas     as linhas de débito e crédito
  * @param registradoEm quando foi escriturado
+ * @param envioPixId   no recebimento e no estorno de Pix, o lançamento de envio de onde sai o
+ *                     dinheiro (ADR-0019); nos outros tipos, {@code null}. Lançamentos gravados
+ *                     antes da Fase 3 também não têm, por isso não é obrigatório aqui
  */
 public record Lancamento(
         UUID id,
@@ -32,7 +37,8 @@ public record Lancamento(
         TipoOperacao tipo,
         String descricao,
         List<Partida> partidas,
-        Instant registradoEm) {
+        Instant registradoEm,
+        UUID envioPixId) {
 
     public static final int TAMANHO_MAXIMO_DESCRICAO = 140;
 
@@ -47,6 +53,20 @@ public record Lancamento(
         validarDescricao(descricao);
         partidas = List.copyOf(Objects.requireNonNull(partidas, "partidas são obrigatórias"));
         exigirPartidasDobradas(partidas.stream().map(Partida::comoPedido).toList());
+        if (envioPixId != null && !tipo.ehSaidaDaLiquidacao()) {
+            throw new LancamentoInvalidoException("Só o recebimento e o estorno de Pix apontam para um envio");
+        }
+    }
+
+    /** Lançamento que não aponta para um envio de Pix (todos menos recebimento e estorno). */
+    public Lancamento(
+            UUID id,
+            ChaveIdempotencia chave,
+            TipoOperacao tipo,
+            String descricao,
+            List<Partida> partidas,
+            Instant registradoEm) {
+        this(id, chave, tipo, descricao, partidas, registradoEm, null);
     }
 
     /**
@@ -96,9 +116,40 @@ public record Lancamento(
      * Diz se este lançamento foi gerado por um pedido igual a este — usado quando a mesma chave
      * de idempotência chega de novo. Pedido igual: devolve o lançamento antigo. Diferente: erro.
      */
-    public boolean correspondeA(TipoOperacao outroTipo, List<PedidoDePartida> pedidos) {
+    public boolean correspondeA(TipoOperacao outroTipo, List<PedidoDePartida> pedidos, UUID outroEnvioPixId) {
         return tipo == outroTipo
-                && Set.copyOf(partidas.stream().map(Partida::comoPedido).toList()).equals(Set.copyOf(pedidos));
+                && Objects.equals(envioPixId, outroEnvioPixId)
+                && semSubcontas(partidas.stream().map(Partida::comoPedido).toList()).equals(semSubcontas(pedidos));
+    }
+
+    /**
+     * Na comparação, a sub-conta vira a conta-mãe: se o número de sub-contas mudar entre o pedido
+     * original e a repetição, o depósito repetido cai em outra sub-conta do Caixa — e continua sendo
+     * o mesmo pedido.
+     */
+    private static Set<PedidoDePartida> semSubcontas(List<PedidoDePartida> pedidos) {
+        return pedidos.stream()
+                .map(p -> new PedidoDePartida(ContasQuentes.contaMae(p.contaId()), p.tipo(), p.valor()))
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * A sub-conta de uma conta interna (Caixa ou Liquidação Pix) que este lançamento movimentou, se
+     * movimentou alguma.
+     */
+    public Optional<UUID> subcontaInterna(UUID mae) {
+        return partidas.stream()
+                .map(Partida::contaId)
+                .filter(conta -> ContaRazao.ehInterna(conta) && ContasQuentes.contaMae(conta).equals(mae))
+                .findFirst();
+    }
+
+    /** A conta de cliente que este lançamento movimentou com este tipo de partida, se houver. */
+    public Optional<UUID> contaDeClienteCom(TipoPartida tipoDaPartida) {
+        return partidas.stream()
+                .filter(p -> p.tipo() == tipoDaPartida && !ContaRazao.ehInterna(p.contaId()))
+                .map(Partida::contaId)
+                .findFirst();
     }
 
     /** A partida desta conta neste lançamento. */

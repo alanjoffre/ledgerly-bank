@@ -5,6 +5,7 @@ import io.github.alanjoffre.ledgerly.razao.aplicacao.ItemExtrato;
 import io.github.alanjoffre.ledgerly.razao.aplicacao.porta.LancamentoRepository;
 import io.github.alanjoffre.ledgerly.razao.dominio.ChaveIdempotencia;
 import io.github.alanjoffre.ledgerly.razao.dominio.ChaveIdempotenciaReutilizadaException;
+import io.github.alanjoffre.ledgerly.razao.dominio.EnvioPixInvalidoException;
 import io.github.alanjoffre.ledgerly.razao.dominio.Lancamento;
 import io.github.alanjoffre.ledgerly.razao.dominio.Partida;
 import io.github.alanjoffre.ledgerly.razao.dominio.TipoOperacao;
@@ -42,15 +43,19 @@ class JdbcLancamentoRepository implements LancamentoRepository {
 
     @Override
     public Optional<Lancamento> buscarPorId(UUID id) {
-        record Cabecalho(String chave, String tipo, String descricao, Timestamp registradoEm) {}
+        record Cabecalho(String chave, String tipo, String descricao, Timestamp registradoEm, UUID envioPixId) {}
 
-        return jdbc.sql("SELECT chave_idempotencia, tipo, descricao, registrado_em FROM lancamento WHERE id = :id")
+        return jdbc.sql("""
+                        SELECT chave_idempotencia, tipo, descricao, registrado_em, envio_pix_id
+                          FROM lancamento WHERE id = :id
+                        """)
                 .param("id", id)
                 .query((rs, n) -> new Cabecalho(
                         rs.getString("chave_idempotencia"),
                         rs.getString("tipo"),
                         rs.getString("descricao"),
-                        rs.getTimestamp("registrado_em")))
+                        rs.getTimestamp("registrado_em"),
+                        rs.getObject("envio_pix_id", UUID.class)))
                 .optional()
                 .map(c -> new Lancamento(
                         id,
@@ -58,23 +63,30 @@ class JdbcLancamentoRepository implements LancamentoRepository {
                         TipoOperacao.valueOf(c.tipo()),
                         c.descricao(),
                         partidasDo(id),
-                        c.registradoEm().toInstant()));
+                        c.registradoEm().toInstant(),
+                        c.envioPixId()));
     }
 
     @Override
     public List<Long> inserir(Lancamento lancamento) {
         try {
             jdbc.sql("""
-                            INSERT INTO lancamento (id, chave_idempotencia, tipo, descricao, registrado_em)
-                            VALUES (:id, :chave, :tipo, :descricao, :registradoEm)
+                            INSERT INTO lancamento (id, chave_idempotencia, tipo, descricao, registrado_em, envio_pix_id)
+                            VALUES (:id, :chave, :tipo, :descricao, :registradoEm, :envioPixId)
                             """)
                     .param("id", lancamento.id())
                     .param("chave", lancamento.chave().valor())
                     .param("tipo", lancamento.tipo().name())
                     .param("descricao", lancamento.descricao())
                     .param("registradoEm", Timestamp.from(lancamento.registradoEm()))
+                    .param("envioPixId", lancamento.envioPixId())
                     .update();
         } catch (DuplicateKeyException e) {
+            // A outra trava única: um envio de Pix com duas saídas (ver V3__contas_quentes.sql).
+            if (String.valueOf(e.getMessage()).contains("uma_saida_por_envio")) {
+                throw new EnvioPixInvalidoException("O envio %s já teve a sua saída da Liquidação Pix"
+                        .formatted(lancamento.envioPixId()));
+            }
             // Só acontece numa corrida entre dois pedidos DIFERENTES com a mesma chave (pedidos iguais
             // travam as mesmas contas e ficam em fila). A transação é desfeita inteira.
             throw new ChaveIdempotenciaReutilizadaException(
@@ -96,6 +108,14 @@ class JdbcLancamentoRepository implements LancamentoRepository {
                     .single());
         }
         return sequencias;
+    }
+
+    @Override
+    public boolean envioJaTeveSaida(UUID envioPixId) {
+        return jdbc.sql("SELECT EXISTS (SELECT 1 FROM lancamento WHERE envio_pix_id = :envio)")
+                .param("envio", envioPixId)
+                .query(Boolean.class)
+                .single();
     }
 
     @Override

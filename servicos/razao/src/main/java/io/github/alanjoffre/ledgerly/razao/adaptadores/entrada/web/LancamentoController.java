@@ -4,6 +4,7 @@ import io.github.alanjoffre.ledgerly.nucleo.Dinheiro;
 import io.github.alanjoffre.ledgerly.razao.adaptadores.entrada.web.Dtos.DepositoRequisicao;
 import io.github.alanjoffre.ledgerly.razao.adaptadores.entrada.web.Dtos.LancamentoResposta;
 import io.github.alanjoffre.ledgerly.razao.adaptadores.entrada.web.Dtos.MovimentoPixRequisicao;
+import io.github.alanjoffre.ledgerly.razao.adaptadores.entrada.web.Dtos.SaidaDaLiquidacaoRequisicao;
 import io.github.alanjoffre.ledgerly.razao.adaptadores.entrada.web.Dtos.SaqueRequisicao;
 import io.github.alanjoffre.ledgerly.razao.adaptadores.entrada.web.Dtos.TransferenciaRequisicao;
 import io.github.alanjoffre.ledgerly.razao.aplicacao.Comandos;
@@ -27,7 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * <p>Os movimentos do Pix ({@code /v1/pix/...}) são chamados pelo serviço pix, um passo de cada vez
  * da Saga (ADR-0015): o dinheiro sai do pagador para a conta interna Liquidação Pix e de lá para o
- * recebedor — ou volta ao pagador, no estorno.
+ * recebedor — ou volta ao pagador, no estorno. O recebimento e o estorno informam o
+ * {@code lancamentoEnvioId}: o dinheiro sai da sub-conta da Liquidação Pix em que o envio entrou, e
+ * cada envio tem uma saída só (ADR-0019).
  *
  * <p>Todo pedido que move dinheiro exige o cabeçalho {@code Idempotency-Key}. Resposta:
  * <ul>
@@ -88,14 +91,14 @@ class LancamentoController {
 
     @PostMapping("/pix/recebimentos")
     ResponseEntity<LancamentoResposta> receberPix(
-            @RequestHeader(CABECALHO_CHAVE) String chave, @Valid @RequestBody MovimentoPixRequisicao requisicao) {
-        return responder(servico.receberPix(movimentoPix(chave, requisicao)));
+            @RequestHeader(CABECALHO_CHAVE) String chave, @Valid @RequestBody SaidaDaLiquidacaoRequisicao requisicao) {
+        return responder(servico.receberPix(saidaDaLiquidacao(chave, requisicao)));
     }
 
     @PostMapping("/pix/estornos")
     ResponseEntity<LancamentoResposta> estornarPix(
-            @RequestHeader(CABECALHO_CHAVE) String chave, @Valid @RequestBody MovimentoPixRequisicao requisicao) {
-        return responder(servico.estornarPix(movimentoPix(chave, requisicao)));
+            @RequestHeader(CABECALHO_CHAVE) String chave, @Valid @RequestBody SaidaDaLiquidacaoRequisicao requisicao) {
+        return responder(servico.estornarPix(saidaDaLiquidacao(chave, requisicao)));
     }
 
     @GetMapping("/lancamentos/{id}")
@@ -109,6 +112,15 @@ class LancamentoController {
                 requisicao.contaId(),
                 Dinheiro.reais(requisicao.valor()),
                 requisicao.descricao());
+    }
+
+    private static Comandos.SaidaDaLiquidacao saidaDaLiquidacao(String chave, SaidaDaLiquidacaoRequisicao requisicao) {
+        return new Comandos.SaidaDaLiquidacao(
+                new ChaveIdempotencia(chave),
+                requisicao.contaId(),
+                Dinheiro.reais(requisicao.valor()),
+                requisicao.descricao(),
+                requisicao.lancamentoEnvioId());
     }
 
     private static ResponseEntity<LancamentoResposta> responder(ResultadoLancamento resultado) {

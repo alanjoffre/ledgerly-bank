@@ -29,7 +29,7 @@ sequenceDiagram
     PX->>RZ: POST /v1/pix/envios (pix:<id>:envio)
     Note over RZ: pagador → Liquidação Pix
     PX->>DB: DEBITADA
-    PX->>RZ: POST /v1/pix/recebimentos (pix:<id>:recebimento)
+    PX->>RZ: POST /v1/pix/recebimentos (pix:<id>:recebimento, lancamentoEnvioId)
     Note over RZ: Liquidação Pix → recebedor
     PX->>DB: CONCLUIDA + PixConcluido no Outbox (mesma transação)
     PX-->>C: 201 Created {situacao: CONCLUIDA}
@@ -45,6 +45,11 @@ sequenceDiagram
 Sem resposta **não é** recusa: o razão pode ter movido o dinheiro e a resposta se perdido.
 Compensar ali devolveria ao pagador um dinheiro que já chegou ao recebedor, e quem pagaria a diferença seria o dinheiro de outros clientes em trânsito na Liquidação Pix. Os detalhes e o teste que prova estão na
 [ADR-0015](../../docs/adr/0015-saga-orquestrada-no-pix.md).
+
+O crédito e o estorno levam o id do lançamento do envio (`lancamentoEnvioId`, desde a Fase 3): o
+razão tira o dinheiro da mesma sub-conta da Liquidação Pix em que o envio entrou, e aceita uma
+saída só por envio, mesmo que alguém peça as duas
+([ADR-0019](../../docs/adr/0019-contas-quentes-em-subcontas.md)).
 
 Se o serviço morrer no meio, outra execução assume: cada passo **reserva** a transferência por 30 s,
 e um agendador retoma, a cada segundo, as que ficaram paradas.
@@ -159,7 +164,8 @@ Variáveis de ambiente: `PIX_PORTA`, `PIX_DB_URL`, `PIX_DB_USUARIO`, `PIX_DB_SEN
 
 O razão e o serviço de contas, nos testes, são **falsos** ([ServicosFalsos](src/test/java/io/github/alanjoffre/ledgerly/pix/integracao/ServicosFalsos.java)):
 um servidor HTTP do próprio JDK que segue o contrato do razão de verdade — inclusive a
-idempotência — e que o teste manda falhar, demorar ou recusar. O Pix fala com ele por HTTP de
+idempotência e, desde a Fase 3, a referência ao envio no crédito e no estorno — e que o teste manda
+falhar, demorar ou recusar. O Pix fala com ele por HTTP de
 verdade, com os mesmos clientes e tempos-limite de produção.
 
 Cobertura (unidade + integração): **93% das linhas, 87% dos ramos**.

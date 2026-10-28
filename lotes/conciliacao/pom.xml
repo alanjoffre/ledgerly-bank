@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Conciliação em lote (Fase 3): confere, registro a registro, se o que o Pix diz que aconteceu
+  bate com o que o razão escriturou. Ver docs/adr/0022.
+
+  "Em lote" (no mercado, batch): um programa que roda de tempos em tempos sobre muitos registros
+  de uma vez, e não a cada pedido de cliente. Bancos conciliam todo dia, depois do fechamento.
+
+  Java puro, sem framework: StructuredTaskScope (preview no Java 25), ScopedValue e virtual threads.
+  "Preview" é um recurso pronto mas ainda sujeito a mudar: o Java só o liga com enable-preview, na
+  compilação e na execução. Por isso ele fica isolado neste módulo — nenhum serviço depende dele.
+
+  Medir (fora do "./mvnw verify"): lotes/conciliacao/medir.sh [registros] [partes]
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.alanjoffre.ledgerly</groupId>
+        <artifactId>ledgerly-bank</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>conciliacao</artifactId>
+    <name>Ledgerly Bank :: Conciliação em lote</name>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- Soma aos argumentos do pom raiz: liga o preview e cala o aviso de usá-lo
+                         (com -Werror, o aviso derrubaria o build). -->
+                    <compilerArgs combine.children="append">
+                        <arg>--enable-preview</arg>
+                        <arg>-Xlint:-preview</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- @{argLine}: o agente do JaCoCo (cobertura), mais o preview. -->
+                    <argLine>@{argLine} --enable-preview</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -5,7 +5,42 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [0.3.0] — 2026-10-28
+
+### Adicionado — Fase 3 (concorrência e desempenho)
+
+- **Teste de carga** com o Gatling (`desempenho/carga`): depósitos, envios de Pix e transferências,
+  64 clientes simultâneos, com a integridade do razão conferida depois de cada rodada. Os resumos
+  ficam em `desempenho/resultados/carga/` ([ADR-0021](docs/adr/0021-teste-de-carga-com-gatling.md)).
+- **Contas quentes em sub-contas:** o Caixa e a Liquidação Pix viraram 16 sub-contas cada, e cada
+  lançamento trava só uma. Depósitos e envios de Pix quase 5× mais rápidos, p99 de ~1 s para ~0,25 s
+  (`RAZAO_SUBCONTAS`, [ADR-0019](docs/adr/0019-contas-quentes-em-subcontas.md)).
+- `GET /v1/integridade` mostra o saldo de cada conta interna (a soma das sub-contas) e quantas
+  sub-contas estão negativas.
+- *Virtual threads* no razão medidas contra threads de plataforma, em rodadas alternadas, e
+  configuráveis (`RAZAO_THREADS_VIRTUAIS`, [ADR-0020](docs/adr/0020-virtual-threads-medidas-no-razao.md)).
+- **Conciliação em lote** Pix × razão (`lotes/conciliacao`): *merge join* por faixas de ids, em
+  paralelo com *Structured Concurrency* e *Scoped Values*, sobre milhões de registros sintéticos
+  ([ADR-0022](docs/adr/0022-conciliacao-em-lote-com-structured-concurrency.md)).
+- **Micro-benchmarks** com o JMH (`desempenho/jmh`): `BigDecimal` × `long`; `synchronized`,
+  `ReentrantLock`, `AtomicLong` e `LongAdder` sob disputa; *virtual threads* × pool de threads
+  ([ADR-0023](docs/adr/0023-micro-benchmarks-com-jmh.md)).
+
+### Mudado
+
+- O razão passou a usar **threads de plataforma** por padrão, e não *virtual threads*: medidas sob
+  carga, elas atenderam de 14% a 28% mais pedidos. O limite do razão é o pool de conexões com o banco
+  (com 64 conexões em vez de 20, a vazão quase dobrou nos dois modos) ([ADR-0020](docs/adr/0020-virtual-threads-medidas-no-razao.md)).
+- `POST /v1/pix/recebimentos` e `/estornos` no razão exigem `lancamentoEnvioId`, o lançamento do
+  envio de onde o dinheiro sai; o serviço de Pix já manda. Novo erro `422 envio-pix-invalido`.
+- A demonstração da Fase 2 compara a Liquidação Pix com o saldo do início, e não com zero.
+
 ### Corrigido
+
+- **O razão aceitava duas saídas do mesmo envio de Pix.** Receber e também estornar o mesmo envio
+  passava, se a Liquidação Pix tivesse dinheiro de outros Pix: o dinheiro aparecia do nada. Só a
+  Saga impedia. Agora há no máximo uma saída por envio, conferida na aplicação e por um índice
+  único no banco (ADR-0019).
 
 - **Pix para conta recém-aberta era estornado.** O razão só conhece a conta depois de consumir o
   `ContaAberta`; nesse intervalo, o `404 conta-nao-encontrada` no crédito virava recusa e estorno.
@@ -85,6 +120,7 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 - CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot.
 - Documentação: arquitetura C4, ADRs 0001–0007, roteiro de fases, glossário, guia de ambiente.
 
-[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.2.0...HEAD
+[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.3.0
 [0.2.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.2.0
 [0.1.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.1.0

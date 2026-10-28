@@ -221,20 +221,39 @@ class ApiIT extends TesteDeIntegracao {
                     .exchange();
         }
 
+        /** Recebimento ou estorno: apontam para o envio de onde sai o dinheiro (ADR-0019). */
+        private MvcTestResult saida(String caminho, String chave, UUID conta, String valor, UUID envio) {
+            return http.post().uri("/v1/pix/" + caminho)
+                    .header("Idempotency-Key", chave)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"contaId\":\"%s\",\"valor\":\"%s\",\"lancamentoEnvioId\":\"%s\"}"
+                            .formatted(conta, valor, envio))
+                    .exchange();
+        }
+
+        private UUID idDoLancamento(MvcTestResult resultado) throws Exception {
+            var corpo = resultado.getResponse().getContentAsString();
+            var achado = java.util.regex.Pattern.compile("\"id\":\"([0-9a-f-]{36})\"").matcher(corpo);
+            assertThat(achado.find()).as("id do lançamento em %s", corpo).isTrue();
+            return UUID.fromString(achado.group(1));
+        }
+
         @Test
         @DisplayName("envio e recebimento: 201, e o passo repetido devolve 200 com o mesmo lançamento")
-        void envioERecebimento() {
+        void envioERecebimento() throws Exception {
             UUID pagador = UUID.randomUUID();
             UUID recebedor = UUID.randomUUID();
             abrirConta(pagador);
             abrirConta(recebedor);
             depositar(UUID.randomUUID().toString(), pagador, "50.00");
 
-            assertThat(movimento("envios", "pix:a:envio", pagador, "20.00")).hasStatus(HttpStatus.CREATED)
+            var envio = movimento("envios", "pix:a:envio", pagador, "20.00");
+            assertThat(envio).hasStatus(HttpStatus.CREATED)
                     .bodyJson().hasPathSatisfying("$.tipo", v -> v.assertThat().isEqualTo("PIX_ENVIO"));
             assertThat(movimento("envios", "pix:a:envio", pagador, "20.00")).hasStatus(HttpStatus.OK)
                     .hasHeader("Idempotent-Replayed", "true");
-            assertThat(movimento("recebimentos", "pix:a:credito", recebedor, "20.00")).hasStatus(HttpStatus.CREATED)
+            assertThat(saida("recebimentos", "pix:a:credito", recebedor, "20.00", idDoLancamento(envio)))
+                    .hasStatus(HttpStatus.CREATED)
                     .bodyJson().hasPathSatisfying("$.tipo", v -> v.assertThat().isEqualTo("PIX_RECEBIMENTO"));
             assertThat(http.get().uri("/v1/contas/{id}", recebedor)).bodyJson()
                     .hasPathSatisfying("$.saldo", v -> v.assertThat().isEqualTo("20.00"));
@@ -242,7 +261,7 @@ class ApiIT extends TesteDeIntegracao {
 
         @Test
         @DisplayName("recebedor encerrado: 422 conta-inativa; estorno devolve ao pagador")
-        void recusaEEstorno() {
+        void recusaEEstorno() throws Exception {
             UUID pagador = UUID.randomUUID();
             UUID recebedor = UUID.randomUUID();
             abrirConta(pagador);
@@ -250,12 +269,12 @@ class ApiIT extends TesteDeIntegracao {
             http.put().uri("/v1/contas/{id}/situacao", recebedor)
                     .contentType(MediaType.APPLICATION_JSON).content("{\"situacao\":\"ENCERRADA\"}").exchange();
             depositar(UUID.randomUUID().toString(), pagador, "50.00");
-            movimento("envios", "pix:b:envio", pagador, "20.00");
+            UUID envio = idDoLancamento(movimento("envios", "pix:b:envio", pagador, "20.00"));
 
-            assertThat(movimento("recebimentos", "pix:b:credito", recebedor, "20.00"))
+            assertThat(saida("recebimentos", "pix:b:credito", recebedor, "20.00", envio))
                     .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
                     .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:conta-inativa"));
-            assertThat(movimento("estornos", "pix:b:estorno", pagador, "20.00")).hasStatus(HttpStatus.CREATED)
+            assertThat(saida("estornos", "pix:b:estorno", pagador, "20.00", envio)).hasStatus(HttpStatus.CREATED)
                     .bodyJson().hasPathSatisfying("$.tipo", v -> v.assertThat().isEqualTo("PIX_ESTORNO"));
             assertThat(http.get().uri("/v1/contas/{id}", pagador)).bodyJson()
                     .hasPathSatisfying("$.saldo", v -> v.assertThat().isEqualTo("50.00"));
@@ -268,6 +287,23 @@ class ApiIT extends TesteDeIntegracao {
                             UUID.fromString("00000000-0000-0000-0000-000000000002"), "1.00"))
                     .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
                     .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:operacao-nao-permitida"));
+        }
+
+        @Test
+        @DisplayName("recebimento sem o lancamentoEnvioId: 400; o mesmo envio recebido duas vezes: 422 envio-pix-invalido")
+        void saidaPeloEnvio() throws Exception {
+            UUID pagador = UUID.randomUUID();
+            UUID recebedor = UUID.randomUUID();
+            abrirConta(pagador);
+            abrirConta(recebedor);
+            depositar(UUID.randomUUID().toString(), pagador, "50.00");
+            UUID envio = idDoLancamento(movimento("envios", "pix:c:envio", pagador, "20.00"));
+
+            assertThat(movimento("recebimentos", "pix:c:credito", recebedor, "20.00")).hasStatus(HttpStatus.BAD_REQUEST);
+            assertThat(saida("recebimentos", "pix:c:credito", recebedor, "20.00", envio)).hasStatus(HttpStatus.CREATED);
+            assertThat(saida("estornos", "pix:c:estorno", pagador, "20.00", envio))
+                    .hasStatus(HttpStatus.UNPROCESSABLE_CONTENT)
+                    .bodyJson().hasPathSatisfying("$.type", v -> v.assertThat().isEqualTo("urn:ledgerly:erro:envio-pix-invalido"));
         }
 
         @Test

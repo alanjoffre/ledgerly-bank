@@ -35,3 +35,8 @@ sem que se saiba o que se perde. O formato segue o modelo de Michael Nygard, o m
 | [0016](0016-extrato-em-cqrs-no-mongodb.md) | Extrato em CQRS, num modelo de leitura no MongoDB | Aceita |
 | [0017](0017-quarkus-no-pix.md) | Quarkus no Pix, com a comparação medida contra o Spring Boot | Aceita |
 | [0018](0018-redis-na-frente-do-banco-no-pix.md) | Redis como trava rápida na frente do banco, no Pix | Aceita |
+| [0019](0019-contas-quentes-em-subcontas.md) | Dividir as contas quentes do razão em sub-contas | Aceita |
+| [0020](0020-virtual-threads-medidas-no-razao.md) | Threads de plataforma no razão: as *virtual threads* medidas e deixadas de lado | Aceita |
+| [0021](0021-teste-de-carga-com-gatling.md) | Teste de carga com o Gatling, em Java, fora do build | Aceita |
+| [0022](0022-conciliacao-em-lote-com-structured-concurrency.md) | Conciliação em lote com *Structured Concurrency* e *Scoped Values* | Aceita |
+| [0023](0023-micro-benchmarks-com-jmh.md) | Micro-benchmarks com o JMH | Aceita |

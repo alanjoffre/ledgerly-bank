@@ -7,11 +7,13 @@ server:
 spring:
   application:
     name: razao
-  # Virtual threads (Java 21+): cada requisição roda numa thread leve; o servidor atende
-  # milhares de requisições simultâneas sem um pool grande de threads do sistema.
+  # Threads de plataforma (as do sistema, num pool do Tomcat), e não virtual threads: medido na
+  # Fase 3, o razão atendeu de 14% a 28% mais pedidos assim. O limite do razão é o pool de conexões
+  # com o banco, não o número de threads, então as virtual threads não têm o que ganhar aqui
+  # (ADR-0020). RAZAO_THREADS_VIRTUAIS=true liga as virtual threads de novo, para medir outra vez.
   threads:
     virtual:
-      enabled: true
+      enabled: ${RAZAO_THREADS_VIRTUAIS:false}
   datasource:
     url: ${RAZAO_DB_URL:jdbc:postgresql://localhost:15432/razao}
     username: ${RAZAO_DB_USUARIO:razao}
@@ -43,6 +45,9 @@ spring:
       auto-offset-reset: earliest
 
 razao:
+  # Contas quentes (ADR-0019): o Caixa e a Liquidação Pix divididos em sub-contas, de 1 a 16.
+  contas-quentes:
+    subcontas: ${RAZAO_SUBCONTAS:16}
   outbox:
     intervalo-ms: ${RAZAO_OUTBOX_INTERVALO_MS:100}
     lote: 100

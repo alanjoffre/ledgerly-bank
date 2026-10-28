@@ -1,0 +1,142 @@
+<!doctype html>
+<!--
+  Imagem do post da Fase 3. Gera o PNG com:
+    chrome-headless-shell --screenshot=fase-3.png --window-size=1080,1350 \
+      --force-device-scale-factor=2 --virtual-time-budget=4000 fase-3.html
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ledgerly Bank — Fase 3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=block" rel="stylesheet">
+<style>
+  :root {
+    --fundo: #0b1220;
+    --cartao: #111a2e;
+    --linha: #1f2a44;
+    --texto: #e6ebf5;
+    --suave: #93a0bd;
+    --verde: #34d399;
+    --verde-fundo: rgba(52, 211, 153, 0.12);
+    --vermelho: #f87171;
+    --vermelho-fundo: rgba(248, 113, 113, 0.12);
+    --destaque: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1350px; }
+  body {
+    background:
+      radial-gradient(900px 600px at 100% 0%, rgba(96, 165, 250, 0.16), transparent 60%),
+      radial-gradient(700px 500px at 0% 100%, rgba(52, 211, 153, 0.10), transparent 60%),
+      var(--fundo);
+    color: var(--texto);
+    font-family: "Inter", "DejaVu Sans", sans-serif;
+    padding: 72px 72px 64px;
+    display: flex;
+    flex-direction: column;
+  }
+  .topo {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--suave); font-weight: 600;
+  }
+  .marca { display: flex; align-items: center; gap: 14px; color: var(--texto); letter-spacing: 0.04em; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--destaque), var(--verde));
+    display: grid; place-items: center; color: #0b1220; font-weight: 800; font-size: 24px; letter-spacing: 0;
+  }
+  .fase {
+    border: 1px solid var(--linha); border-radius: 999px; padding: 8px 18px; font-size: 19px;
+  }
+  h1 {
+    margin-top: 56px;
+    font-size: 58px; line-height: 1.1; font-weight: 800; letter-spacing: -0.025em;
+  }
+  h1 .vermelho { color: var(--vermelho); }
+  .sub {
+    margin-top: 24px; font-size: 26px; line-height: 1.4; color: var(--suave); max-width: 920px;
+  }
+  h1 .verde { color: var(--verde); }
+  .barras { margin-top: 34px; display: grid; gap: 22px; }
+  .barra .rotulo { display: flex; justify-content: space-between; font-size: 21px; color: var(--suave); font-weight: 600; margin-bottom: 8px; }
+  .barra .rotulo b { color: var(--texto); }
+  .trilho { display: grid; gap: 8px; }
+  .linha { display: flex; align-items: center; gap: 14px; }
+  .linha .nome { width: 190px; font-size: 18px; color: var(--suave); }
+  .linha .valor { height: 40px; border-radius: 10px; display: flex; align-items: center; padding: 0 14px; font-size: 22px; font-weight: 800; }
+  .antes { background: var(--vermelho-fundo); border: 1px solid rgba(248, 113, 113, 0.45); color: var(--vermelho); }
+  .depois { background: var(--verde-fundo); border: 1px solid rgba(52, 211, 153, 0.55); color: var(--verde); }
+  .virada {
+    margin-top: 30px; background: var(--cartao); border: 1px solid var(--linha); border-left: 6px solid var(--vermelho);
+    border-radius: 16px; padding: 22px 28px; font-size: 23px; line-height: 1.45;
+  }
+  .virada .titulo { font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--vermelho); font-weight: 700; margin-bottom: 6px; }
+  .virada b { color: var(--texto); }
+  .virada span { color: var(--suave); }
+  .medida { margin-top: 28px; }
+  .medida .titulo { font-size: 18px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--suave); font-weight: 600; }
+  .numeros { margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .numero { background: var(--cartao); border: 1px solid var(--linha); border-radius: 16px; padding: 16px 20px; }
+  .numero b { display: block; font-size: 38px; font-weight: 800; letter-spacing: -0.02em; color: var(--destaque); }
+  .numero span { font-size: 18px; color: var(--suave); line-height: 1.35; display: block; }
+  .rodape {
+    margin-top: auto;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 1px solid var(--linha); padding-top: 26px;
+  }
+  .stack { font-size: 21px; color: var(--suave); line-height: 1.5; }
+  .stack b { color: var(--texto); font-weight: 600; }
+  .autor { text-align: right; font-size: 21px; color: var(--suave); line-height: 1.5; }
+  .autor b { color: var(--texto); font-size: 25px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="topo">
+    <div class="marca"><div class="logo">L</div>Ledgerly Bank</div>
+    <div class="fase">Fase 3 · Concorrência e desempenho</div>
+  </div>
+
+  <h1>Uma linha do banco segurava o banco inteiro. Dividida em 16: <span class="verde">5× mais depósitos</span>.</h1>
+
+  <p class="sub">Todo depósito passa pelo Caixa, e cada lançamento trava a linha dele até o COMMIT. Clientes diferentes faziam fila na mesma linha.</p>
+
+  <div class="barras">
+    <div class="barra">
+      <div class="rotulo"><b>Depósitos por segundo</b>64 clientes simultâneos, mesma sessão</div>
+      <div class="trilho">
+        <div class="linha"><div class="nome">Caixa numa linha</div><div class="valor antes" style="width:128px">99</div></div>
+        <div class="linha"><div class="nome">16 sub-contas</div><div class="valor depois" style="width:630px">489</div></div>
+      </div>
+    </div>
+    <div class="barra">
+      <div class="rotulo"><b>Envios de Pix por segundo</b>p99: 1.014 ms → 230 ms</div>
+      <div class="trilho">
+        <div class="linha"><div class="nome">Liquidação numa linha</div><div class="valor antes" style="width:147px">114</div></div>
+        <div class="linha"><div class="nome">16 sub-contas</div><div class="valor depois" style="width:700px">543</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="virada">
+    <div class="titulo">E nem toda promessa se cumpriu</div>
+    <b>Virtual threads no razão: de 14% a 28% menos vazão</b> que as threads de plataforma, em rodadas alternadas.
+    <span>O gargalo era o pool de conexões: de 20 para 64, a vazão quase dobrou. O razão voltou às threads de plataforma.</span>
+  </div>
+
+  <div class="medida">
+    <div class="titulo">Também medido</div>
+    <div class="numeros">
+      <div class="numero"><b>100 mi</b><span>lançamentos por lado conciliados em 1,4 s</span></div>
+      <div class="numero"><b>25×</b><span>LongAdder sobre AtomicLong: a mesma ideia das sub-contas (JMH)</span></div>
+      <div class="numero"><b>1 saída</b><span>por Pix: o razão aceitava receber e estornar o mesmo</span></div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <div class="stack"><b>Java 25 · Gatling · JMH · Structured Concurrency</b><br>670 testes · Spring Boot · Quarkus · PostgreSQL</div>
+    <div class="autor"><b>Alan Joffre</b><br>github.com/alanjoffre/ledgerly-bank</div>
+  </div>
+</body>
+</html>

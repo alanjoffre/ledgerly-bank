@@ -26,3 +26,6 @@ Thumbs.db
 
 # Logs e pids dos serviços que o scripts/servicos.sh sobe
 .servicos/
+
+# Medições da demonstração da Fase 3 (scripts/demo-fase-3.sh): cada um gera as suas
+desempenho/resultados/carga/demo-*
