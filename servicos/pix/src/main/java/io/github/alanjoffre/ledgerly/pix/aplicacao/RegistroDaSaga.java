@@ -1,10 +1,13 @@
 package io.github.alanjoffre.ledgerly.pix.aplicacao;
 
+import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.AuditoriaDeAnalise;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.CaixaDeSaida;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.TransferenciaRepository;
+import io.github.alanjoffre.ledgerly.pix.dominio.DecisaoDeAnalise;
 import io.github.alanjoffre.ledgerly.pix.dominio.Passo;
 import io.github.alanjoffre.ledgerly.pix.dominio.ResultadoDoPasso;
 import io.github.alanjoffre.ledgerly.pix.dominio.SituacaoTransferencia;
+import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaNaoEncontradaException;
 import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaPix;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
@@ -29,12 +32,30 @@ public class RegistroDaSaga {
 
     private final TransferenciaRepository transferencias;
     private final CaixaDeSaida caixaDeSaida;
+    private final AuditoriaDeAnalise auditoria;
     private final Clock relogio;
 
-    public RegistroDaSaga(TransferenciaRepository transferencias, CaixaDeSaida caixaDeSaida, Clock relogio) {
+    public RegistroDaSaga(
+            TransferenciaRepository transferencias, CaixaDeSaida caixaDeSaida, AuditoriaDeAnalise auditoria, Clock relogio) {
         this.transferencias = transferencias;
         this.caixaDeSaida = caixaDeSaida;
+        this.auditoria = auditoria;
         this.relogio = relogio;
+    }
+
+    /**
+     * Aplica a decisão do analista e grava a auditoria — os dois na mesma transação: não existe
+     * devolução sem registro de quem decidiu. A linha fica travada: dois analistas decidindo ao
+     * mesmo tempo, o segundo encontra a transferência já fora de análise.
+     */
+    @Transactional
+    public void decidirDevolucao(DecisaoDeAnalise decisao) {
+        TransferenciaPix transferencia = transferencias.buscarTravando(decisao.transferenciaId())
+                .orElseThrow(() -> new TransferenciaNaoEncontradaException(
+                        "Transferência %s não encontrada".formatted(decisao.transferenciaId())));
+        transferencia.decidirDevolucao(decisao.contaDestinoId(), relogio.instant());
+        transferencias.salvar(transferencia);
+        auditoria.registrar(decisao);
     }
 
     @Transactional

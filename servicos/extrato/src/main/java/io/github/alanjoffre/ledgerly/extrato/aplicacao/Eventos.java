@@ -75,14 +75,32 @@ public final class Eventos {
         }
     }
 
-    /** Um Pix cujo crédito foi recusado, e o dinheiro voltou ao pagador ({@code pix.transferencias.v1}). */
+    /**
+     * Um Pix cujo crédito foi recusado, e o dinheiro voltou ao pagador ({@code pix.transferencias.v1}).
+     *
+     * @param contaDevolucaoId só na devolução de um Pix em análise (ADR-0030): a conta do mesmo
+     *     titular que recebeu o dinheiro, porque a que pagou foi encerrada. Campo novo e opcional —
+     *     os eventos antigos não o têm, e para eles a volta é na conta que pagou.
+     */
     public record PixEstornado(
             UUID pixId,
             Pagador pagador,
             Recebedor recebedor,
             UUID lancamentoEnvioId,
             UUID lancamentoEstornoId,
-            String motivo) {
+            String motivo,
+            UUID contaDevolucaoId) {
+
+        public PixEstornado(
+                UUID pixId, Pagador pagador, Recebedor recebedor, UUID lancamentoEnvioId, UUID lancamentoEstornoId,
+                String motivo) {
+            this(pixId, pagador, recebedor, lancamentoEnvioId, lancamentoEstornoId, motivo, null);
+        }
+
+        /** A conta em que o dinheiro voltou: a da devolução, se houve; senão, a que pagou. */
+        public UUID contaDaVolta() {
+            return contaDevolucaoId != null ? contaDevolucaoId : pagador.contaId();
+        }
 
         public PixEstornado {
             Objects.requireNonNull(pixId, "pixId é obrigatório");

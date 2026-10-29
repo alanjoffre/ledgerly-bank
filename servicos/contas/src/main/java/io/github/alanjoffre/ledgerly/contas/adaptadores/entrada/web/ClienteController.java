@@ -6,11 +6,13 @@ import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.ContaRe
 import io.github.alanjoffre.ledgerly.contas.aplicacao.ClienteService;
 import io.github.alanjoffre.ledgerly.contas.aplicacao.ContaService;
 import io.github.alanjoffre.ledgerly.contas.dominio.Cpf;
+import io.github.alanjoffre.ledgerly.seguranca.Usuario;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,12 +39,12 @@ class ClienteController {
     }
 
     @GetMapping("/{id}")
-    ClienteResposta consultar(@PathVariable UUID id) {
-        return ClienteResposta.de(clientes.consultar(id));
+    ClienteResposta consultar(@PathVariable UUID id, @AuthenticationPrincipal Usuario usuario) {
+        return ClienteResposta.de(clientes.consultar(id, Permissoes.de(usuario)));
     }
 
     @GetMapping("/{id}/contas")
-    List<ContaResposta> contas(@PathVariable UUID id) {
-        return contas.listarDoCliente(id).stream().map(ContaResposta::de).toList();
+    List<ContaResposta> contas(@PathVariable UUID id, @AuthenticationPrincipal Usuario usuario) {
+        return contas.listarDoCliente(id, Permissoes.de(usuario)).stream().map(ContaResposta::de).toList();
     }
 }

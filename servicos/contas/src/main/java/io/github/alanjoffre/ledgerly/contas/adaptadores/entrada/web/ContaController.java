@@ -7,10 +7,12 @@ import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.Titular
 import io.github.alanjoffre.ledgerly.contas.adaptadores.entrada.web.Dtos.TitularidadeResposta;
 import io.github.alanjoffre.ledgerly.contas.aplicacao.ContaService;
 import io.github.alanjoffre.ledgerly.contas.dominio.Cpf;
+import io.github.alanjoffre.ledgerly.seguranca.Usuario;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,6 +24,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * API das contas. O bloqueio é um sub-recurso: {@code POST /bloqueio} cria, {@code DELETE /bloqueio}
  * remove — mais claro que um {@code PATCH} com a situação no corpo.
+ *
+ * <p>Quem pode chamar cada rota (o papel) está em {@link ConfiguracaoDeSeguranca}; qual conta (o
+ * dono) é conferido no caso de uso, com a {@link Permissoes permissão} montada do token.
  */
 @RestController
 @RequestMapping("/v1/contas")
@@ -39,10 +44,10 @@ class ContaController {
         return ResponseEntity.created(URI.create("/v1/contas/" + conta.id())).body(ContaResposta.de(conta));
     }
 
-    /** Com o saldo, consultado no razão. */
+    /** Com o saldo, consultado no razão. Do cliente dono; o de outro cliente é 404 (ADR-0026). */
     @GetMapping("/{id}")
-    ContaResposta consultar(@PathVariable UUID id) {
-        return ContaResposta.de(contas.consultar(id));
+    ContaResposta consultar(@PathVariable UUID id, @AuthenticationPrincipal Usuario usuario) {
+        return ContaResposta.de(contas.consultar(id, Permissoes.de(usuario)));
     }
 
     /** Titular e situação, sem o saldo: responde mesmo com o razão fora do ar. Usado pelo Pix. */

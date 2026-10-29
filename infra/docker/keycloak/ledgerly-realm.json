@@ -1,0 +1,248 @@
+{
+  "realm": "ledgerly",
+  "displayName": "Ledgerly Bank",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["pt-BR"],
+  "defaultLocale": "pt-BR",
+  "roles": {
+    "realm": [
+      { "name": "cliente", "description": "Cliente do banco: vê e movimenta só as próprias contas." },
+      { "name": "analista", "description": "Analista do backoffice: fila de análise, devolução, bloqueio." },
+      { "name": "servico", "description": "Outro serviço do Ledgerly (token de cliente, sem usuário)." }
+    ]
+  },
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]},\"multivalued\":false},{\"name\":\"cliente_id\",\"displayName\":\"Id do cliente no serviço de contas\",\"validations\":{\"pattern\":{\"pattern\":\"^[0-9a-f-]{36}$\",\"error-message\":\"UUID inválido\"}},\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"multivalued\":false}],\"groups\":[],\"unmanagedAttributePolicy\":\"ADMIN_VIEW\"}"
+          ]
+        }
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "ledgerly-internet-banking",
+      "name": "Internet banking (BFF)",
+      "description": "O BFF do internet banking. Confidencial: o segredo e os tokens ficam no servidor.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "ib-segredo-local",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:8080/login/oauth2/code/keycloak",
+        "http://localhost:5173/login/oauth2/code/keycloak"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8080/##http://localhost:5173/"
+      },
+      "protocolMappers": [
+        {
+          "name": "cliente_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "cliente_id",
+            "claim.name": "cliente_id",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "audiencia ledgerly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "ledgerly-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "ledgerly-backoffice",
+      "name": "Backoffice de fraude (BFF)",
+      "description": "O BFF do backoffice. Confidencial: o segredo e os tokens ficam no servidor.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "bo-segredo-local",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:8090/login/oauth2/code/keycloak",
+        "http://localhost:5174/login/oauth2/code/keycloak"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:8090/##http://localhost:5174/"
+      },
+      "protocolMappers": [
+        {
+          "name": "audiencia ledgerly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "ledgerly-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "ledgerly-contas",
+      "name": "Serviço de contas",
+      "description": "Token de serviço do contas para chamar o razão (client credentials).",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "contas-segredo-local",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audiencia ledgerly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "ledgerly-api", "access.token.claim": "true", "id.token.claim": "false", "introspection.token.claim": "true" }
+        }
+      ]
+    },
+    {
+      "clientId": "ledgerly-pix",
+      "name": "Serviço de Pix",
+      "description": "Token de serviço do pix para chamar o razão e o contas (client credentials).",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "pix-segredo-local",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audiencia ledgerly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "ledgerly-api", "access.token.claim": "true", "id.token.claim": "false", "introspection.token.claim": "true" }
+        }
+      ]
+    },
+    {
+      "clientId": "ledgerly-extrato",
+      "name": "Serviço de extrato",
+      "description": "Token de serviço do extrato para perguntar ao contas quem é o dono da conta.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "extrato-segredo-local",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audiencia ledgerly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "ledgerly-api", "access.token.claim": "true", "id.token.claim": "false", "introspection.token.claim": "true" }
+        }
+      ]
+    },
+    {
+      "clientId": "ledgerly-ferramentas",
+      "name": "Ferramentas locais",
+      "description": "Scripts, Gatling e semeadura. Papel servico + gerenciar usuários (gravar o cliente_id).",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "ferramentas-segredo-local",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audiencia ledgerly-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "ledgerly-api", "access.token.claim": "true", "id.token.claim": "false", "introspection.token.claim": "true" }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "ana",
+      "enabled": true,
+      "email": "ana@ledgerly.invalid",
+      "emailVerified": true,
+      "firstName": "Ana",
+      "lastName": "Exemplo",
+      "credentials": [{ "type": "password", "value": "ana-local", "temporary": false }],
+      "realmRoles": ["cliente"]
+    },
+    {
+      "username": "bruno",
+      "enabled": true,
+      "email": "bruno@ledgerly.invalid",
+      "emailVerified": true,
+      "firstName": "Bruno",
+      "lastName": "Exemplo",
+      "credentials": [{ "type": "password", "value": "bruno-local", "temporary": false }],
+      "realmRoles": ["cliente"]
+    },
+    {
+      "username": "carla",
+      "enabled": true,
+      "email": "carla@ledgerly.invalid",
+      "emailVerified": true,
+      "firstName": "Carla",
+      "lastName": "Analista",
+      "credentials": [{ "type": "password", "value": "carla-local", "temporary": false }],
+      "realmRoles": ["analista"]
+    },
+    { "username": "service-account-ledgerly-contas", "enabled": true, "serviceAccountClientId": "ledgerly-contas", "realmRoles": ["servico"] },
+    { "username": "service-account-ledgerly-pix", "enabled": true, "serviceAccountClientId": "ledgerly-pix", "realmRoles": ["servico"] },
+    { "username": "service-account-ledgerly-extrato", "enabled": true, "serviceAccountClientId": "ledgerly-extrato", "realmRoles": ["servico"] },
+    {
+      "username": "service-account-ledgerly-ferramentas",
+      "enabled": true,
+      "serviceAccountClientId": "ledgerly-ferramentas",
+      "realmRoles": ["servico"],
+      "clientRoles": { "realm-management": ["manage-users", "view-users", "query-users"] }
+    }
+  ]
+}

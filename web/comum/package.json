@@ -1,0 +1,21 @@
+{
+  "name": "@ledgerly/comum",
+  "private": true,
+  "type": "module",
+  "description": "O que os dois front-ends usam: chamada ao BFF (com CSRF), dinheiro em reais e os tokens de estilo.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./estilo.css": "./src/estilo.css",
+    "./teste": "./src/teste/fetchFalso.ts"
+  },
+  "scripts": {
+    "tipos": "tsc --noEmit",
+    "testar": "vitest run"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "jsdom": "29.1.1",
+    "typescript": "7.0.2",
+    "vitest": "5.0.5"
+  }
+}

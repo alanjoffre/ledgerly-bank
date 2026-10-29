@@ -15,6 +15,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Desde a Fase 4 os serviços exigem token: todo curl daqui leva o token de serviço (ADR-0027).
+source scripts/lib/token.sh
+usar_token_no_curl
+
 RODADAS=${1:-5}
 
 declare -A COMANDO SAUDE CONSULTA

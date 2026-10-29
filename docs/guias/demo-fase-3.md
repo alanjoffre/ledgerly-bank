@@ -10,12 +10,14 @@ paralelo (ADR-0022). Leva uns 3 minutos.
 Na raiz do projeto:
 
 ```bash
-docker compose -f infra/docker/compose.yaml up -d --wait   # PostgreSQL, MongoDB, Redis, Kafka
+docker compose -f infra/docker/compose.yaml up -d --wait   # PostgreSQL, MongoDB, Redis, Kafka, Keycloak
 ./mvnw package -DskipTests
 ```
 
-Não precisa subir os serviços: o script sobe e derruba o razão sozinho, duas vezes, com uma
-configuração diferente em cada (a variável `RAZAO_SUBCONTAS`).
+O Keycloak entra desde a Fase 4: a carga pede um token de serviço a ele antes de começar
+([ADR-0027](../adr/0027-token-de-servico-e-razao-sem-rota.md)). Não precisa subir os serviços: o
+script sobe e derruba o razão sozinho, duas vezes, com uma configuração diferente em cada (a
+variável `RAZAO_SUBCONTAS`).
 
 ## 2. Rodar a demonstração
 

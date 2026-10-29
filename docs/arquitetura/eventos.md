@@ -141,6 +141,7 @@ enviado para Maria" em vez de só "PIX_ENVIO".
 | `lancamentoEstornoId` | O lançamento que devolveu o dinheiro ao pagador |
 | `motivo` | Por que o crédito foi recusado, em frase para o cliente (por exemplo, `"a conta de destino está encerrada"`) |
 | `estornadoEm` | Quando o estorno foi escriturado |
+| `contaDevolucaoId` | Só na **devolução de um Pix em análise** (ADR-0030): a outra conta, do mesmo titular, para onde o dinheiro voltou porque a conta que pagou foi encerrada. Ausente no estorno comum, que volta para `pagador.contaId` |
 
 A chave do recebedor vai **mascarada**: o extrato mostra, não precisa do valor completo.
 

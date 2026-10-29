@@ -3,9 +3,11 @@ package io.github.alanjoffre.ledgerly.extrato.aplicacao;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.catchThrowable;
 
 import io.github.alanjoffre.ledgerly.extrato.aplicacao.Eventos.LancamentoRegistrado;
 import io.github.alanjoffre.ledgerly.extrato.aplicacao.Eventos.PartidaRegistrada;
+import io.github.alanjoffre.ledgerly.extrato.aplicacao.porta.DonoDaConta;
 import io.github.alanjoffre.ledgerly.extrato.dominio.ContaNaoEncontradaException;
 import io.github.alanjoffre.ledgerly.extrato.dominio.Movimentacao;
 import io.github.alanjoffre.ledgerly.extrato.dominio.TipoOperacao;
@@ -14,7 +16,9 @@ import io.github.alanjoffre.ledgerly.nucleo.Dinheiro;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,8 +27,15 @@ class ConsultaDoExtratoTest {
 
     private final RepositoriosEmMemoria memoria = new RepositoriosEmMemoria();
     private final ProjecaoDoExtrato projecao = new ProjecaoDoExtrato(memoria, memoria);
-    private final ConsultaDoExtrato consulta = new ConsultaDoExtrato(memoria, memoria);
     private final UUID conta = UUID.randomUUID();
+    private final UUID ana = UUID.randomUUID();
+    /** O contas falso: a conta é da Ana; conta pergunta a pergunta. */
+    private final AtomicInteger perguntasAoContas = new AtomicInteger();
+    private final DonoDaConta donos = id -> {
+        perguntasAoContas.incrementAndGet();
+        return id.equals(conta) ? Optional.of(ana) : Optional.empty();
+    };
+    private final ConsultaDoExtrato consulta = new ConsultaDoExtrato(memoria, memoria, donos);
 
     private void depositos(int quantos) {
         for (int i = 1; i <= quantos; i++) {
@@ -76,5 +87,41 @@ class ConsultaDoExtratoTest {
         depositos(1);
         assertThat(consulta.extrato(conta, 10, 1L).itens()).isEmpty();
         assertThat(consulta.extrato(UUID.randomUUID(), 10, 5L).itens()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("o dono lê o extrato e o saldo da própria conta")
+    void donoLe() {
+        depositos(2);
+        PermissaoDeLeitura daAna = ana::equals;
+        assertThat(consulta.extrato(conta, 10, null, daAna).itens()).hasSize(2);
+        assertThat(consulta.saldo(conta, daAna).valor()).isEqualTo(Dinheiro.reais("2.00"));
+    }
+
+    @Test
+    @DisplayName("a conta de outro cliente responde como conta sem extrato — igual à que não existe")
+    void contaDeOutro() {
+        depositos(2);
+        PermissaoDeLeitura doBruno = UUID.randomUUID()::equals;
+        assertThatThrownBy(() -> consulta.extrato(conta, 10, null, doBruno))
+                .isInstanceOf(ContaNaoEncontradaException.class);
+        assertThatThrownBy(() -> consulta.saldo(conta, doBruno)).isInstanceOf(ContaNaoEncontradaException.class);
+        UUID inexistente = UUID.randomUUID();
+        Throwable deOutro = catchThrowable(() -> consulta.extrato(conta, 10, null, doBruno));
+        Throwable semConta = catchThrowable(() -> consulta.extrato(inexistente, 10, null, PermissaoDeLeitura.TOTAL));
+        assertThat(deOutro.getMessage().replace(conta.toString(), "<id>"))
+                .isEqualTo(semConta.getMessage().replace(inexistente.toString(), "<id>"));
+        assertThatThrownBy(() -> consulta.extrato(inexistente, 10, null, ana::equals))
+                .isInstanceOf(ContaNaoEncontradaException.class);
+    }
+
+    @Test
+    @DisplayName("quem lê tudo (analista, serviço) não pergunta o dono ao contas")
+    void leTudoNaoPergunta() {
+        depositos(1);
+        assertThat(consulta.extrato(conta, 10, null, PermissaoDeLeitura.TOTAL).itens()).hasSize(1);
+        assertThat(consulta.saldo(conta, PermissaoDeLeitura.TOTAL).valor()).isEqualTo(Dinheiro.reais("1.00"));
+        assertThat(perguntasAoContas).hasValue(0);
+        assertThat(PermissaoDeLeitura.TOTAL.podeVer(UUID.randomUUID())).isTrue();
     }
 }

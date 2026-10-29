@@ -17,9 +17,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Um razão e um serviço de contas <b>falsos</b>, num servidor HTTP do próprio JDK, para os testes de
- * integração do Pix: o Pix fala com eles por HTTP de verdade (clientes REST, tempos-limite,
- * códigos de status), e o teste controla o que eles respondem.
+ * Um razão, um serviço de contas e um Keycloak <b>falsos</b>, num servidor HTTP do próprio JDK, para
+ * os testes de integração do Pix: o Pix fala com eles por HTTP de verdade (clientes REST,
+ * tempos-limite, códigos de status, descoberta OIDC), e o teste controla o que eles respondem.
+ *
+ * <p>O Keycloak falso publica a descoberta ({@code .well-known/openid-configuration}), a chave
+ * pública (JWKS) e o endpoint de token: o Pix pede ali o próprio token (client credentials). O
+ * razão e as contas falsos <b>recusam com 401</b> a chamada sem o token de serviço — é o que prova
+ * que o filtro {@code @OidcClientFilter} está ligado.
  *
  * <p>O razão falso segue o contrato do verdadeiro, inclusive a <b>idempotência</b>: a mesma
  * {@code Idempotency-Key} devolve 200 com o lançamento original, sem mover o dinheiro de novo — e
@@ -33,6 +38,8 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
 
     public static final RazaoFalso RAZAO = new RazaoFalso();
     public static final ContasFalsas CONTAS = new ContasFalsas();
+    /** Quantos tokens o Pix pediu ao Keycloak falso (o token é reaproveitado até perto de vencer). */
+    public static final AtomicInteger TOKENS_EMITIDOS = new AtomicInteger();
 
     @Override
     public Map<String, String> start() {
@@ -41,14 +48,17 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        servidor.createContext("/v1/pix/", RAZAO::atender);
-        servidor.createContext("/v1/contas/", CONTAS::atender);
+        servidor.createContext("/v1/pix/", troca -> exigirToken(troca, RAZAO::atender));
+        servidor.createContext("/v1/contas/", troca -> exigirToken(troca, CONTAS::atender));
+        servidor.createContext("/realms/ledgerly/", ServicosFalsos::keycloak);
         servidor.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         servidor.start();
         String url = "http://127.0.0.1:" + servidor.getAddress().getPort();
+        TokensPix.emissor(url + "/realms/ledgerly");
         return Map.of(
                 "quarkus.rest-client.razao.url", url,
                 "quarkus.rest-client.contas.url", url,
+                "quarkus.oidc.auth-server-url", TokensPix.emissor(),
                 // Tempo-limite curto nos testes: o caso "razão lento" não precisa esperar 3 s.
                 "quarkus.rest-client.razao.read-timeout", "800");
     }
@@ -57,6 +67,55 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
     public void stop() {
         if (servidor != null) {
             servidor.stop(0);
+        }
+    }
+
+    private interface Atendente {
+        void atender(HttpExchange troca) throws IOException;
+    }
+
+    /** Como o razão e as contas de verdade: sem o token de um serviço, 401. */
+    private static void exigirToken(HttpExchange troca, Atendente atendente) throws IOException {
+        if (!TokensPix.ehDeServico(troca.getRequestHeaders().getFirst("Authorization"))) {
+            responder(troca, 401, problema(401, "nao-autenticado", "sem token de serviço"));
+            return;
+        }
+        atendente.atender(troca);
+    }
+
+    /** O Keycloak falso: descoberta, JWKS e o token do próprio Pix (client credentials). */
+    private static void keycloak(HttpExchange troca) throws IOException {
+        String emissor = TokensPix.emissor();
+        String caminho = troca.getRequestURI().getPath();
+        if (caminho.endsWith("/.well-known/openid-configuration")) {
+            responder(troca, 200, Map.of(
+                    "issuer", emissor,
+                    "jwks_uri", emissor + "/protocol/openid-connect/certs",
+                    "token_endpoint", emissor + "/protocol/openid-connect/token",
+                    "id_token_signing_alg_values_supported", java.util.List.of("RS256")));
+        } else if (caminho.endsWith("/protocol/openid-connect/certs")) {
+            byte[] bytes = TokensPix.jwks().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            troca.getResponseHeaders().add("Content-Type", "application/json");
+            troca.sendResponseHeaders(200, bytes.length);
+            try (var saida = troca.getResponseBody()) {
+                saida.write(bytes);
+            }
+        } else if (caminho.endsWith("/protocol/openid-connect/token")) {
+            String formulario = new String(troca.getRequestBody().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            String basic = troca.getRequestHeaders().getFirst("Authorization");
+            boolean credenciais = formulario.contains("client_secret=pix-segredo-local")
+                    || (basic != null && new String(java.util.Base64.getDecoder().decode(basic.substring(6)),
+                                    java.nio.charset.StandardCharsets.UTF_8)
+                            .equals("ledgerly-pix:pix-segredo-local"));
+            if (!formulario.contains("grant_type=client_credentials") || !credenciais) {
+                responder(troca, 401, Map.of("error", "invalid_client"));
+                return;
+            }
+            TOKENS_EMITIDOS.incrementAndGet();
+            String token = TokensPix.token().nome("service-account-ledgerly-pix").papeis("servico").valor();
+            responder(troca, 200, Map.of("access_token", token, "token_type", "Bearer", "expires_in", 300));
+        } else {
+            responder(troca, 404, problema(404, "nao-encontrado", caminho));
         }
     }
 
@@ -83,6 +142,8 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
         private final Map<UUID, Boolean> encerradas = new HashMap<>();
         private final Map<String, Lancamento> porChave = new HashMap<>();
         private final Map<String, AtomicInteger> chamadas = new ConcurrentHashMap<>();
+        /** A descrição que chegou em cada chave: é o texto que o extrato mostra. */
+        private final Map<String, String> descricoes = new ConcurrentHashMap<>();
         private BigDecimal liquidacao = BigDecimal.ZERO;
         private int indisponivelPorVezes;
         private String caminhoIndisponivel = "";
@@ -94,6 +155,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             encerradas.clear();
             porChave.clear();
             chamadas.clear();
+            descricoes.clear();
             liquidacao = BigDecimal.ZERO;
             indisponivelPorVezes = 0;
             atrasoAposAplicarMs = 0;
@@ -145,6 +207,10 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             return chamadas.getOrDefault(chave, new AtomicInteger()).get();
         }
 
+        public String descricao(String chave) {
+            return descricoes.get(chave);
+        }
+
         public synchronized int lancamentos() {
             return porChave.size();
         }
@@ -154,6 +220,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             String chave = troca.getRequestHeaders().getFirst("Idempotency-Key");
             chamadas.computeIfAbsent(chave, k -> new AtomicInteger()).incrementAndGet();
             JsonNode corpo = JSON.readTree(troca.getRequestBody());
+            descricoes.put(chave, corpo.path("descricao").asText());
             UUID conta = UUID.fromString(corpo.path("contaId").asText());
             BigDecimal valor = new BigDecimal(corpo.path("valor").asText());
             String envioInformado = corpo.path("lancamentoEnvioId").asText("");
@@ -238,8 +305,11 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             if (original.valor().compareTo(valor) != 0) {
                 return "O envio %s foi de %s".formatted(envio, original.valor());
             }
-            if (caminho.equals("estornos") && !original.contaId().equals(conta)) {
-                return "O estorno do envio %s só pode voltar para a conta que pagou".formatted(envio);
+            // Como o razão de verdade (ADR-0030): outra conta, só se a que pagou foi encerrada.
+            if (caminho.equals("estornos") && !original.contaId().equals(conta)
+                    && !encerradas.getOrDefault(original.contaId(), false)) {
+                return "O estorno do envio %s só pode voltar para a conta que pagou (outra conta, só se ela foi encerrada)"
+                        .formatted(envio);
             }
             if (porChave.values().stream().anyMatch(l -> envio.equals(l.envio()))) {
                 return "O envio %s já teve a sua saída da Liquidação Pix".formatted(envio);
@@ -251,7 +321,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
     /** O serviço de contas falso: titular, situação e CPF de cada conta. */
     public static final class ContasFalsas {
 
-        private record Conta(String nome, String situacao, String cpf) {}
+        private record Conta(String nome, String situacao, String cpf, UUID clienteId) {}
 
         private final Map<UUID, Conta> contas = new ConcurrentHashMap<>();
         private volatile boolean foraDoAr;
@@ -261,12 +331,16 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             foraDoAr = false;
         }
 
-        public void conta(UUID id, String nome, String cpf) {
-            contas.put(id, new Conta(nome, "ATIVA", cpf));
+        public void conta(UUID id, String nome, String cpf, UUID clienteId) {
+            contas.put(id, new Conta(nome, "ATIVA", cpf, clienteId));
         }
 
         public void bloquear(UUID id) {
-            contas.computeIfPresent(id, (k, c) -> new Conta(c.nome(), "BLOQUEADA", c.cpf()));
+            contas.computeIfPresent(id, (k, c) -> new Conta(c.nome(), "BLOQUEADA", c.cpf(), c.clienteId()));
+        }
+
+        public void encerrar(UUID id) {
+            contas.computeIfPresent(id, (k, c) -> new Conta(c.nome(), "ENCERRADA", c.cpf(), c.clienteId()));
         }
 
         public void foraDoAr(boolean valor) {
@@ -286,7 +360,10 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             }
             switch (partes[4]) {
                 case "titular" -> responder(troca, 200, Map.of(
-                        "contaId", partes[3], "nome", conta.nome(), "situacao", conta.situacao()));
+                        "contaId", partes[3],
+                        "clienteId", conta.clienteId().toString(),
+                        "nome", conta.nome(),
+                        "situacao", conta.situacao()));
                 case "titularidade" -> {
                     String cpf = JSON.readTree(troca.getRequestBody()).path("cpf").asText().replaceAll("\\D", "");
                     responder(troca, 200, Map.of("confere", cpf.equals(conta.cpf())));

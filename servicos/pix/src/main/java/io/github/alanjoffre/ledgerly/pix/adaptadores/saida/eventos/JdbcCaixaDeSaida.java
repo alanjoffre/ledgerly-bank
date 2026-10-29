@@ -45,6 +45,10 @@ class JdbcCaixaDeSaida implements CaixaDeSaida {
         dados.put("lancamentoEstornoId", t.lancamentoEstornoId().toString());
         dados.put("motivo", t.motivo());
         dados.put("estornadoEm", t.finalizadaEm().toString());
+        if (t.contaDevolucaoId() != null) {
+            // Devolução decidida na análise: o dinheiro volta para outra conta do mesmo titular.
+            dados.put("contaDevolucaoId", t.contaDevolucaoId().toString());
+        }
         gravar(t, "PixEstornado", dados);
     }
 

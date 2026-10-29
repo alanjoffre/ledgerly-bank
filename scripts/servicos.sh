@@ -5,11 +5,14 @@
 #                 e os pacotes gerados (./mvnw package -DskipTests).
 #
 # Uso:
-#   ./scripts/servicos.sh subir              sobe os quatro e espera cada um ficar saudável
-#   ./scripts/servicos.sh parar              derruba os quatro
-#   ./scripts/servicos.sh subir razao        sobe um só (contas, razao, pix ou extrato)
+#   ./scripts/servicos.sh subir              sobe os quatro serviços e os dois gateways, e espera cada um ficar saudável
+#   ./scripts/servicos.sh parar              derruba todos
+#   ./scripts/servicos.sh subir razao        sobe um só (contas, razao, pix, extrato, gateway-ib ou gateway-bo)
 #   ./scripts/servicos.sh parar razao        derruba um só — para ver a Saga do Pix esperar por ele
 #   ./scripts/servicos.sh situacao           quem está no ar
+#
+# Os gateways (BFF) servem a tela construída: rode antes "npm run construir" em web/ (ADR-0025).
+#   gateway-ib → internet banking, http://localhost:8080      gateway-bo → backoffice, http://localhost:8090
 #
 # Os logs ficam em .servicos/<serviço>.log (a pasta não vai para o Git).
 
@@ -18,11 +21,12 @@ cd "$(dirname "$0")/.."
 
 PASTA=.servicos
 mkdir -p "$PASTA"
-TODOS=(razao contas pix extrato)
+TODOS=(razao contas pix extrato gateway-ib gateway-bo)
 
 pacote() {
   case $1 in
     pix) echo servicos/pix/target/quarkus-app/quarkus-run.jar ;;
+    gateway-*) ls servicos/gateway/target/gateway-*.jar 2>/dev/null | grep -v original | head -1 ;;
     *) ls servicos/"$1"/target/"$1"-*.jar 2>/dev/null | grep -v original | head -1 ;;
   esac
 }
@@ -33,6 +37,16 @@ saude() {
     razao) echo http://localhost:8082/actuator/health ;;
     pix) echo http://localhost:8083/q/health/ready ;;
     extrato) echo http://localhost:8084/actuator/health ;;
+    gateway-ib) echo http://localhost:8080/actuator/health ;;
+    gateway-bo) echo http://localhost:8090/actuator/health ;;
+  esac
+}
+
+# O mesmo pacote do gateway sobe em dois perfis: um BFF por front-end.
+argumentos() {
+  case $1 in
+    gateway-ib) echo --spring.profiles.active=internet-banking ;;
+    gateway-bo) echo --spring.profiles.active=backoffice ;;
   esac
 }
 
@@ -43,7 +57,8 @@ subir() {
   if no_ar "$nome"; then echo "  $nome já está no ar"; return; fi
   jar=$(pacote "$nome")
   [[ -f $jar ]] || { echo "  ✘ pacote de $nome não encontrado: rode ./mvnw package -DskipTests" >&2; exit 1; }
-  nohup java -jar "$jar" > "$PASTA/$nome.log" 2>&1 &
+  # shellcheck disable=SC2046 # argumentos() devolve zero ou uma palavra
+  nohup java -jar "$jar" $(argumentos "$nome") > "$PASTA/$nome.log" 2>&1 &
   echo $! > "$PASTA/$nome.pid"
   local inicio=$SECONDS
   until curl -sf "$(saude "$nome")" > /dev/null; do

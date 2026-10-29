@@ -102,7 +102,8 @@ class LeitorDeEventos {
                 recebedor(dados),
                 uuid(dados, "lancamentoEnvioId"),
                 uuid(dados, "lancamentoEstornoId"),
-                textoOpcional(dados, "motivo")));
+                textoOpcional(dados, "motivo"),
+                uuidOpcional(dados, "contaDevolucaoId")));
     }
 
     private static Pagador pagador(JsonNode dados) {
@@ -198,6 +199,10 @@ class LeitorDeEventos {
         } catch (IllegalArgumentException e) {
             throw new EventoInvalidoException("Campo '%s' não é um UUID: %s".formatted(nome, valor), e);
         }
+    }
+
+    private static UUID uuidOpcional(JsonNode no, String nome) {
+        return textoOpcional(no, nome) == null ? null : uuid(no, nome);
     }
 
     private static Instant instante(JsonNode no, String nome) {

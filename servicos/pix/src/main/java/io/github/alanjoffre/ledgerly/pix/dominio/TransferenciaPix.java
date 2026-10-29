@@ -48,6 +48,7 @@ public final class TransferenciaPix {
     private UUID lancamentoEnvioId;
     private UUID lancamentoRecebimentoId;
     private UUID lancamentoEstornoId;
+    private UUID contaDevolucaoId;
     private int tentativas;
     private Instant proximaTentativaEm;
     private Instant finalizadaEm;
@@ -128,6 +129,7 @@ public final class TransferenciaPix {
             UUID lancamentoEnvioId,
             UUID lancamentoRecebimentoId,
             UUID lancamentoEstornoId,
+            UUID contaDevolucaoId,
             int tentativas,
             Instant proximaTentativaEm,
             Instant criadaEm,
@@ -149,6 +151,7 @@ public final class TransferenciaPix {
         t.lancamentoEnvioId = e.lancamentoEnvioId();
         t.lancamentoRecebimentoId = e.lancamentoRecebimentoId();
         t.lancamentoEstornoId = e.lancamentoEstornoId();
+        t.contaDevolucaoId = e.contaDevolucaoId();
         t.tentativas = e.tentativas();
         t.proximaTentativaEm = micros(e.proximaTentativaEm());
         t.finalizadaEm = e.finalizadaEm() == null ? null : micros(e.finalizadaEm());
@@ -169,6 +172,7 @@ public final class TransferenciaPix {
                 lancamentoEnvioId,
                 lancamentoRecebimentoId,
                 lancamentoEstornoId,
+                contaDevolucaoId,
                 tentativas,
                 proximaTentativaEm,
                 criadaEm,
@@ -249,6 +253,54 @@ public final class TransferenciaPix {
         motivo = motivo == null ? motivoDaRecusa : motivo + "; estorno recusado: " + motivoDaRecusa;
     }
 
+    /**
+     * A decisão do analista para um Pix em análise (ADR-0030): devolver o dinheiro, que está na
+     * Liquidação Pix, para outra conta do mesmo titular — a que pagou foi encerrada. A Saga volta a
+     * andar: o próximo passo é o estorno, agora para a conta decidida.
+     *
+     * <p>Quem confere "mesmo titular" e "conta ativa" é a aplicação, que fala com o serviço de
+     * contas; aqui ficam as regras do próprio Pix.
+     *
+     * @throws TransferenciaForaDeAnaliseException se a transferência não está em análise
+     * @throws TransferenciaInvalidaException se a conta decidida é a que pagou ou a que recebeu
+     */
+    public void decidirDevolucao(UUID contaDestinoId, Instant agora) {
+        Objects.requireNonNull(contaDestinoId, "a conta da devolução é obrigatória");
+        if (situacao != SituacaoTransferencia.EM_ANALISE) {
+            throw new TransferenciaForaDeAnaliseException(
+                    "A transferência %s não está em análise (situação %s)".formatted(id, situacao));
+        }
+        if (contaDestinoId.equals(pagador.contaId()) || contaDestinoId.equals(recebedor.contaId())) {
+            throw new TransferenciaInvalidaException(
+                    "A devolução vai para outra conta do titular: não para a que pagou nem para a que recebeu");
+        }
+        contaDevolucaoId = contaDestinoId;
+        situacao = SituacaoTransferencia.ESTORNANDO;
+        tentativas = 0;
+        proximaTentativaEm = micros(agora);
+        finalizadaEm = null;
+    }
+
+    /** A conta que o passo movimenta: o recebedor no crédito; no estorno, a da devolução, se houver. */
+    public UUID contaDoPasso(Passo passo) {
+        return switch (passo) {
+            case DEBITAR -> pagador.contaId();
+            case CREDITAR -> recebedor.contaId();
+            case ESTORNAR -> contaDevolucaoId != null ? contaDevolucaoId : pagador.contaId();
+        };
+    }
+
+    /**
+     * A chave de idempotência do passo no razão. A devolução tem a sua, com a conta decidida: é
+     * outro pedido (outra conta), e repetir a mesma decisão continua movendo o dinheiro uma vez só.
+     */
+    public String chaveDoPasso(Passo passo) {
+        if (passo == Passo.ESTORNAR && contaDevolucaoId != null) {
+            return "pix:" + id + ":devolucao:" + contaDevolucaoId;
+        }
+        return passo.chaveDeIdempotencia(id);
+    }
+
     /** Pedido repetido com a mesma chave de idempotência: é o mesmo pedido? */
     public boolean correspondeA(UUID pagadorContaId, ChavePix chave, Dinheiro outroValor) {
         return pagador.contaId().equals(pagadorContaId) && chaveDoRecebedor.equals(chave) && valor.equals(outroValor);
@@ -323,6 +375,11 @@ public final class TransferenciaPix {
 
     public UUID lancamentoEstornoId() {
         return lancamentoEstornoId;
+    }
+
+    /** A conta do mesmo titular para onde o analista decidiu devolver; {@code null} se não houve devolução. */
+    public UUID contaDevolucaoId() {
+        return contaDevolucaoId;
     }
 
     public int tentativas() {

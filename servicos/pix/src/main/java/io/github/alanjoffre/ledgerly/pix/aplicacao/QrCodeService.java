@@ -19,8 +19,8 @@ public class QrCodeService {
     }
 
     /** @param valor o valor fixo, ou {@code null} para quem paga digitar */
-    public BrCode gerar(String chave, Dinheiro valor, String descricao) {
-        ChaveRegistrada registrada = chaves.consultar(chave);
+    public BrCode gerar(String chave, Dinheiro valor, String descricao, Acesso acesso) {
+        ChaveRegistrada registrada = chaves.doDono(chave, acesso);
         return new BrCode(registrada.chave(), valor, registrada.titularNome(), CIDADE, descricao);
     }
 

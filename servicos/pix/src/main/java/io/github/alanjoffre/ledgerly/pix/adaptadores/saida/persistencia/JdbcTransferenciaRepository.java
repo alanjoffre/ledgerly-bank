@@ -110,8 +110,8 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
                 PreparedStatement sql = c.prepareStatement("""
                         UPDATE transferencia_pix
                            SET situacao = ?, motivo = ?, lancamento_envio_id = ?, lancamento_recebimento_id = ?,
-                               lancamento_estorno_id = ?, tentativas = ?, proxima_tentativa_em = ?,
-                               finalizada_em = ?, reservada_ate = NULL
+                               lancamento_estorno_id = ?, conta_devolucao_id = ?, tentativas = ?,
+                               proxima_tentativa_em = ?, finalizada_em = ?, reservada_ate = NULL
                          WHERE id = ?
                         """)) {
             sql.setString(1, e.situacao().name());
@@ -119,15 +119,42 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
             sql.setObject(3, e.lancamentoEnvioId());
             sql.setObject(4, e.lancamentoRecebimentoId());
             sql.setObject(5, e.lancamentoEstornoId());
-            sql.setInt(6, e.tentativas());
-            Jdbc.instante(sql, 7, e.proximaTentativaEm());
-            Jdbc.instante(sql, 8, e.finalizadaEm());
-            sql.setObject(9, e.id());
+            sql.setObject(6, e.contaDevolucaoId());
+            sql.setInt(7, e.tentativas());
+            Jdbc.instante(sql, 8, e.proximaTentativaEm());
+            Jdbc.instante(sql, 9, e.finalizadaEm());
+            sql.setObject(10, e.id());
             if (sql.executeUpdate() != 1) {
                 throw new IllegalStateException("Transferência %s não encontrada para salvar".formatted(e.id()));
             }
         } catch (SQLException ex) {
             throw Jdbc.erro(ex);
+        }
+    }
+
+    @Override
+    public Optional<TransferenciaPix> buscarTravando(UUID id) {
+        // FOR UPDATE: a linha fica travada até o fim da transação de quem chamou (@Transactional).
+        return consultar("SELECT * FROM transferencia_pix WHERE id = ? FOR UPDATE", id);
+    }
+
+    @Override
+    public List<TransferenciaPix> listarPorSituacao(SituacaoTransferencia situacao, int limite) {
+        try (Connection c = banco.getConnection();
+                PreparedStatement sql = c.prepareStatement("""
+                        SELECT * FROM transferencia_pix WHERE situacao = ? ORDER BY criada_em LIMIT ?
+                        """)) {
+            sql.setString(1, situacao.name());
+            sql.setInt(2, limite);
+            try (ResultSet rs = sql.executeQuery()) {
+                List<TransferenciaPix> lista = new ArrayList<>();
+                while (rs.next()) {
+                    lista.add(paraTransferencia(rs));
+                }
+                return lista;
+            }
+        } catch (SQLException e) {
+            throw Jdbc.erro(e);
         }
     }
 
@@ -183,6 +210,7 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
                 Jdbc.uuid(rs, "lancamento_envio_id"),
                 Jdbc.uuid(rs, "lancamento_recebimento_id"),
                 Jdbc.uuid(rs, "lancamento_estorno_id"),
+                Jdbc.uuid(rs, "conta_devolucao_id"),
                 rs.getInt("tentativas"),
                 Jdbc.instante(rs, "proxima_tentativa_em"),
                 Jdbc.instante(rs, "criada_em"),

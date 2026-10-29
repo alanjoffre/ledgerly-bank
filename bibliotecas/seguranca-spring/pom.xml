@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Segurança dos serviços Spring (Fase 4).
+
+  O que tem: o que os serviços Spring repetiriam para conferir o token do Keycloak — o
+  decodificador (assinatura, emissor, audiência e validade), o conversor que lê os papéis do
+  token, o Usuario (quem chamou) e as respostas 401/403 em Problem Details.
+
+  Por que não no núcleo compartilhado: o núcleo é Java puro e também é usado pelo pix, que é
+  Quarkus. Esta biblioteca depende do Spring Security; o pix usa o quarkus-oidc (ADR-0024).
+
+  O test-jar leva só o pacote "teste": TokensDeTeste, que assina tokens de verdade com uma chave
+  criada na memória, para os testes dos serviços passarem pelo mesmo conversor e validadores.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.alanjoffre.ledgerly</groupId>
+        <artifactId>ledgerly-bank</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>seguranca-spring</artifactId>
+    <name>Ledgerly Bank :: Segurança (Spring)</name>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Servidor de recursos OAuth2: confere o token JWT a cada pedido. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
+        </dependency>
+        <!-- Cliente OAuth2: o token de serviço (client credentials) para chamar outro serviço. -->
+        <!-- Opcional: só os serviços que chamam outro (contas, extrato) trazem para si. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- Só para compilar; os serviços já trazem o web e o RestClient. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-restclient</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Testes -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-resource-server-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- test-jar: só o pacote "teste" (TokensDeTeste), não os testes desta biblioteca. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                        <configuration>
+                            <includes>
+                                <include>io/github/alanjoffre/ledgerly/seguranca/teste/**</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

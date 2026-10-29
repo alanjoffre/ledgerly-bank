@@ -31,6 +31,8 @@
     <properties>
         <gatling.version>3.16.0</gatling.version>
         <gatling-maven-plugin.version>4.21.12</gatling-maven-plugin.version>
+        <!-- Qual simulação roda: -Dsimulacao=...GatewaySimulacao troca (o padrão é a das contas quentes). -->
+        <simulacao>io.github.alanjoffre.ledgerly.carga.ContasQuentesSimulacao</simulacao>
         <!-- Nada daqui vai para produção: não há o que medir de cobertura. -->
         <jacoco.skip>true</jacoco.skip>
     </properties>
@@ -51,7 +53,7 @@
                 <artifactId>gatling-maven-plugin</artifactId>
                 <version>${gatling-maven-plugin.version}</version>
                 <configuration>
-                    <simulationClass>io.github.alanjoffre.ledgerly.carga.ContasQuentesSimulacao</simulationClass>
+                    <simulationClass>${simulacao}</simulationClass>
                     <!-- Repassa -Dcenario, -Dusuarios etc. para a simulação. -->
                     <propagateSystemProperties>true</propagateSystemProperties>
                 </configuration>

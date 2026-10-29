@@ -7,7 +7,8 @@ Passo a passo para rodar o Ledgerly Bank na sua máquina. Testado em Linux (WSL2
 | Ferramenta | Versão | Para quê |
 | --- | --- | --- |
 | **JDK** | 25 | Compilar e rodar Java. Recomendado: [Eclipse Temurin](https://adoptium.net/). |
-| **Docker** + Docker Compose | 24+ / v2+ | Rodar bancos de dados e Kafka. |
+| **Docker** + Docker Compose | 24+ / v2+ | Rodar bancos de dados, Kafka e Keycloak. |
+| **Node.js** | 22+ | Construir e testar as telas (`web/`). Só para elas: o build Java não precisa. |
 | **Git** | qualquer recente | Clonar o repositório. |
 
 O **Maven não precisa ser instalado**: o projeto traz o Maven Wrapper (`./mvnw`), que baixa a
@@ -60,6 +61,7 @@ docker compose -f infra/docker/compose.yaml ps
 | MongoDB | `localhost:17017` | `ledgerly_admin` / `ledgerly_local`; o extrato usa `extrato` / `extrato_local`, só no banco `extrato` |
 | Redis | `localhost:16379` | sem senha |
 | Kafka | `localhost:19092` | sem autenticação; os tópicos são criados na subida ([criar-topicos.sh](../../infra/docker/kafka/criar-topicos.sh)) |
+| Keycloak | http://localhost:18081 | console: `admin` / `admin`; o realm `ledgerly` (papéis, pessoas e clientes) é importado na primeira subida de [ledgerly-realm.json](../../infra/docker/keycloak/ledgerly-realm.json) |
 | Kafka UI (opcional) | http://localhost:18080 | sobe com `--profile ferramentas` |
 
 As portas começam com `1` para não colidir com um Postgres, Mongo ou Redis que já exista na máquina.
@@ -75,10 +77,11 @@ depois que ele acaba.
 ## 4. Subir os serviços
 
 ```bash
-./mvnw package -DskipTests        # gera os pacotes (sem rodar os testes)
-./scripts/servicos.sh subir       # sobe os quatro e espera cada um ficar saudável
-./scripts/servicos.sh situacao    # quem está no ar
-./scripts/servicos.sh parar       # derruba os quatro
+./mvnw package -DskipTests                 # gera os pacotes (sem rodar os testes)
+(cd web && npm ci && npm run construir)    # as telas, que os gateways servem
+./scripts/servicos.sh subir                # sobe os quatro serviços e os dois gateways, e espera cada um ficar saudável
+./scripts/servicos.sh situacao             # quem está no ar
+./scripts/servicos.sh parar                # derruba todos
 ```
 
 | Serviço | Endereço | Saúde |
@@ -87,6 +90,13 @@ depois que ele acaba.
 | razao | http://localhost:8082 | `/actuator/health` |
 | pix | http://localhost:8083 | `/q/health` |
 | extrato | http://localhost:8084 | `/actuator/health` |
+| gateway-ib (internet banking) | http://localhost:8080 | `/actuator/health` |
+| gateway-bo (backoffice) | http://localhost:8090 | `/actuator/health` |
+
+Desde a Fase 4, os serviços exigem um token do Keycloak (`Authorization: Bearer`). Os scripts de
+demonstração pedem um token de serviço sozinhos ([scripts/lib/token.sh](../../scripts/lib/token.sh)).
+As telas fazem login pelo gateway: rode `./scripts/semear.sh` para a Ana e o Bruno terem conta e
+saldo, e veja a [demonstração da Fase 4](demo-fase-4.md).
 
 Também dá para subir ou derrubar um só (`./scripts/servicos.sh parar razao`), para ver o que os
 outros fazem sem ele. Os logs ficam em `.servicos/<serviço>.log`.
@@ -114,5 +124,13 @@ de memória. O resultado é um executável que não precisa de Java para rodar.
 - **O extrato não sobe: `Authentication failed`** — o volume do MongoDB é anterior à Fase 2 e não
   tem o usuário `extrato`. Crie sem apagar nada com o comando no topo de
   [01-usuario-extrato.js](../../infra/docker/mongo/init/01-usuario-extrato.js).
+- **Mudei o `ledgerly-realm.json` e nada aconteceu** — o realm só é importado se ainda não existir.
+  Rode `down -v` e suba de novo (apaga os dados locais, inclusive o vínculo das pessoas com as
+  contas; rode `./scripts/semear.sh` outra vez).
+- **Tudo responde `401`** — o token não foi aceito, ou nem foi pedido. O Keycloak está no ar
+  (`docker compose ps`)? O serviço confere o emissor (`http://localhost:18081/realms/ledgerly`), a
+  validade e a audiência: um token vencido, de outro realm ou de outro Keycloak é recusado. O motivo
+  exato fica só no log do serviço; a resposta não diz, de propósito, para não ensinar o atacante.
+- **O gateway responde "a tela não foi construída"** — rode `npm run construir` em `web/`.
 - **Um serviço não sobe pelo `servicos.sh`** — veja o fim de `.servicos/<serviço>.log`. O mais
   comum é a infraestrutura não estar no ar, ou a porta estar ocupada por um serviço iniciado à mão.

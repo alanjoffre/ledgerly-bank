@@ -7,6 +7,7 @@ import io.github.alanjoffre.ledgerly.pix.adaptadores.entrada.web.Dtos.RegistrarC
 import io.github.alanjoffre.ledgerly.pix.aplicacao.ChaveService;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.QrCodeService;
 import io.github.alanjoffre.ledgerly.pix.dominio.ChaveRegistrada;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -29,6 +30,9 @@ import java.util.UUID;
  *
  * <p><b>Jakarta REST</b> (antigo JAX-RS): o padrão Java para APIs REST, que o Quarkus implementa.
  * {@code @Path} faz o papel do {@code @RequestMapping} do Spring.
+ *
+ * <p>Quem pode (ADR-0026): cadastrar, remover, listar e gerar o QR Code são do dono da conta (ou de
+ * um serviço); consultar a chave e ler um QR Code, de qualquer papel — é o "confira" antes de pagar.
  */
 @Path("/v1")
 @Produces(MediaType.APPLICATION_JSON)
@@ -36,16 +40,20 @@ public class ChaveRecurso {
 
     private final ChaveService chaves;
     private final QrCodeService qrCodes;
+    private final Quem quem;
 
-    public ChaveRecurso(ChaveService chaves, QrCodeService qrCodes) {
+    public ChaveRecurso(ChaveService chaves, QrCodeService qrCodes, Quem quem) {
         this.chaves = chaves;
         this.qrCodes = qrCodes;
+        this.quem = quem;
     }
 
     @POST
     @Path("/chaves")
+    @RolesAllowed({Quem.CLIENTE, Quem.SERVICO})
     public Response registrar(@NotNull @Valid RegistrarChaveRequisicao requisicao) {
-        ChaveRegistrada registrada = chaves.registrar(requisicao.contaId(), requisicao.tipo(), requisicao.valor());
+        ChaveRegistrada registrada =
+                chaves.registrar(requisicao.contaId(), requisicao.tipo(), requisicao.valor(), quem.acesso());
         return Response.created(URI.create("/v1/chaves/" + registrada.chave().valor()))
                 .entity(ChaveResposta.de(registrada))
                 .build();
@@ -54,47 +62,53 @@ public class ChaveRecurso {
     /** "Confira o destinatário": de quem é a chave, sem mostrar o dado inteiro. */
     @GET
     @Path("/chaves/{chave}")
+    @RolesAllowed({Quem.CLIENTE, Quem.ANALISTA, Quem.SERVICO})
     public ConsultaChaveResposta consultar(@PathParam("chave") String chave) {
         return ConsultaChaveResposta.de(chaves.consultar(chave));
     }
 
     @DELETE
     @Path("/chaves/{chave}")
+    @RolesAllowed({Quem.CLIENTE, Quem.SERVICO})
     public Response excluir(@PathParam("chave") String chave) {
-        chaves.excluir(chave);
+        chaves.excluir(chave, quem.acesso());
         return Response.noContent().build();
     }
 
     @GET
     @Path("/contas/{contaId}/chaves")
+    @RolesAllowed({Quem.CLIENTE, Quem.SERVICO})
     public List<ChaveResposta> listarDaConta(@PathParam("contaId") UUID contaId) {
-        return chaves.listarDaConta(contaId).stream().map(ChaveResposta::de).toList();
+        return chaves.listarDaConta(contaId, quem.acesso()).stream().map(ChaveResposta::de).toList();
     }
 
     /** O QR Code estático da chave, como texto (o "copia e cola"). Sem {@code valor}, quem paga digita. */
     @GET
     @Path("/chaves/{chave}/qrcode")
+    @RolesAllowed({Quem.CLIENTE, Quem.SERVICO})
     public QrCodeResposta qrCode(
             @PathParam("chave") String chave,
             @QueryParam("valor") @Pattern(regexp = Dtos.PADRAO_VALOR, message = Dtos.MENSAGEM_VALOR) String valor,
             @QueryParam("descricao") @Size(max = 60) String descricao) {
-        return QrCodeResposta.de(qrCodes.gerar(chave, Dtos.dinheiro(valor), descricao));
+        return QrCodeResposta.de(qrCodes.gerar(chave, Dtos.dinheiro(valor), descricao, quem.acesso()));
     }
 
     /** O mesmo QR Code como imagem SVG, pronta para mostrar na tela ou imprimir. */
     @GET
     @Path("/chaves/{chave}/qrcode.svg")
     @Produces("image/svg+xml")
+    @RolesAllowed({Quem.CLIENTE, Quem.SERVICO})
     public String qrCodeSvg(
             @PathParam("chave") String chave,
             @QueryParam("valor") @Pattern(regexp = Dtos.PADRAO_VALOR, message = Dtos.MENSAGEM_VALOR) String valor,
             @QueryParam("descricao") @Size(max = 60) String descricao) {
-        return QrCodeSvg.desenhar(qrCodes.gerar(chave, Dtos.dinheiro(valor), descricao).copiaECola());
+        return QrCodeSvg.desenhar(qrCodes.gerar(chave, Dtos.dinheiro(valor), descricao, quem.acesso()).copiaECola());
     }
 
     /** Lê um "copia e cola" e mostra o que há nele, antes de pagar. Recusa QR Code adulterado. */
     @POST
     @Path("/qrcodes/leitura")
+    @RolesAllowed({Quem.CLIENTE, Quem.ANALISTA, Quem.SERVICO})
     public QrCodeResposta lerQrCode(@NotNull @Valid Dtos.LerQrCodeRequisicao requisicao) {
         return QrCodeResposta.de(qrCodes.ler(requisicao.copiaECola()));
     }

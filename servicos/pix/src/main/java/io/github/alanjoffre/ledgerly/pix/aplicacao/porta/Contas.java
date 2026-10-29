@@ -10,8 +10,8 @@ import java.util.UUID;
  */
 public interface Contas {
 
-    /** O resumo da conta: titular e se está ativa. */
-    record ContaResumo(UUID contaId, String titularNome, boolean ativa) {}
+    /** O resumo da conta: de qual cliente é, o nome do titular e se está ativa. */
+    record ContaResumo(UUID contaId, UUID clienteId, String titularNome, boolean ativa) {}
 
     Optional<ContaResumo> buscar(UUID contaId);
 

@@ -5,6 +5,65 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [0.4.0] — 2026-10-28
+
+### Adicionado — Fase 4 (segurança e front-end)
+
+- **Keycloak 26.8** no Docker Compose, com o realm `ledgerly` **como código**
+  (`infra/docker/keycloak/ledgerly-realm.json`): papéis `cliente`, `analista` e `servico`; pessoas
+  sintéticas; o vínculo login → cliente no claim `cliente_id`; token de 5 minutos com audiência
+  `ledgerly-api` ([ADR-0024](docs/adr/0024-keycloak-e-realm-como-codigo.md)).
+- **Todo serviço exige token** (OAuth2 *resource server*), inclusive de outro serviço: contas, pix e
+  extrato chamam um ao outro com *client credentials*. O razão aceita só o papel `servico` e não tem
+  rota no gateway ([ADR-0027](docs/adr/0027-token-de-servico-e-razao-sem-rota.md)). Biblioteca
+  comum `bibliotecas/seguranca-spring` para os serviços Spring.
+- **BOLA com 404:** o cliente só enxerga o que é dele; pedir a conta, o extrato ou o Pix de outra
+  pessoa responde como se não existisse ([ADR-0026](docs/adr/0026-bola-com-404.md)).
+- **Dois BFFs** (`servicos/gateway`, Spring Cloud Gateway Server WebMVC): internet banking na porta
+  8080 e backoffice na 8090, cada um com o seu cookie de sessão. Login *authorization code* + PKCE,
+  TokenRelay, CSRF de SPA, CSP, saída que encerra também a sessão do Keycloak; o token nunca chega ao
+  navegador ([ADR-0025](docs/adr/0025-bff-um-por-front-end.md), [ADR-0028](docs/adr/0028-gateway-no-boot-4-0.md)).
+- **Front-end React 19 + TypeScript** (`web/`, Vite): o **internet banking** (contas, extrato,
+  chaves Pix e envio de Pix com "confira o destinatário") e o **backoffice de fraude** (fila de Pix
+  em análise, decisão de devolução, consulta de conta). Dinheiro como texto do começo ao fim
+  ([ADR-0029](docs/adr/0029-react-vite-vitest-playwright.md)).
+- **Devolução de Pix em análise:** `POST /v1/transferencias/{id}/devolucao`, só para analista; o
+  dinheiro volta para outra conta ATIVA do mesmo titular quando a que pagou foi encerrada, com
+  auditoria de cada decisão em `decisao_de_analise`. O evento `PixEstornado` ganhou o campo opcional
+  `contaDevolucaoId` ([ADR-0030](docs/adr/0030-devolucao-de-pix-em-analise.md)).
+- **Testes de ponta a ponta com o Playwright** (`web/e2e`), no Chromium, contra o sistema inteiro
+  no ar: login no Keycloak, Pix até o extrato, BOLA pelo BFF, saída, fila de análise e devolução.
+  Testes de unidade das telas com Vitest + Testing Library.
+- Scripts: `scripts/semear.sh` (pessoas, contas, saldo e chaves, idempotente),
+  `scripts/pix-em-analise.sh` (cria um Pix em análise de verdade) e `scripts/lib/token.sh` (o token
+  de serviço para os scripts). `desempenho/carga/medir-gateway.sh` mede o custo do BFF.
+- CI: job `web` (tipos, testes e build das telas) e a conferência do realm do Keycloak no job de
+  infraestrutura.
+
+### Mudado
+
+- As demonstrações das Fases 1 a 3, a medição de subida e o teste de carga passaram a mandar o token
+  de serviço: sem ele, os serviços respondem 401.
+- O `maven-jar-plugin` tem versão fixa no `pom.xml` raiz (o build avisava).
+
+### Corrigido
+
+Cinco defeitos que só os testes de ponta a ponta acharam — cada um provado antes por um teste que
+falhava, e coberto agora também por teste do gateway, do pix ou da tela, que rodam no build:
+
+- **O BFF transformava 403 em 200.** Um pedido sem permissão era encaminhado para `/error`, e o
+  *fallback* da SPA respondia ali com a tela (`index.html`). Agora 401 e 403 em `/api/**` saem em
+  JSON (*problem details*) direto do filtro de segurança, e `/error` não serve a tela.
+- **O Pix pelo internet banking falhava.** A tela mandava a chave **mascarada** que a consulta
+  devolve (`b***@exemplo.test`), e não a digitada.
+- **Depois do login, a pessoa caía num JSON.** O BFF guardava o último pedido de API sem sessão
+  (`/api/eu`) e voltava para ele; agora nenhum pedido fica guardado e o login volta para a tela.
+- **A mensagem do Pix não aparecia no extrato** (desde a Fase 2). A Saga mandava ao razão o texto
+  fixo "Pix para <nome>", e o "Aluguel" de quem pagou se perdia. Agora o débito e o crédito levam a
+  mensagem ([ADR-0029](docs/adr/0029-react-vite-vitest-playwright.md)).
+- **"Minhas contas" dizia "Saldo indisponível agora" em toda conta.** A lista de contas do cliente
+  vem sem saldo, mas o falso do teste da tela trazia. Agora a tela busca o saldo de cada conta.
+
 ## [0.3.0] — 2026-10-28
 
 ### Adicionado — Fase 3 (concorrência e desempenho)
@@ -120,7 +179,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 - CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot.
 - Documentação: arquitetura C4, ADRs 0001–0007, roteiro de fases, glossário, guia de ambiente.
 
-[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.3.0...HEAD
+[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.4.0
 [0.3.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.3.0
 [0.2.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.2.0
 [0.1.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.1.0

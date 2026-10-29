@@ -35,7 +35,10 @@ class HttpContas implements Contas {
             }
             JsonNode corpo = exigirSucesso(resposta);
             return Optional.of(new ContaResumo(
-                    contaId, corpo.path("nome").asText(), "ATIVA".equals(corpo.path("situacao").asText())));
+                    contaId,
+                    uuidOuNulo(corpo.path("clienteId").asText(null)),
+                    corpo.path("nome").asText(),
+                    "ATIVA".equals(corpo.path("situacao").asText())));
         } catch (ProcessingException e) {
             throw indisponivel(e);
         }
@@ -63,6 +66,10 @@ class HttpContas implements Contas {
         } catch (Exception e) {
             throw new ServicoIndisponivelException("Resposta ilegível do serviço de contas");
         }
+    }
+
+    private static UUID uuidOuNulo(String texto) {
+        return texto == null ? null : UUID.fromString(texto);
     }
 
     private static ServicoIndisponivelException indisponivel(ProcessingException e) {

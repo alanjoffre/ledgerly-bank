@@ -34,10 +34,13 @@
     <!-- Módulos: cada pasta listada aqui é um projeto Maven filho. -->
     <modules>
         <module>bibliotecas/nucleo-compartilhado</module>
+        <!-- Fase 4: conferir o token do Keycloak nos serviços Spring (ADR-0024). -->
+        <module>bibliotecas/seguranca-spring</module>
         <module>servicos/razao</module>
         <module>servicos/contas</module>
         <module>servicos/pix</module>
         <module>servicos/extrato</module>
+        <module>servicos/gateway</module>
         <!-- Fase 3: medições. Compilam no build; rodam só quando alguém pede (ver cada pom). -->
         <module>desempenho/carga</module>
         <module>desempenho/jmh</module>
@@ -63,6 +66,7 @@
         <maven-compiler-plugin.version>3.16.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>3.6.1</maven-failsafe-plugin.version>
+        <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
         <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
         <jacoco-maven-plugin.version>0.8.16</jacoco-maven-plugin.version>
 
@@ -113,6 +117,12 @@
                             <arg>-Werror</arg>
                         </compilerArgs>
                     </configuration>
+                </plugin>
+                <!-- Jar: empacota as bibliotecas (e o test-jar com os tokens de teste do seguranca-spring). -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>${maven-jar-plugin.version}</version>
                 </plugin>
                 <!-- Surefire roda os testes de unidade (classes *Test). -->
                 <plugin>

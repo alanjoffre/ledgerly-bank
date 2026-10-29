@@ -4,7 +4,7 @@ O **Pix** do Ledgerly Bank: chaves, QR Code e transferências. Uma transferênci
 serviços (o pedido mora aqui, o dinheiro mora no razão), e por isso é conduzida como uma **Saga**:
 uma sequência de passos, cada um com a sua compensação.
 
-**Stack:** Java 25 · Quarkus 3 (REST, JDBC/Agroal, Flyway, Redis, Kafka/SmallRye, Scheduler) ·
+**Stack:** Java 25 · Quarkus 3 (REST, JDBC/Agroal, Flyway, Redis, Kafka/SmallRye, Scheduler, OIDC) ·
 PostgreSQL 18 · Redis 8 · Kafka 4 · porta `8083`
 
 Por que Quarkus aqui, e não Spring Boot como nos outros: ver
@@ -54,6 +54,38 @@ saída só por envio, mesmo que alguém peça as duas
 Se o serviço morrer no meio, outra execução assume: cada passo **reserva** a transferência por 30 s,
 e um agendador retoma, a cada segundo, as que ficaram paradas.
 
+### A devolução de um Pix em análise (Fase 4)
+
+Um Pix fica `EM_ANALISE` quando o estorno é recusado: a conta que pagou foi encerrada no meio do
+caminho, e o dinheiro está parado na Liquidação Pix. A analista do backoffice vê a fila
+(`GET /v1/transferencias?situacao=EM_ANALISE`) e decide devolver o dinheiro para **outra conta
+ativa do mesmo titular**, com uma justificativa de pelo menos 10 letras
+([ADR-0030](../../docs/adr/0030-devolucao-de-pix-em-analise.md)).
+
+A decisão não move dinheiro por conta própria: grava a conta da volta na transferência
+(`contaDevolucaoId`) e devolve a Saga para `ESTORNANDO`, que estorna para essa conta pelo mesmo
+caminho de sempre, com uma chave de idempotência própria (`pix:{id}:devolucao:{conta}`) e a mesma
+regra de uma saída por envio. Quem decidiu, quando
+e por quê fica na tabela `decisao_de_analise`, que nunca é alterada nem apagada. Duas analistas ao
+mesmo tempo resultam em uma devolução só; a segunda recebe `409`.
+
+### Segurança (Fase 4)
+
+O Pix confere o token do Keycloak como os serviços Spring: assinatura, emissor, validade, audiência
+`ledgerly-api` e os papéis em `realm_access.roles` (com a extensão OIDC do Quarkus). Duas regras a
+mais, próprias do Quarkus:
+
+- **negar por padrão**: rota sem `@RolesAllowed` é recusada (esquecer a anotação não abre a rota);
+- **autenticação só na rota que pede**: assim o 401 e o 403 passam pelos mesmos tradutores de erro e
+  saem em Problem Details, como todos os outros erros.
+
+O cliente só usa o que é dele: a conta que paga, as chaves e a consulta de um Pix. O de outro
+cliente responde **404, igual ao de um que não existe** (BOLA,
+[ADR-0026](../../docs/adr/0026-bola-com-404.md)). Para saber de quem é a conta, o Pix pergunta ao
+contas. Para falar com o contas e com o razão, o Pix pede o próprio token de serviço (*client
+credentials*) na primeira chamada e o renova antes de vencer
+([ADR-0027](../../docs/adr/0027-token-de-servico-e-razao-sem-rota.md)).
+
 ### Chaves e QR Code
 
 - Chaves **CPF** (só o do titular — o serviço de contas responde "confere" ou "não confere", sem
@@ -90,18 +122,20 @@ padrão Jakarta de escopo e de transação.
 
 ## API
 
-| Método e caminho | O que faz | Sucesso |
-|---|---|---|
-| `POST /v1/chaves` | `{"contaId","tipo","valor"?}` — `ALEATORIA` sem `valor` | 201 |
-| `GET /v1/chaves/{chave}` | "Confira o destinatário": titular e chave mascarada | 200 |
-| `DELETE /v1/chaves/{chave}` | Exclui | 204 |
-| `GET /v1/contas/{contaId}/chaves` | As chaves da conta | 200 |
-| `GET /v1/chaves/{chave}/qrcode?valor=&descricao=` | QR Code estático (copia e cola) | 200 |
-| `GET /v1/chaves/{chave}/qrcode.svg?valor=` | O mesmo QR Code em imagem SVG | 200 |
-| `POST /v1/qrcodes/leitura` | `{"copiaECola"}` — o que há no QR Code, conferido | 200 |
-| `POST /v1/transferencias` | `{"pagadorContaId","chave" \| "copiaECola","valor"?,"descricao"?}` + `Idempotency-Key` | 201 · 202 · 200 repetido |
-| `GET /v1/transferencias/{id}` | Situação e andamento da Saga | 200 |
-| `GET /q/health` | Saúde do serviço | 200 |
+| Método e caminho | O que faz | Quem pode | Sucesso |
+|---|---|---|---|
+| `POST /v1/chaves` | `{"contaId","tipo","valor"?}` — `ALEATORIA` sem `valor` | cliente (dono), serviço | 201 |
+| `GET /v1/chaves/{chave}` | "Confira o destinatário": titular e chave mascarada | cliente, analista, serviço | 200 |
+| `DELETE /v1/chaves/{chave}` | Exclui | cliente (dono), serviço | 204 |
+| `GET /v1/contas/{contaId}/chaves` | As chaves da conta | cliente (dono), serviço | 200 |
+| `GET /v1/chaves/{chave}/qrcode?valor=&descricao=` | QR Code estático (copia e cola) | cliente (dono), serviço | 200 |
+| `GET /v1/chaves/{chave}/qrcode.svg?valor=` | O mesmo QR Code em imagem SVG | cliente (dono), serviço | 200 |
+| `POST /v1/qrcodes/leitura` | `{"copiaECola"}` — o que há no QR Code, conferido | cliente, analista, serviço | 200 |
+| `POST /v1/transferencias` | `{"pagadorContaId","chave" \| "copiaECola","valor"?,"descricao"?}` + `Idempotency-Key` | cliente (dono da conta que paga), serviço | 201 · 202 · 200 repetido |
+| `GET /v1/transferencias/{id}` | Situação e andamento da Saga | cliente (dono), analista, serviço | 200 |
+| `GET /v1/transferencias?situacao=EM_ANALISE&limite=50` | A fila do backoffice (limite 1–200) | analista | 200 |
+| `POST /v1/transferencias/{id}/devolucao` | `{"contaDestinoId","justificativa"}` — devolve o Pix em análise | analista | 200 |
+| `GET /q/health` | Saúde do serviço | aberto | 200 |
 
 `201` quando a Saga terminou na hora; `202 Accepted` quando um passo ficou sem resposta e a Saga
 continua sozinha; `200` + `Idempotent-Replayed: true` no pedido repetido.
@@ -112,11 +146,15 @@ Formato Problem Details (RFC 9457), o mesmo dos serviços Spring. Decida pelo `t
 
 | `type` (`urn:ledgerly:erro:...`) | HTTP | Quando |
 |---|---|---|
-| `requisicao-invalida` | 400 | Campo inválido (detalhe em `campos`), JSON malformado, `Idempotency-Key` faltando |
+| `requisicao-invalida` | 400 | Campo inválido (detalhe em `campos`), JSON malformado, `Idempotency-Key` faltando, justificativa curta |
+| `nao-autenticado` | 401 | Sem token, vencido, de outro emissor, de outra audiência ou forjado (com `WWW-Authenticate`) |
+| `acesso-negado` | 403 | Papel errado: o analista não faz Pix; o cliente não vê a fila nem devolve |
 | `chave-invalida` · `qrcode-invalido` | 400 | Formato da chave; QR Code adulterado ou que não é Pix |
-| `chave-nao-encontrada` · `conta-nao-encontrada` · `transferencia-nao-encontrada` | 404 | Não existe |
+| `chave-nao-encontrada` · `conta-nao-encontrada` · `transferencia-nao-encontrada` | 404 | Não existe, ou é de outro cliente (a mesma resposta, de propósito) |
 | `chave-ja-cadastrada` | 409 | A chave já é de uma conta |
 | `pedido-em-andamento` | 409 | O mesmo pedido ainda corre (segundo clique); `Retry-After: 1` |
+| `transferencia-fora-de-analise` | 409 | Devolver um Pix que não está (ou não está mais) em análise |
+| `conta-de-outro-titular` | 422 | A conta da devolução é de outra pessoa |
 | `titularidade-nao-confere` · `limite-de-chaves` · `conta-inativa` | 422 | Regras das chaves e da conta |
 | `transferencia-invalida` · `chave-idempotencia-reutilizada` | 422 | Valor, mesma conta, QR Code de outro valor; chave usada em outro pedido |
 | `servico-indisponivel` | 503 | O serviço de contas não respondeu; nada foi criado; `Retry-After: 5` |
@@ -142,7 +180,9 @@ Imagem nativa (GraalVM, compilada num contêiner — nada a instalar):
 
 Variáveis de ambiente: `PIX_PORTA`, `PIX_DB_URL`, `PIX_DB_USUARIO`, `PIX_DB_SENHA`, `PIX_DB_POOL`,
 `PIX_REDIS`, `PIX_KAFKA`, `PIX_RAZAO_URL`, `PIX_CONTAS_URL`, `PIX_OUTBOX_INTERVALO_MS`,
-`PIX_SAGA_INTERVALO`.
+`PIX_SAGA_INTERVALO`, `LEDGERLY_EMISSOR` (o Keycloak, padrão `http://localhost:18081/realms/ledgerly`),
+`LEDGERLY_AUDIENCIA`, `PIX_CLIENTE_ID` e `PIX_CLIENTE_SEGREDO` (o token de serviço; o segredo padrão só
+vale no ambiente local).
 
 ## Testes
 
@@ -161,11 +201,15 @@ Variáveis de ambiente: `PIX_PORTA`, `PIX_DB_URL`, `PIX_DB_USUARIO`, `PIX_DB_SEN
 | Integração | `RedisForaDoArIT` | Sem Redis, 20 cliques simultâneos → 1 transferência (o banco segura sozinho) |
 | Integração | `ChavesIT`, `QrCodeIT` | Regras das chaves; gerar, ler e pagar QR Code |
 | Integração | `CaixaDeSaidaIT` | `PixConcluido` e `PixEstornado` no Kafka, no formato do contrato |
+| Integração | `AutorizacaoIT` | **BOLA**: pagar com a conta de outro, ler o Pix de outro e mexer na chave de outro dão o mesmo 404 de um recurso inexistente; a chave de idempotência de outro cliente não vaza o Pix dele; o analista não faz Pix; token sem papel, vencido, de outro emissor, de outra audiência ou forjado: 401 |
+| Integração | `DevolucaoIT` | Devolve para a outra conta do titular e grava a decisão; segunda decisão, 409, sem o dinheiro sair duas vezes; **duas analistas ao mesmo tempo: uma devolução só**; conta de outro titular, bloqueada ou inexistente, recusada; só a analista decide |
 
 O razão e o serviço de contas, nos testes, são **falsos** ([ServicosFalsos](src/test/java/io/github/alanjoffre/ledgerly/pix/integracao/ServicosFalsos.java)):
 um servidor HTTP do próprio JDK que segue o contrato do razão de verdade — inclusive a
-idempotência e, desde a Fase 3, a referência ao envio no crédito e no estorno — e que o teste manda
-falhar, demorar ou recusar. O Pix fala com ele por HTTP de
+idempotência, desde a Fase 3 a referência ao envio no crédito e no estorno e, desde a Fase 4, a
+descrição de cada lançamento (é ela que aparece no extrato) — e que o teste manda
+falhar, demorar ou recusar. O mesmo servidor faz de emissor de tokens (as chaves públicas), para o
+teste não depender do Keycloak. O Pix fala com ele por HTTP de
 verdade, com os mesmos clientes e tempos-limite de produção.
 
-Cobertura (unidade + integração): **93% das linhas, 87% dos ramos**.
+Cobertura (unidade + integração): **92% das linhas, 87% dos ramos**.

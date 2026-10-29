@@ -67,6 +67,9 @@ public class ProjecaoDoExtrato {
     /**
      * Pix estornado: as duas linhas são do pagador — a saída, marcada como estornada, e a volta do
      * dinheiro, com o motivo. O recebedor não vê nada: para ele o dinheiro nunca chegou.
+     *
+     * <p>Na devolução de um Pix em análise (ADR-0030), a volta cai em outra conta do mesmo titular
+     * (a que pagou foi encerrada): a segunda linha vai para ela.
      */
     public void projetar(PixEstornado evento) {
         var recebedor = evento.recebedor();
@@ -74,7 +77,7 @@ public class ProjecaoDoExtrato {
         movimentacoes.gravarParteDoPix(evento.lancamentoEnvioId(), pagador, new ParteDoPix(
                 evento.pixId(), PapelNoPix.ENVIADO, SituacaoPix.ESTORNADO,
                 recebedor.nome(), recebedor.tipoChave(), recebedor.chave(), evento.motivo()));
-        movimentacoes.gravarParteDoPix(evento.lancamentoEstornoId(), pagador, new ParteDoPix(
+        movimentacoes.gravarParteDoPix(evento.lancamentoEstornoId(), evento.contaDaVolta(), new ParteDoPix(
                 evento.pixId(), PapelNoPix.ESTORNO, SituacaoPix.ESTORNADO,
                 recebedor.nome(), recebedor.tipoChave(), recebedor.chave(), evento.motivo()));
     }

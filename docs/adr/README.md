@@ -40,3 +40,10 @@ sem que se saiba o que se perde. O formato segue o modelo de Michael Nygard, o m
 | [0021](0021-teste-de-carga-com-gatling.md) | Teste de carga com o Gatling, em Java, fora do build | Aceita |
 | [0022](0022-conciliacao-em-lote-com-structured-concurrency.md) | Conciliação em lote com *Structured Concurrency* e *Scoped Values* | Aceita |
 | [0023](0023-micro-benchmarks-com-jmh.md) | Micro-benchmarks com o JMH | Aceita |
+| [0024](0024-keycloak-e-realm-como-codigo.md) | Keycloak como servidor de identidade, com o realm como código | Aceita |
+| [0025](0025-bff-um-por-front-end.md) | Um BFF por front-end, com o token fora do navegador | Aceita |
+| [0026](0026-bola-com-404.md) | Autorização por objeto, e o recurso de outro cliente responde 404 | Aceita |
+| [0027](0027-token-de-servico-e-razao-sem-rota.md) | Token de serviço entre serviços, e o razão sem rota pública | Aceita |
+| [0028](0028-gateway-no-boot-4-0.md) | O gateway no Spring Boot 4.0, enquanto o Spring Cloud do 4.1 não sai | Aceita |
+| [0029](0029-react-vite-vitest-playwright.md) | Telas em React + TypeScript + Vite, testadas com Vitest e Playwright | Aceita |
+| [0030](0030-devolucao-de-pix-em-analise.md) | Devolução de Pix em análise pelo backoffice, com trilha de auditoria | Aceita |

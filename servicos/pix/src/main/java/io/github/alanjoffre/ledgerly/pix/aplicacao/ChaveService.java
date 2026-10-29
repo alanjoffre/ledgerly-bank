@@ -17,7 +17,13 @@ import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
 
-/** Casos de uso das chaves Pix: registrar, consultar (o "confira o destinatário"), listar e excluir. */
+/**
+ * Casos de uso das chaves Pix: registrar, consultar (o "confira o destinatário"), listar e excluir.
+ *
+ * <p>Autorização por objeto (ADR-0026): registrar, listar, excluir e gerar o QR Code são do dono
+ * da conta; a conta (ou a chave) de outro cliente responde como se não existisse. A consulta da
+ * chave é aberta a todo cliente — é o "confira o destinatário" antes de pagar.
+ */
 @ApplicationScoped
 public class ChaveService {
 
@@ -45,7 +51,7 @@ public class ChaveService {
      * e assim a contagem do limite e a gravação ficam juntas.
      */
     @Transactional
-    public ChaveRegistrada registrar(UUID contaId, TipoChave tipo, String valor) {
+    public ChaveRegistrada registrar(UUID contaId, TipoChave tipo, String valor, Acesso acesso) {
         ChavePix chave;
         if (tipo == TipoChave.ALEATORIA) {
             if (valor != null && !valor.isBlank()) {
@@ -57,7 +63,8 @@ public class ChaveService {
         }
 
         Contas.ContaResumo conta = contas.buscar(contaId)
-                .orElseThrow(() -> new ContaNaoEncontradaException("Conta %s não encontrada".formatted(contaId)));
+                .filter(c -> acesso.podeUsar(c.clienteId()))
+                .orElseThrow(() -> contaNaoEncontrada(contaId));
         if (!conta.ativa()) {
             throw new ContaInativaException("A conta %s não está ativa".formatted(contaId));
         }
@@ -77,18 +84,39 @@ public class ChaveService {
     public ChaveRegistrada consultar(String chave) {
         ChavePix procurada = ChavePix.identificar(chave);
         return chaves.buscar(procurada)
-                .orElseThrow(() -> new ChaveNaoEncontradaException("Nenhuma conta tem a chave " + procurada.mascarada()));
+                .orElseThrow(() -> chaveNaoEncontrada(procurada));
     }
 
-    public List<ChaveRegistrada> listarDaConta(UUID contaId) {
+    public List<ChaveRegistrada> listarDaConta(UUID contaId, Acesso acesso) {
+        if (!acesso.semDono() && contas.buscar(contaId).filter(c -> acesso.podeUsar(c.clienteId())).isEmpty()) {
+            throw contaNaoEncontrada(contaId);
+        }
         return chaves.listarDaConta(contaId);
     }
 
     @Transactional
-    public void excluir(String chave) {
-        ChavePix procurada = ChavePix.identificar(chave);
+    public void excluir(String chave, Acesso acesso) {
+        ChavePix procurada = doDono(chave, acesso).chave();
         if (!chaves.excluir(procurada)) {
-            throw new ChaveNaoEncontradaException("Nenhuma conta tem a chave " + procurada.mascarada());
+            throw chaveNaoEncontrada(procurada);
         }
+    }
+
+    /** A chave, se quem pede é o dono da conta dela; a chave de outro cliente é "não encontrada". */
+    public ChaveRegistrada doDono(String chave, Acesso acesso) {
+        ChaveRegistrada registrada = consultar(chave);
+        if (!acesso.semDono()
+                && contas.buscar(registrada.contaId()).filter(c -> acesso.podeUsar(c.clienteId())).isEmpty()) {
+            throw chaveNaoEncontrada(registrada.chave());
+        }
+        return registrada;
+    }
+
+    private static ContaNaoEncontradaException contaNaoEncontrada(UUID contaId) {
+        return new ContaNaoEncontradaException("Conta %s não encontrada".formatted(contaId));
+    }
+
+    private static ChaveNaoEncontradaException chaveNaoEncontrada(ChavePix chave) {
+        return new ChaveNaoEncontradaException("Nenhuma conta tem a chave " + chave.mascarada());
     }
 }

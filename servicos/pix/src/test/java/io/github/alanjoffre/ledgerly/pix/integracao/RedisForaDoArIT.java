@@ -41,7 +41,7 @@ class RedisForaDoArIT extends TesteDeIntegracao {
         ServicosFalsos.RAZAO.zerar();
         ServicosFalsos.CONTAS.zerar();
         try (Connection c = banco.getConnection(); var sql = c.createStatement()) {
-            sql.execute("TRUNCATE chave_pix, transferencia_pix, outbox");
+            sql.execute(LIMPAR_TABELAS);
         }
     }
 

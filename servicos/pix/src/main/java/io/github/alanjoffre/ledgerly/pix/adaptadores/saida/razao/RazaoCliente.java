@@ -6,6 +6,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import java.util.UUID;
+import io.quarkus.oidc.client.filter.OidcClientFilter;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 /**
@@ -16,6 +17,8 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
  * significa para a Saga é o {@link HttpRazao}.
  */
 @RegisterRestClient(configKey = "razao")
+// O token do Pix (client credentials) vai em toda chamada; o outro lado exige o papel "servico".
+@OidcClientFilter
 @Path("/v1/pix")
 public interface RazaoCliente {
 

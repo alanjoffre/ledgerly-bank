@@ -84,6 +84,24 @@ class LeitorDeEventosTest {
         assertThat(evento.motivo()).isEqualTo("conta de destino encerrada");
         assertThat(evento.recebedor().chave()).isNull();
         assertThat(evento.recebedor().tipoChave()).isNull();
+        assertThat(evento.contaDevolucaoId()).isNull();
+        assertThat(evento.contaDaVolta()).isEqualTo(evento.pagador().contaId());
+    }
+
+    @Test
+    @DisplayName("PixEstornado de uma devolução: a volta é na conta da devolução; UUID inválido é recusado")
+    void pixDevolvido() {
+        String modelo = """
+                {"tipo":"PixEstornado","dados":{"pixId":"5d0a0000-0000-4000-8000-000000000001",
+                  "pagador":{"contaId":"c1c1c1c1-0000-4000-8000-000000000001","nome":"João"},
+                  "recebedor":{"contaId":"c2c2c2c2-0000-4000-8000-000000000002","nome":"Maria"},
+                  "lancamentoEnvioId":"9b2e0f6a-1c3d-4e5f-8a9b-0c1d2e3f4a5b",
+                  "lancamentoEstornoId":"e5e50000-0000-4000-8000-000000000004","contaDevolucaoId":"%s"}}""";
+        PixEstornado evento = leitor.pixEstornado(
+                leitor.envelope(modelo.formatted("d3d3d3d3-0000-4000-8000-000000000003")).dados());
+        assertThat(evento.contaDaVolta()).isEqualTo(UUID.fromString("d3d3d3d3-0000-4000-8000-000000000003"));
+        assertThatThrownBy(() -> leitor.pixEstornado(leitor.envelope(modelo.formatted("x")).dados()))
+                .isInstanceOf(EventoInvalidoException.class).hasMessageContaining("contaDevolucaoId");
     }
 
     static Stream<Arguments> envelopesInvalidos() {

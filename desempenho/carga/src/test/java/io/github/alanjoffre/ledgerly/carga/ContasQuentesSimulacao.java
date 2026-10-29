@@ -45,7 +45,12 @@ import java.util.concurrent.ThreadLocalRandom;
  * o serviço entrega com N clientes martelando.
  *
  * <p>Parâmetros (todos com {@code -D}): {@code cenario}, {@code usuarios} (64), {@code segundos}
- * (30), {@code contas} (2000), {@code razao} (http://localhost:8082).
+ * (30), {@code contas} (2000), {@code razao} (http://localhost:8082), {@code emissor} (o realm do
+ * Keycloak, http://localhost:18081/realms/ledgerly).
+ *
+ * <p>Desde a Fase 4 o razão exige token (ADR-0027): a carga pede um token de serviço ao Keycloak
+ * antes de começar (client credentials do cliente local "ledgerly-ferramentas"). Ele vale 5 minutos,
+ * mais que a carga inteira; conferir o token custa ao razão o mesmo em todo pedido.
  */
 public final class ContasQuentesSimulacao extends Simulation {
 
@@ -54,6 +59,8 @@ public final class ContasQuentesSimulacao extends Simulation {
     private static final int USUARIOS = Integer.getInteger("usuarios", 64);
     private static final int SEGUNDOS = Integer.getInteger("segundos", 30);
     private static final int CONTAS = Integer.getInteger("contas", 2000);
+    private static final String EMISSOR = System.getProperty("emissor", "http://localhost:18081/realms/ledgerly");
+    private static final String TOKEN = TokenDeServico.pedir(EMISSOR);
 
     /** As contas de cliente abertas no {@link #before()}; só leitura durante a carga. */
     private static final List<String> contas = new ArrayList<>();
@@ -61,6 +68,7 @@ public final class ContasQuentesSimulacao extends Simulation {
     private final HttpProtocolBuilder protocolo = http.baseUrl(RAZAO)
             .contentTypeHeader("application/json")
             .acceptHeader("application/json")
+            .authorizationHeader("Bearer " + TOKEN)
             // Uma conexão por usuário virtual, como N clientes de verdade.
             .disableWarmUp();
 
@@ -150,7 +158,10 @@ public final class ContasQuentesSimulacao extends Simulation {
     public void after() {
         try {
             var resposta = HttpClient.newHttpClient().send(
-                    HttpRequest.newBuilder(URI.create(RAZAO + "/v1/integridade")).GET().build(),
+                    HttpRequest.newBuilder(URI.create(RAZAO + "/v1/integridade"))
+                            .header("Authorization", "Bearer " + TOKEN)
+                            .GET()
+                            .build(),
                     HttpResponse.BodyHandlers.ofString());
             System.out.println("Integridade do razão depois da carga: " + resposta.body());
         } catch (Exception e) {
@@ -162,6 +173,7 @@ public final class ContasQuentesSimulacao extends Simulation {
             throws Exception {
         var pedido = HttpRequest.newBuilder(URI.create(RAZAO + caminho))
                 .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + TOKEN)
                 .method(metodo, HttpRequest.BodyPublishers.ofString(corpo));
         if (chave != null) {
             pedido.header("Idempotency-Key", chave);

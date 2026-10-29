@@ -23,6 +23,7 @@ class RazaoFalso implements Razao {
     private final Map<UUID, Dinheiro> saldos = new ConcurrentHashMap<>();
     private final Set<UUID> encerradas = ConcurrentHashMap.newKeySet();
     private volatile boolean foraDoAr;
+    private final java.util.concurrent.atomic.AtomicInteger consultasDeSaldo = new java.util.concurrent.atomic.AtomicInteger();
 
     void derrubar() {
         foraDoAr = true;
@@ -30,6 +31,12 @@ class RazaoFalso implements Razao {
 
     void religar() {
         foraDoAr = false;
+        consultasDeSaldo.set(0);
+    }
+
+    /** Quantas vezes o saldo foi pedido: prova que o pedido de quem não é dono nem chega ao razão. */
+    int consultasDeSaldo() {
+        return consultasDeSaldo.get();
     }
 
     void definirSaldo(UUID conta, String valor) {
@@ -53,6 +60,7 @@ class RazaoFalso implements Razao {
     @Override
     public Optional<Dinheiro> consultarSaldo(UUID contaId) {
         exigirNoAr();
+        consultasDeSaldo.incrementAndGet();
         return Optional.ofNullable(saldos.get(contaId));
     }
 

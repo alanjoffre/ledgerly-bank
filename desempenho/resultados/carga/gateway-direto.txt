@@ -1,0 +1,19 @@
+Leitura de conta, alvo: direto · 16 usuários simultâneos por 30 s
+Quando: 2026-10-28 21:50 · máquina: 16 núcleos, 17 GB
+---- Global Information -------------------------------------------------------------|---Total---|-----OK----|----KO----
+> request count                                                                      |    64,523 |    64,523 |         -
+> min response time (ms)                                                             |         3 |         3 |         -
+> max response time (ms)                                                             |        79 |        79 |         -
+> mean response time (ms)                                                            |         8 |         8 |         -
+> response time std deviation (ms)                                                   |         3 |         3 |         -
+> response time 50th percentile (ms)                                                 |         7 |         7 |         -
+> response time 75th percentile (ms)                                                 |         9 |         9 |         -
+> response time 95th percentile (ms)                                                 |        13 |        13 |         -
+> response time 99th percentile (ms)                                                 |        18 |        18 |         -
+> mean throughput (rps)                                                              |  1,843.51 |  1,843.51 |         -
+---- Response Time Distribution ----------------------------------------------------------------------------------------
+> OK: t < 800 ms                                                                                         64,523   (100%)
+> OK: 800 ms <= t < 1200 ms                                                                                   0     (0%)
+> OK: t >= 1200 ms                                                                                            0     (0%)
+> KO                                                                                                          0     (0%)
+========================================================================================================================

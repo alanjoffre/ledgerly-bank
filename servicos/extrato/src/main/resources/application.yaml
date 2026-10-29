@@ -26,6 +26,20 @@ spring:
     listener:
       # Uma thread por partição (os tópicos têm 3).
       concurrency: 3
+  # Token de serviço (client credentials) para perguntar ao contas de quem é a conta (ADR-0027).
+  # O token-uri explícito deixa o serviço subir com o Keycloak fora do ar.
+  security:
+    oauth2:
+      client:
+        registration:
+          ledgerly:
+            provider: keycloak
+            client-id: ${EXTRATO_CLIENTE_ID:ledgerly-extrato}
+            client-secret: ${EXTRATO_CLIENTE_SEGREDO:extrato-segredo-local}
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak:
+            token-uri: ${LEDGERLY_EMISSOR:http://localhost:18081/realms/ledgerly}/protocol/openid-connect/token
   mvc:
     problemdetails:
       enabled: true
@@ -37,3 +51,16 @@ management:
     web:
       exposure:
         include: health,info
+
+ledgerly:
+  # Quem emite os tokens que este serviço aceita (ADR-0024). A chave pública vem do JWKS do emissor.
+  seguranca:
+    emissor: ${LEDGERLY_EMISSOR:http://localhost:18081/realms/ledgerly}
+    audiencia: ledgerly-api
+  # O contas responde de quem é a conta (só o dono lê o extrato). A resposta fica num cache sem
+  # prazo — o dono não muda —, limitado a tantas contas.
+  contas:
+    url: ${EXTRATO_CONTAS_URL:http://localhost:8081}
+    tempo-conexao: 2s
+    tempo-resposta: 3s
+    cache-de-donos: 100000

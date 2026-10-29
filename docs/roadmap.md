@@ -84,11 +84,33 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 - [Demonstração](guias/demo-fase-3.md): a mesma carga com 1 e com 16 sub-contas, e a conciliação
 - ADRs 0019–0023
 
-## ⬜ Fase 4 — Segurança e front-end React
+## ✅ Fase 4 — Segurança e front-end React
 
-- Keycloak (OAuth2/OIDC) e API Gateway
-- Internet banking e backoffice de fraude em React + TypeScript
-- Testes de ponta a ponta com Playwright
+- **Keycloak** (OAuth2/OIDC) com o realm como código: papéis, pessoas e clientes num JSON
+  importado na subida, conferido no CI ([ADR-0024](adr/0024-keycloak-e-realm-como-codigo.md)).
+  Todo serviço confere o token: assinatura, emissor, validade e audiência
+- **Dois BFFs** (*Backend for Frontend*), um por tela, com o Spring Cloud Gateway
+  ([ADR-0025](adr/0025-bff-um-por-front-end.md), [ADR-0028](adr/0028-gateway-no-boot-4-0.md)): login
+  com *authorization code* + PKCE, o token guardado no servidor e repassado aos serviços
+  (*TokenRelay*), o navegador só com um cookie `HttpOnly`; CSRF de SPA e CSP só com `'self'`. O salto
+  pelo BFF custa cerca de 1 ms por pedido (9% menos vazão), medido com o Gatling
+- **BOLA** ([ADR-0026](adr/0026-bola-com-404.md)): o cliente só vê o que é dele, e o recurso de outro
+  responde 404, igual a um que não existe, no contas, no Pix e no extrato
+- **Token de serviço** (*client credentials*) entre os serviços, e o **razão sem rota** no gateway:
+  só outro serviço fala com ele ([ADR-0027](adr/0027-token-de-servico-e-razao-sem-rota.md))
+- **Devolução de Pix em análise** ([ADR-0030](adr/0030-devolucao-de-pix-em-analise.md)): a analista
+  devolve o dinheiro para outra conta do mesmo titular, com justificativa e trilha de auditoria;
+  duas analistas ao mesmo tempo resultam em uma devolução só
+- **Duas telas em React 19 + TypeScript** ([ADR-0029](adr/0029-react-vite-vitest-playwright.md)): o
+  internet banking (contas, extrato, Pix com "confira quem recebe", chaves) e o backoffice de fraude
+  (fila de análise, devolução, consulta e bloqueio de conta)
+- **Testes de ponta a ponta com o Playwright**: um Chromium de verdade contra o sistema inteiro.
+  Acharam **cinco defeitos** que todos os outros testes deixaram passar, entre eles a mensagem do Pix,
+  que não chegava ao extrato desde a Fase 2
+- 844 testes: 782 no build Java (592 de unidade, 190 de integração), 57 nas telas (Vitest) e 5 de
+  ponta a ponta (cerca de 5 s); cobertura de linhas entre 92% e 98,6% nos cinco serviços
+- [Demonstração](guias/demo-fase-4.md): as duas telas, a devolução e os testes de ponta a ponta
+- ADRs 0024–0030
 
 ## ⬜ Fase 5 — IA aplicada
 

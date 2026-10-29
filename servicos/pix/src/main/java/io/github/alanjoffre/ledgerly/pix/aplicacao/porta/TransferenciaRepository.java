@@ -1,5 +1,6 @@
 package io.github.alanjoffre.ledgerly.pix.aplicacao.porta;
 
+import io.github.alanjoffre.ledgerly.pix.dominio.SituacaoTransferencia;
 import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaPix;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,6 +35,12 @@ public interface TransferenciaRepository {
 
     /** Grava o novo estado e libera a reserva. */
     void salvar(TransferenciaPix transferencia);
+
+    /** As transferências numa situação, das mais antigas para as mais novas (a fila do backoffice). */
+    List<TransferenciaPix> listarPorSituacao(SituacaoTransferencia situacao, int limite);
+
+    /** Lê a transferência travando a linha até o fim da transação (a decisão de análise). */
+    Optional<TransferenciaPix> buscarTravando(UUID id);
 
     /** As Sagas paradas no meio cuja hora de tentar de novo já chegou. */
     List<UUID> prontasParaRetomar(Instant agora, int limite);

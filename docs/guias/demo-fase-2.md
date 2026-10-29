@@ -9,9 +9,9 @@ que o extrato montado pelos eventos bate com o razão. Leva uns 2 minutos.
 Na raiz do projeto:
 
 ```bash
-docker compose -f infra/docker/compose.yaml up -d --wait   # PostgreSQL, MongoDB, Redis, Kafka
+docker compose -f infra/docker/compose.yaml up -d --wait   # PostgreSQL, MongoDB, Redis, Kafka, Keycloak
 ./mvnw package -DskipTests
-./scripts/servicos.sh subir                                # contas, razao, pix e extrato
+./scripts/servicos.sh subir                                # os serviços e os dois gateways
 ```
 
 O `subir` espera cada serviço responder na verificação de saúde. Se algum não subir, o log está
@@ -22,6 +22,15 @@ em `.servicos/<serviço>.log`.
 ```bash
 ./scripts/demo-fase-2.sh
 ```
+
+> **Desde a Fase 4, todo serviço exige token** ([ADR-0027](../adr/0027-token-de-servico-e-razao-sem-rota.md)).
+> O script já pede um sozinho ao Keycloak. Para os `curl` feitos à mão neste guia, carregue o token
+> de serviço antes e mande-o no cabeçalho:
+>
+> ```bash
+> source scripts/lib/token.sh
+> curl -H "Authorization: Bearer $(token)" localhost:8081/v1/contas/<id>
+> ```
 
 O script ([demo-fase-2.sh](../../scripts/demo-fase-2.sh)) só usa `bash` e `curl`, cria clientes
 fictícios com CPFs gerados na hora e confere o código HTTP de cada passo:

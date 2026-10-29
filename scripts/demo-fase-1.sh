@@ -6,6 +6,11 @@
 # Só precisa de bash e curl. Todos os dados são fictícios; os CPFs são gerados na hora.
 
 set -euo pipefail
+cd "$(dirname "$0")/.."
+
+# Desde a Fase 4 os serviços exigem token: todo curl daqui leva o token de serviço (ADR-0027).
+source scripts/lib/token.sh
+usar_token_no_curl
 
 CONTAS=${CONTAS_URL:-http://localhost:8081}
 RAZAO=${RAZAO_URL:-http://localhost:8082}
@@ -49,13 +54,14 @@ chamar POST "$CONTAS/v1/clientes" "{\"nome\":\"Joana Exemplo\",\"cpf\":\"$(gerar
 JOANA=$(campo id)
 
 # Desde a Fase 2, o razão fica sabendo da conta pelo evento ContaAberta (Outbox + Kafka, ADR-0014):
-# alguns milissegundos depois de ela nascer no serviço de contas.
+# alguns milissegundos depois de ela nascer no serviço de contas. Logo depois de subir os serviços,
+# o consumidor do razão ainda leva uns 10 s para entrar no grupo do Kafka: por isso a espera vai até 30 s.
 esperar_no_razao() {
-  for _ in {1..50}; do
+  for _ in {1..300}; do
     [[ $(curl -s -o /dev/null -w '%{http_code}' "$RAZAO/v1/contas/$1") == 200 ]] && return
     sleep 0.1
   done
-  echo "  ✘ o razão não recebeu a conta $1 em 5 s" >&2; exit 1
+  echo "  ✘ o razão não recebeu a conta $1 em 30 s" >&2; exit 1
 }
 
 passo "2. Abrir uma conta para cada (nasce aqui; o razão recebe pelo evento ContaAberta)"

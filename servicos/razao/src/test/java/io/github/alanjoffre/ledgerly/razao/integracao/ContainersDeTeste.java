@@ -1,8 +1,12 @@
 package io.github.alanjoffre.ledgerly.razao.integracao;
 
+import io.github.alanjoffre.ledgerly.seguranca.teste.MockMvcComToken;
+import io.github.alanjoffre.ledgerly.seguranca.teste.TokensDeTeste;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -28,5 +32,17 @@ public class ContainersDeTeste {
     @ServiceConnection
     KafkaContainer kafka() {
         return new KafkaContainer(DockerImageName.parse("apache/kafka:4.4.0"));
+    }
+
+    /** Tokens assinados com a chave da memória, no lugar do Keycloak (ADR-0024). */
+    @Bean
+    JwtDecoder decodificador() {
+        return TokensDeTeste.decodificador();
+    }
+
+    /** Os testes da API chamam como outro serviço, salvo os de segurança, que mandam o próprio token. */
+    @Bean
+    MockMvcBuilderCustomizer tokenDeServico() {
+        return MockMvcComToken.padrao(TokensDeTeste.servico());
     }
 }

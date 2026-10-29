@@ -220,4 +220,111 @@ class TransferenciaPixTest {
         assertThat(Passo.CREDITAR.chaveDeIdempotencia(id)).isEqualTo("pix:" + id + ":recebimento");
         assertThat(Passo.ESTORNAR.chaveDeIdempotencia(id)).isEqualTo("pix:" + id + ":estorno");
     }
+
+    @Nested
+    @DisplayName("devolução decidida na análise (ADR-0030)")
+    class Devolucao {
+
+        private final UUID poupanca = UUID.randomUUID();
+
+        private TransferenciaPix emAnalise() {
+            TransferenciaPix t = nova();
+            t.aplicar(Passo.DEBITAR, feito(), AGORA);
+            t.aplicar(Passo.CREDITAR, new ResultadoDoPasso.Recusado("conta-inativa", "destino encerrado"), AGORA);
+            t.aplicar(Passo.ESTORNAR, new ResultadoDoPasso.Recusado("conta-inativa", "pagador encerrado"), AGORA);
+            return t;
+        }
+
+        @Test
+        @DisplayName("EM_ANALISE → ESTORNANDO para a conta decidida → ESTORNADA, com a chave própria da devolução")
+        void devolve() {
+            TransferenciaPix t = emAnalise();
+            t.decidirDevolucao(poupanca, AGORA.plusSeconds(60));
+
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.ESTORNANDO);
+            assertThat(t.contaDevolucaoId()).isEqualTo(poupanca);
+            assertThat(t.proximoPasso()).contains(Passo.ESTORNAR);
+            assertThat(t.contaDoPasso(Passo.ESTORNAR)).isEqualTo(poupanca);
+            // Chave nova: a do estorno recusado devolveria a recusa antiga (idempotência do razão).
+            assertThat(t.chaveDoPasso(Passo.ESTORNAR)).isEqualTo("pix:" + t.id() + ":devolucao:" + poupanca);
+            assertThat(t.tentativas()).isZero();
+            assertThat(t.finalizadaEm()).isNull();
+
+            t.aplicar(Passo.ESTORNAR, feito(), AGORA.plusSeconds(61));
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.ESTORNADA);
+            assertThat(t.contaDevolucaoId()).isEqualTo(poupanca);
+        }
+
+        @Test
+        @DisplayName("sem decisão, os passos usam as contas e chaves de sempre")
+        void semDecisao() {
+            TransferenciaPix t = nova();
+            assertThat(t.contaDoPasso(Passo.DEBITAR)).isEqualTo(JOAO.contaId());
+            assertThat(t.contaDoPasso(Passo.CREDITAR)).isEqualTo(MARIA.contaId());
+            assertThat(t.contaDoPasso(Passo.ESTORNAR)).isEqualTo(JOAO.contaId());
+            assertThat(t.chaveDoPasso(Passo.ESTORNAR)).isEqualTo("pix:" + t.id() + ":estorno");
+            assertThat(t.contaDevolucaoId()).isNull();
+        }
+
+        @Test
+        @DisplayName("só em análise: concluída, estornada ou em andamento é recusada")
+        void soEmAnalise() {
+            TransferenciaPix concluida = nova();
+            concluida.aplicar(Passo.DEBITAR, feito(), AGORA);
+            concluida.aplicar(Passo.CREDITAR, feito(), AGORA);
+            assertThatThrownBy(() -> concluida.decidirDevolucao(poupanca, AGORA))
+                    .isInstanceOf(TransferenciaForaDeAnaliseException.class)
+                    .hasMessageContaining("CONCLUIDA");
+            assertThatThrownBy(() -> nova().decidirDevolucao(poupanca, AGORA))
+                    .isInstanceOf(TransferenciaForaDeAnaliseException.class);
+
+            TransferenciaPix devolvida = emAnalise();
+            devolvida.decidirDevolucao(poupanca, AGORA);
+            assertThatThrownBy(() -> devolvida.decidirDevolucao(UUID.randomUUID(), AGORA))
+                    .isInstanceOf(TransferenciaForaDeAnaliseException.class);
+            assertThat(new TransferenciaForaDeAnaliseException("x").codigo()).isEqualTo("transferencia-fora-de-analise");
+        }
+
+        @Test
+        @DisplayName("a conta da volta não pode ser a que pagou nem a que recebeu")
+        void outraConta() {
+            assertThatThrownBy(() -> emAnalise().decidirDevolucao(JOAO.contaId(), AGORA))
+                    .isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> emAnalise().decidirDevolucao(MARIA.contaId(), AGORA))
+                    .isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> emAnalise().decidirDevolucao(null, AGORA)).isInstanceOf(NullPointerException.class);
+        }
+
+        @Test
+        @DisplayName("a decisão sobrevive à gravação: reconstituir mantém a conta da devolução")
+        void reconstitui() {
+            TransferenciaPix t = emAnalise();
+            t.decidirDevolucao(poupanca, AGORA);
+            TransferenciaPix lida = TransferenciaPix.reconstituir(t.estado());
+            assertThat(lida.contaDevolucaoId()).isEqualTo(poupanca);
+            assertThat(lida.chaveDoPasso(Passo.ESTORNAR)).isEqualTo(t.chaveDoPasso(Passo.ESTORNAR));
+        }
+    }
+
+    @Nested
+    @DisplayName("decisão de análise (a linha da auditoria)")
+    class Decisao {
+
+        private DecisaoDeAnalise decisao(String justificativa) {
+            return new DecisaoDeAnalise(UUID.randomUUID(), UUID.randomUUID(), "sub-1", "carla",
+                    DecisaoDeAnalise.Decisao.DEVOLVER, UUID.randomUUID(), justificativa, AGORA);
+        }
+
+        @Test
+        @DisplayName("justificativa entre 10 e 500 letras, sem os espaços das pontas")
+        void justificativa() {
+            assertThat(decisao("   Cliente pediu a devolução.  ").justificativa()).isEqualTo("Cliente pediu a devolução.");
+            assertThatThrownBy(() -> decisao("curta")).isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> decisao("            ")).isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> decisao(null)).isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> decisao("x".repeat(501))).isInstanceOf(TransferenciaInvalidaException.class);
+            assertThat(decisao("x".repeat(500)).justificativa()).hasSize(500);
+            assertThat(new ContaDeOutroTitularException("x").codigo()).isEqualTo("conta-de-outro-titular");
+        }
+    }
 }

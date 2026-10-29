@@ -26,6 +26,21 @@ spring:
       enabled: true
   messages:
     basename: mensagens
+  # Token de serviço (client credentials) para chamar o razão (ADR-0027). O token-uri explícito,
+  # em vez do issuer-uri, deixa o serviço subir com o Keycloak fora do ar: o token só é pedido na
+  # primeira chamada ao razão.
+  security:
+    oauth2:
+      client:
+        registration:
+          ledgerly:
+            provider: keycloak
+            client-id: ${CONTAS_CLIENTE_ID:ledgerly-contas}
+            client-secret: ${CONTAS_CLIENTE_SEGREDO:contas-segredo-local}
+            authorization-grant-type: client_credentials
+        provider:
+          keycloak:
+            token-uri: ${LEDGERLY_EMISSOR:http://localhost:18081/realms/ledgerly}/protocol/openid-connect/token
   # Kafka: só produz (o serviço de contas publica eventos, não consome). Ver ADR-0013.
   kafka:
     bootstrap-servers: ${CONTAS_KAFKA:localhost:19092}
@@ -46,6 +61,10 @@ spring:
         linger.ms: 5
 
 ledgerly:
+  # Quem emite os tokens que este serviço aceita (ADR-0024). A chave pública vem do JWKS do emissor.
+  seguranca:
+    emissor: ${LEDGERLY_EMISSOR:http://localhost:18081/realms/ledgerly}
+    audiencia: ledgerly-api
   razao:
     url: ${CONTAS_RAZAO_URL:http://localhost:8082}
     tempo-conexao: 2s

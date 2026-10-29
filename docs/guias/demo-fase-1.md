@@ -8,19 +8,29 @@ Leva uns 3 minutos.
 Na raiz do projeto:
 
 ```bash
-docker compose -f infra/docker/compose.yaml up -d --wait   # bancos de dados e Kafka
+docker compose -f infra/docker/compose.yaml up -d --wait   # bancos de dados, Kafka e Keycloak
 ./mvnw package -DskipTests
 ./scripts/servicos.sh subir razao
 ./scripts/servicos.sh subir contas
 ```
 
-Desde a Fase 2, o serviço de contas avisa o razão por evento: o Kafka precisa estar no ar.
+Desde a Fase 2, o serviço de contas avisa o razão por evento: o Kafka precisa estar no ar. Desde a Fase 4,
+o Keycloak também: é ele quem dá o token que os dois serviços exigem.
 
 ## 2. Rodar a demonstração
 
 ```bash
 ./scripts/demo-fase-1.sh
 ```
+
+> **Desde a Fase 4, todo serviço exige token** ([ADR-0027](../adr/0027-token-de-servico-e-razao-sem-rota.md)).
+> O script já pede um sozinho ao Keycloak. Para os `curl` feitos à mão neste guia, carregue o token
+> de serviço antes e mande-o no cabeçalho:
+>
+> ```bash
+> source scripts/lib/token.sh
+> curl -H "Authorization: Bearer $(token)" localhost:8081/v1/contas/<id>
+> ```
 
 O script ([demo-fase-1.sh](../../scripts/demo-fase-1.sh)) só usa `bash` e `curl`, gera CPFs
 fictícios na hora e confere o código HTTP de cada passo:

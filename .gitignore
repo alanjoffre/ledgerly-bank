@@ -29,3 +29,9 @@ Thumbs.db
 
 # Medições da demonstração da Fase 3 (scripts/demo-fase-3.sh): cada um gera as suas
 desempenho/resultados/carga/demo-*
+
+# Front-end (web/): dependências do npm, telas construídas pelo Vite e saídas do Playwright
+node_modules/
+web/*/dist/
+web/e2e/test-results/
+web/e2e/playwright-report/

@@ -10,6 +10,8 @@ de nível sênior: razão contábil, Pix, concorrência, antifraude com IA e nuv
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-4-6DB33F?logo=springboot&logoColor=white)
 ![Quarkus](https://img.shields.io/badge/Quarkus-3-4695EB?logo=quarkus&logoColor=white)
 ![Kafka](https://img.shields.io/badge/Kafka-4-231F20?logo=apachekafka&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Keycloak](https://img.shields.io/badge/Keycloak-26-4D4D4D?logo=keycloak&logoColor=white)
 ![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)
 
 </div>
@@ -27,7 +29,9 @@ O Ledgerly Bank simula o núcleo de um banco digital brasileiro:
 - **Razão contábil** em partidas dobradas — o saldo é a soma dos lançamentos, e nada é apagado;
 - **Pix** com chaves, QR Code, transferência instantânea e estorno automático quando algo falha;
 - **Antifraude com IA**, que dá nota de risco em milissegundos e explica o alerta ao analista;
-- **Extrato em tempo real**, montado a partir de eventos.
+- **Extrato em tempo real**, montado a partir de eventos;
+- **Duas telas**: o internet banking do cliente e o backoffice de fraude da analista, com login no
+  Keycloak.
 
 O objetivo não é só funcionar: é mostrar **por que** cada peça é como é. Cada decisão importante
 está registrada numa [ADR](docs/adr/README.md), com as alternativas descartadas e o preço pago.
@@ -37,20 +41,22 @@ está registrada numa [ADR](docs/adr/README.md), com as alternativas descartadas
 | Competência | Onde aparece |
 | --- | --- |
 | **Back-end com Spring e Quarkus + IA aplicada** | Contas e razão em Spring Boot; Pix em Quarkus (imagem nativa compilada e medida); antifraude com LangChain4j e ONNX (planejado: Fase 5) |
-| **Front-end com React** | Internet banking e backoffice de fraude em React + TypeScript (planejado: Fase 4) |
+| **Front-end com React** | [Internet banking e backoffice de fraude](web/README.md) em React 19 + TypeScript (Vite, Vitest), com testes de ponta a ponta no Playwright |
+| **Segurança de aplicação** | Keycloak (OAuth2/OIDC, PKCE), [BFF com o token fora do navegador](docs/adr/0025-bff-um-por-front-end.md), [BOLA respondida com 404](docs/adr/0026-bola-com-404.md), [token de serviço](docs/adr/0027-token-de-servico-e-razao-sem-rota.md), CSRF e CSP |
 | **Arquitetura de sistemas** | Microsserviços orientados a eventos, [Saga](docs/adr/0015-saga-orquestrada-no-pix.md), [Outbox](docs/adr/0013-outbox-para-publicar-eventos.md), [CQRS](docs/adr/0016-extrato-em-cqrs-no-mongodb.md) — [visão geral](docs/arquitetura/visao-geral.md) |
 | **Software design e system design** | DDD, arquitetura hexagonal, *value objects*, diagramas C4, [ADRs](docs/adr/README.md) |
 | **Concorrência e multithreading em Java** | Prova de saldo sem gasto duplo sob 1.500 saques simultâneos; [contas quentes em sub-contas](docs/adr/0019-contas-quentes-em-subcontas.md), medidas com Gatling; [*virtual threads* medidas](docs/adr/0020-virtual-threads-medidas-no-razao.md); conciliação em lote com [*Structured Concurrency* e *Scoped Values*](docs/adr/0022-conciliacao-em-lote-com-structured-concurrency.md); [JMH](docs/adr/0023-micro-benchmarks-com-jmh.md) |
 | **Infra e nuvem: Docker, Kubernetes e AWS** | Docker Compose; Kubernetes com Helm e Terraform da AWS validado no CI (planejado: Fase 6) |
 | **Bancos relacionais e NoSQL** | PostgreSQL (um banco por serviço), MongoDB, Redis; pgvector (planejado: Fase 5) |
-| **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, cobertura mínima no build; contrato (Pact) e *mutation testing* (PIT) (planejado: Fase 7) |
+| **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, cobertura mínima no build; Vitest e Testing Library nas telas; Playwright de ponta a ponta; contrato (Pact) e *mutation testing* (PIT) (planejado: Fase 7) |
 
 ## Arquitetura
 
 ```mermaid
 flowchart LR
-    web["React<br/><small>internet banking<br/>+ backoffice</small>"] --> gw["API Gateway<br/>+ Keycloak"]
-    gw --> contas["contas<br/><small>Spring</small>"] & pix["pix<br/><small>Quarkus · Saga</small>"] & extrato["extrato<br/><small>Spring · CQRS</small>"]
+    web["React<br/><small>internet banking<br/>+ backoffice</small>"] -- cookie --> gw["2 BFFs<br/><small>Spring Cloud Gateway</small>"]
+    web -- login --> kc["Keycloak<br/><small>OAuth2 · OIDC</small>"]
+    gw -- "Bearer (token)" --> contas["contas<br/><small>Spring</small>"] & pix["pix<br/><small>Quarkus · Saga</small>"] & extrato["extrato<br/><small>Spring · CQRS</small>"]
     pix -.-> antifraude["antifraude<br/><small>Quarkus + IA</small>"]
     pix -- "débito, crédito, estorno" --> razao["razao<br/><small>Spring</small>"]
     pix -- titular --> contas
@@ -63,7 +69,8 @@ flowchart LR
     extrato --- mongo[(MongoDB)]
 ```
 
-Linha tracejada: ainda não existe (antifraude, Fase 5). Detalhes, o fluxo completo de um Pix e os
+Linha tracejada: ainda não existe (antifraude, Fase 5). O razão não tem rota no BFF: só outro
+serviço fala com ele, com o próprio token. Detalhes, o fluxo completo de um Pix e os
 princípios estão na [visão geral da arquitetura](docs/arquitetura/visao-geral.md); o formato de cada
 evento, no [contrato dos eventos](docs/arquitetura/eventos.md).
 
@@ -75,7 +82,7 @@ evento, no [contrato dos eventos](docs/arquitetura/eventos.md).
 | 1 | Razão contábil e contas (Spring Boot), prova de concorrência, idempotência | ✅ |
 | 2 | Pix em Quarkus, Saga com estorno, Outbox + Kafka, extrato em CQRS (MongoDB) | ✅ |
 | 3 | Concorrência e desempenho: contas quentes em sub-contas, teste de carga, conciliação em lote, JMH | ✅ |
-| 4 | Segurança (Keycloak) e front-end React | ⬜ |
+| 4 | Segurança (Keycloak, BFF, BOLA) e front-end React, com testes de ponta a ponta | ✅ |
 | 5 | IA aplicada: antifraude e assistente do extrato | ⬜ |
 | 6 | Kubernetes, Terraform da AWS e observabilidade | ⬜ |
 | 7 | Qualidade (PIT, Pact, SonarCloud) e lançamento | ⬜ |
@@ -84,8 +91,8 @@ O detalhe de cada fase está no [roteiro](docs/roadmap.md).
 
 ## Como rodar
 
-Pré-requisitos: **JDK 25** e **Docker**. O Maven não precisa ser instalado (o projeto usa o
-Maven Wrapper). Passo a passo completo no [guia de ambiente local](docs/guias/ambiente-local.md).
+Pré-requisitos: **JDK 25**, **Docker** e, para as telas, **Node 22**. O Maven não precisa ser
+instalado (o projeto usa o Maven Wrapper). Passo a passo completo no [guia de ambiente local](docs/guias/ambiente-local.md).
 
 ```bash
 git clone https://github.com/alanjoffre/ledgerly-bank.git
@@ -94,12 +101,20 @@ cd ledgerly-bank
 # Compilar e rodar todos os testes (precisa do Docker: os testes sobem bancos e Kafka de verdade)
 ./mvnw verify
 
-# Subir PostgreSQL, MongoDB, Redis e Kafka (com os tópicos)
+# Subir PostgreSQL, MongoDB, Redis, Kafka (com os tópicos) e Keycloak (com o realm)
 docker compose -f infra/docker/compose.yaml up -d --wait
 
-# Gerar os pacotes e subir os quatro serviços
+# Gerar os pacotes e as telas, e subir os quatro serviços e os dois gateways
 ./mvnw package -DskipTests
+(cd web && npm ci && npm run construir)
 ./scripts/servicos.sh subir
+
+# Contas, saldo e chave Pix para a Ana e o Bruno; depois, abra as telas:
+#   http://localhost:8080 (ana / ana-local)   ·   http://localhost:8090 (carla / carla-local)
+./scripts/semear.sh
+
+# O navegador de verdade: login, Pix, extrato, BOLA e a devolução no backoffice
+(cd web/e2e && npx playwright install chromium && npm run e2e)
 
 # Pix de ponta a ponta, com o razão derrubado no meio de uma transferência
 ./scripts/demo-fase-2.sh
@@ -108,8 +123,38 @@ docker compose -f infra/docker/compose.yaml up -d --wait
 ./scripts/demo-fase-3.sh
 ```
 
-O que cada passo mostra está nas demonstrações da [Fase 2](docs/guias/demo-fase-2.md) e da
-[Fase 3](docs/guias/demo-fase-3.md).
+O que cada passo mostra está nas demonstrações da [Fase 2](docs/guias/demo-fase-2.md), da
+[Fase 3](docs/guias/demo-fase-3.md) e da [Fase 4](docs/guias/demo-fase-4.md).
+
+## Destaque: o navegador achou o que os testes não viam
+
+Todos os testes passavam. Aí um navegador de verdade (o Chromium, pelo Playwright) fez login no
+Keycloak, enviou um Pix pela tela e abriu o extrato, e **cinco defeitos** apareceram:
+
+| O que a pessoa via | A causa |
+| --- | --- |
+| Um "acesso negado" (403) chegava como "deu certo" (200), com a tela no corpo | o erro caía no *fallback* da SPA, que devolve o `index.html` |
+| O Pix pela tela falhava | ia a chave **mascarada** que a consulta devolve (`b***@...`), e não a digitada |
+| Depois do login, uma página de JSON | o BFF guardava o último pedido sem sessão e voltava para ele |
+| A mensagem do Pix ("Aluguel") nunca chegava ao extrato — **desde a Fase 2** | a Saga mandava ao razão uma descrição fixa |
+| "Saldo indisponível" em toda conta | o falso do teste da tela trazia o saldo na lista de contas, e a API real não traz |
+
+Os dois últimos têm a mesma lição: o teste com um falso prova a tela contra o falso; só o teste
+contra o sistema de verdade prova a tela contra a API. Cada defeito ganhou primeiro um teste que
+falhava, e depois a correção ([ADR-0029](docs/adr/0029-react-vite-vitest-playwright.md)).
+
+A segurança da fase, no mesmo espírito de "provar, não prometer":
+
+- **O token não chega ao navegador.** O login é no Keycloak (*authorization code* + PKCE), e o token
+  fica no BFF, que o repassa aos serviços. O navegador só tem um cookie que o JavaScript não lê
+  ([ADR-0025](docs/adr/0025-bff-um-por-front-end.md)). Um XSS não tem token para roubar.
+- **BOLA, a falha nº 1 do OWASP para APIs:** a Ana pedir a conta do Bruno responde **404, igual ao
+  de uma conta que não existe**. Nem a existência vaza
+  ([ADR-0026](docs/adr/0026-bola-com-404.md)); há teste disso no contas, no Pix, no extrato e no navegador.
+- **O razão não tem rota na internet:** só outro serviço, com o token do próprio serviço, fala com
+  ele ([ADR-0027](docs/adr/0027-token-de-servico-e-razao-sem-rota.md)).
+- **O BFF custa cerca de 1 ms por pedido**, medido com o Gatling: a mesma leitura direto no serviço
+  e pelo BFF, sem nenhum erro nos dois.
 
 ## Destaque: medir antes de acreditar
 
@@ -233,12 +278,15 @@ está na [ADR-0007](docs/adr/0007-dinheiro-com-bigdecimal.md).
 ```text
 ledgerly-bank/
 ├── bibliotecas/
-│   └── nucleo-compartilhado/   # tipos de domínio comuns (Dinheiro), Java puro
+│   ├── nucleo-compartilhado/   # tipos de domínio comuns (Dinheiro), Java puro
+│   └── seguranca-spring/       # token do Keycloak nos serviços Spring
 ├── servicos/
 │   ├── contas/                 # clientes e contas (Spring Boot + JPA)
 │   ├── razao/                  # razão contábil (Spring Boot + JDBC)
 │   ├── pix/                    # chaves, QR Code e a Saga (Quarkus)
-│   └── extrato/                # extrato em CQRS (Spring Boot + MongoDB)
+│   ├── extrato/                # extrato em CQRS (Spring Boot + MongoDB)
+│   └── gateway/                # os dois BFFs (Spring Cloud Gateway)
+├── web/                        # as telas (React + TypeScript) e os testes de ponta a ponta
 ├── lotes/
 │   └── conciliacao/            # conciliação em lote Pix × razão (Structured Concurrency)
 ├── desempenho/                 # medições: carga, micro-benchmarks e os números
@@ -246,7 +294,7 @@ ledgerly-bank/
 │   ├── jmh/                    # micro-benchmarks (JMH)
 │   └── resultados/             # os números de cada medição
 ├── infra/
-│   └── docker/                 # Docker Compose, bancos e tópicos do Kafka
+│   └── docker/                 # Docker Compose, bancos, tópicos do Kafka e o realm do Keycloak
 ├── scripts/                    # subir os serviços, demonstrações, medições
 ├── docs/
 │   ├── adr/                    # decisões de arquitetura
@@ -266,9 +314,11 @@ ledgerly-bank/
 - [Guia de ambiente local](docs/guias/ambiente-local.md)
 - [Contrato dos eventos](docs/arquitetura/eventos.md) — tópicos do Kafka e formato de cada evento
 - Demonstrações: [Fase 1](docs/guias/demo-fase-1.md) · [Fase 2](docs/guias/demo-fase-2.md) ·
-  [Fase 3](docs/guias/demo-fase-3.md)
+  [Fase 3](docs/guias/demo-fase-3.md) · [Fase 4](docs/guias/demo-fase-4.md)
 - Serviços: [razão](servicos/razao/README.md) · [contas](servicos/contas/README.md) ·
-  [pix](servicos/pix/README.md) · [extrato](servicos/extrato/README.md)
+  [pix](servicos/pix/README.md) · [extrato](servicos/extrato/README.md) ·
+  [gateway (BFF)](servicos/gateway/README.md) · [segurança](bibliotecas/seguranca-spring/README.md)
+- [As telas](web/README.md) — internet banking, backoffice e os testes de ponta a ponta
 - [Conciliação em lote](lotes/conciliacao/README.md) · [Medições de desempenho](desempenho/README.md)
   (carga e micro-benchmarks)
 - [Histórico de versões](CHANGELOG.md)

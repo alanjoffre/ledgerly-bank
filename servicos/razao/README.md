@@ -4,7 +4,7 @@ O **razão contábil** do Ledgerly Bank: guarda cada movimento de dinheiro como 
 **partidas dobradas** e mantém o saldo das contas. É o coração do banco e o ponto mais disputado do
 sistema — aqui ficam a trava de concorrência e a idempotência.
 
-**Stack:** Java 25 · Spring Boot 4 (Web MVC, JDBC, Kafka) · PostgreSQL 18 · Flyway · Kafka 4 · porta `8082`
+**Stack:** Java 25 · Spring Boot 4 (Web MVC, JDBC, Kafka, Security) · PostgreSQL 18 · Flyway · Kafka 4 · porta `8082`
 
 ## Como funciona
 
@@ -102,9 +102,24 @@ Mesmo que a aplicação erre, o PostgreSQL recusa ([migração V1](src/main/reso
 | Lançamento nunca é alterado nem apagado | gatilhos `lancamento_imutavel` e `partida_imutavel` |
 | Uma chave de idempotência, um lançamento | `UNIQUE (chave_idempotencia)` |
 
+### Segurança (Fase 4): só outro serviço fala com o razão
+
+Toda a API (`/v1/**`) exige um token JWT do Keycloak com o papel `servico`: o token que o contas, o
+Pix e o extrato pedem com o fluxo *client credentials* (o serviço se identifica com o próprio id e
+segredo, sem pessoa nenhuma). Cliente e analista recebem **403**, até o dono da conta. E o BFF nem
+tem rota para o razão: da internet, ele não existe
+([ADR-0027](../../docs/adr/0027-token-de-servico-e-razao-sem-rota.md)).
+
+Por que assim: quem mostra o saldo ao cliente é o contas, que confere o dono da conta antes de
+perguntar ao razão ([ADR-0026](../../docs/adr/0026-bola-com-404.md)). O razão não tem o que
+autorizar por pessoa, e por isso não pode errar essa autorização. O token é conferido pela
+biblioteca [seguranca-spring](../../bibliotecas/seguranca-spring/README.md); o `/actuator/health`
+continua aberto.
+
 ## API
 
-Todo pedido que move dinheiro exige o cabeçalho `Idempotency-Key`. Valores em dinheiro são texto
+Todo pedido em `/v1/**` exige o token de serviço (sem ele, `401 nao-autenticado`; com o papel
+errado, `403 acesso-negado`). Todo pedido que move dinheiro exige o cabeçalho `Idempotency-Key`. Valores em dinheiro são texto
 (`"10.50"`) — ver [ADR-0012](../../docs/adr/0012-erros-problem-details-e-dinheiro-como-texto.md).
 
 | Método e caminho | O que faz | Sucesso |
@@ -151,7 +166,7 @@ docker compose -f infra/docker/compose.yaml up -d --wait     # na raiz do projet
 java -jar servicos/razao/target/razao-0.1.0-SNAPSHOT.jar
 ```
 
-Variáveis de ambiente: `RAZAO_PORTA`, `RAZAO_DB_URL`, `RAZAO_DB_USUARIO`, `RAZAO_DB_SENHA`, `RAZAO_DB_POOL`,
+Variáveis de ambiente: `LEDGERLY_EMISSOR` (o Keycloak, padrão `http://localhost:18081/realms/ledgerly`), `RAZAO_PORTA`, `RAZAO_DB_URL`, `RAZAO_DB_USUARIO`, `RAZAO_DB_SENHA`, `RAZAO_DB_POOL`,
 `RAZAO_KAFKA`, `RAZAO_OUTBOX_INTERVALO_MS`, `RAZAO_SUBCONTAS` (1 a 16, padrão 16 — com 1, sem divisão das
 contas quentes), `RAZAO_THREADS_VIRTUAIS` (padrão `false`: threads de plataforma, que mediram mais vazão, [ADR-0020](../../docs/adr/0020-virtual-threads-medidas-no-razao.md)).
 
@@ -171,6 +186,7 @@ contas quentes), `RAZAO_THREADS_VIRTUAIS` (padrão `false`: threads de plataform
 | Integração | `ApiIT` | API de ponta a ponta: códigos HTTP, Problem Details, `Idempotency-Key` |
 | Integração | `PixIT` | Envio, recebimento e estorno pela mesma sub-conta; saída que não bate com o envio; **recebimento e estorno do mesmo envio ao mesmo tempo: exatamente um passa**; contas internas protegidas |
 | Integração | `CaixaDeSaidaIT` | O evento sai no formato do contrato, só de fato que aconteceu; **Kafka pausado no meio**: o depósito funciona e o evento sai quando ele volta |
+| Integração | `SegurancaIT` | Sem token, 401, e nada é lançado; cliente e analista, 403 (nem o dono fala direto com o razão); serviço, 201; health aberto |
 | Integração | `ConsumidorDeEventosDeContaIT` | Abertura idempotente, ordem dos eventos, conta encerrada, tipo desconhecido, mensagem venenosa → DLT |
 
 **Prova reversa:** com a trava `FOR UPDATE` removida, o `ConcorrenciaIT` falha — 1.500 saques

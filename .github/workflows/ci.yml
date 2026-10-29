@@ -50,6 +50,36 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  web:
+    name: Front-end (tipos, testes e build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # npm ci: instala exatamente o que está no package-lock.json (nada de versão "parecida").
+      - name: Instalar
+        run: npm ci --no-audit --no-fund
+
+      # TypeScript em modo estrito nos quatro pacotes (comum, as duas telas e o E2E).
+      - name: Tipos
+        run: npm run tipos
+
+      - name: Testes (Vitest)
+        run: npm run testar
+
+      - name: Build (Vite)
+        run: npm run construir
+
   infra:
     name: Validar infraestrutura local
     runs-on: ubuntu-latest
@@ -85,6 +115,15 @@ jobs:
             done
           done
           echo "Tópicos confirmados."
+
+      - name: Conferir o realm do Keycloak
+        run: |
+          # O realm é código (infra/docker/keycloak): o cliente de ferramentas tem de conseguir um token.
+          curl -sf -d grant_type=client_credentials -d client_id=ledgerly-ferramentas \
+            -d client_secret=ferramentas-segredo-local \
+            http://localhost:18081/realms/ledgerly/protocol/openid-connect/token | grep -q '"access_token"' \
+            || { echo "::error::O realm ledgerly não entregou o token de serviço"; exit 1; }
+          echo "Realm confirmado."
 
       - name: Derrubar
         if: always()

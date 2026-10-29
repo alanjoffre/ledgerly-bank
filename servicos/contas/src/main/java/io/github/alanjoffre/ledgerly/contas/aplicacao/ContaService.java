@@ -98,14 +98,26 @@ public class ContaService {
      */
     @Transactional(readOnly = true)
     public ContaComSaldo consultar(UUID id) {
+        return consultar(id, PermissaoDeLeitura.TOTAL);
+    }
+
+    /**
+     * Como {@link #consultar(UUID)}, se quem pede pode ver a conta. A conta de outro cliente
+     * responde como inexistente (404), e o razão nem é chamado (ADR-0026).
+     */
+    @Transactional(readOnly = true)
+    public ContaComSaldo consultar(UUID id, PermissaoDeLeitura permissao) {
         Conta conta = buscar(id);
+        if (!permissao.podeVer(conta.clienteId())) {
+            throw naoEncontrada(id);
+        }
         Dinheiro saldo = razao.consultarSaldo(id).orElseGet(() -> Dinheiro.zero(Dinheiro.REAL));
         return new ContaComSaldo(conta, saldo);
     }
 
     @Transactional(readOnly = true)
-    public List<Conta> listarDoCliente(UUID clienteId) {
-        clientes.consultar(clienteId);
+    public List<Conta> listarDoCliente(UUID clienteId, PermissaoDeLeitura permissao) {
+        clientes.consultar(clienteId, permissao);
         return contas.listarDoCliente(clienteId);
     }
 
@@ -143,6 +155,10 @@ public class ContaService {
 
     private Conta buscar(UUID id) {
         return contas.buscar(id)
-                .orElseThrow(() -> new ContaNaoEncontradaException("Conta %s não encontrada".formatted(id)));
+                .orElseThrow(() -> naoEncontrada(id));
+    }
+
+    private static ContaNaoEncontradaException naoEncontrada(UUID id) {
+        return new ContaNaoEncontradaException("Conta %s não encontrada".formatted(id));
     }
 }

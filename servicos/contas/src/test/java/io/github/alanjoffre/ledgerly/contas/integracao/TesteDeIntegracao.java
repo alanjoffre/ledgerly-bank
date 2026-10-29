@@ -1,6 +1,8 @@
 package io.github.alanjoffre.ledgerly.contas.integracao;
 
 import io.github.alanjoffre.ledgerly.contas.aplicacao.porta.Razao;
+import io.github.alanjoffre.ledgerly.seguranca.teste.MockMvcComToken;
+import io.github.alanjoffre.ledgerly.seguranca.teste.TokensDeTeste;
 import java.util.List;
 import java.util.UUID;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -8,12 +10,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.MockMvcBuilderCustomizer;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -53,6 +57,18 @@ public abstract class TesteDeIntegracao {
         @Bean
         NewTopic topicoDeContas() {
             return new NewTopic(TOPICO, 3, (short) 1);
+        }
+
+        /** Tokens assinados com a chave da memória, no lugar do Keycloak (ADR-0024). */
+        @Bean
+        JwtDecoder decodificador() {
+            return TokensDeTeste.decodificador();
+        }
+
+        /** Os testes da API chamam como serviço; os de dono e de papel mandam o próprio token. */
+        @Bean
+        MockMvcBuilderCustomizer tokenDeServico() {
+            return MockMvcComToken.padrao(TokensDeTeste.servico());
         }
 
         /** {@code @Primary}: no lugar do adaptador HTTP, os casos de uso recebem o falso. */

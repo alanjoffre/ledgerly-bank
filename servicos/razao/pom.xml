@@ -43,6 +43,12 @@
             <artifactId>nucleo-compartilhado</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Fase 4: confere o token do Keycloak; todo /v1 exige o papel servico (ADR-0027). -->
+        <dependency>
+            <groupId>io.github.alanjoffre.ledgerly</groupId>
+            <artifactId>seguranca-spring</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- API REST (Spring MVC) e validação dos dados de entrada. -->
         <dependency>
@@ -85,6 +91,14 @@
             <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
 
+        <!-- TokensDeTeste: tokens assinados de verdade, com a chave na memória. -->
+        <dependency>
+            <groupId>io.github.alanjoffre.ledgerly</groupId>
+            <artifactId>seguranca-spring</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <!-- Testes -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -36,9 +36,25 @@ public class ClienteService {
         return cliente;
     }
 
+    /**
+     * O cliente, se quem pede pode ver. Se não pode, a resposta é a MESMA de um cliente que não
+     * existe (404): dizer "existe, mas não é seu" já entregaria que o id é válido (ADR-0026).
+     */
+    @Transactional(readOnly = true)
+    public Cliente consultar(UUID id, PermissaoDeLeitura permissao) {
+        if (!permissao.podeVer(id)) {
+            throw naoEncontrado(id);
+        }
+        return consultar(id);
+    }
+
     @Transactional(readOnly = true)
     public Cliente consultar(UUID id) {
         return clientes.buscar(id)
-                .orElseThrow(() -> new ClienteNaoEncontradoException("Cliente %s não encontrado".formatted(id)));
+                .orElseThrow(() -> naoEncontrado(id));
+    }
+
+    private static ClienteNaoEncontradoException naoEncontrado(UUID id) {
+        return new ClienteNaoEncontradoException("Cliente %s não encontrado".formatted(id));
     }
 }

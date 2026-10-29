@@ -61,8 +61,8 @@ public class OrquestradorDaSaga {
             Passo passo = transferencia.proximoPasso().orElseThrow();
             ResultadoDoPasso resultado = razao.executar(
                     passo,
-                    passo.chaveDeIdempotencia(transferencia.id()),
-                    passo == Passo.CREDITAR ? transferencia.recebedor().contaId() : transferencia.pagador().contaId(),
+                    transferencia.chaveDoPasso(passo),
+                    transferencia.contaDoPasso(passo),
                     transferencia.valor(),
                     descricao(passo, transferencia),
                     passo == Passo.DEBITAR ? null : transferencia.lancamentoEnvioId());
@@ -89,12 +89,19 @@ public class OrquestradorDaSaga {
         return prontas.size();
     }
 
-    /** O texto que aparece no extrato contábil do razão para cada passo. */
+    /**
+     * O texto que aparece no extrato contábil do razão para cada passo. No débito e no crédito vai a
+     * mensagem de quem paga ("Aluguel"), que os dois lados veem no extrato; sem mensagem, quem é a
+     * outra ponta. O estorno diz sempre o que aconteceu.
+     */
     private static String descricao(Passo passo, TransferenciaPix t) {
+        boolean temMensagem = t.descricao() != null && !t.descricao().isBlank();
         String texto = switch (passo) {
-            case DEBITAR -> "Pix para " + t.recebedor().nome();
-            case CREDITAR -> "Pix de " + t.pagador().nome();
-            case ESTORNAR -> "Estorno do Pix para " + t.recebedor().nome();
+            case DEBITAR -> temMensagem ? t.descricao() : "Pix para " + t.recebedor().nome();
+            case CREDITAR -> temMensagem ? t.descricao() : "Pix de " + t.pagador().nome();
+            case ESTORNAR -> t.contaDevolucaoId() == null
+                    ? "Estorno do Pix para " + t.recebedor().nome()
+                    : "Devolução do Pix para " + t.recebedor().nome() + " (análise)";
         };
         return texto.length() > TAMANHO_MAXIMO_DESCRICAO ? texto.substring(0, TAMANHO_MAXIMO_DESCRICAO) : texto;
     }

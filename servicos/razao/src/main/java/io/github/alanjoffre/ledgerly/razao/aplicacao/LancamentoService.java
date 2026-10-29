@@ -16,6 +16,7 @@ import io.github.alanjoffre.ledgerly.razao.dominio.Escrituracao;
 import io.github.alanjoffre.ledgerly.razao.dominio.Lancamento;
 import io.github.alanjoffre.ledgerly.razao.dominio.OperacaoNaoPermitidaException;
 import io.github.alanjoffre.ledgerly.razao.dominio.PedidoDePartida;
+import io.github.alanjoffre.ledgerly.razao.dominio.SituacaoConta;
 import io.github.alanjoffre.ledgerly.razao.dominio.TipoOperacao;
 import io.github.alanjoffre.ledgerly.razao.dominio.TipoPartida;
 import java.time.Clock;
@@ -161,10 +162,8 @@ public class LancamentoService {
             throw new EnvioPixInvalidoException("O envio %s foi de %s, não de %s"
                     .formatted(envio.id(), envio.valor(), comando.valor()));
         }
-        if (tipo == TipoOperacao.PIX_ESTORNO
-                && !envio.contaDeClienteCom(TipoPartida.DEBITO).orElseThrow().equals(comando.contaId())) {
-            throw new EnvioPixInvalidoException(
-                    "O estorno do envio %s só pode voltar para a conta que pagou".formatted(envio.id()));
+        if (tipo == TipoOperacao.PIX_ESTORNO) {
+            exigirDestinoDoEstorno(envio, comando.contaId());
         }
         UUID subconta = envio.subcontaInterna(ContaRazao.LIQUIDACAO_PIX).orElseThrow();
         return registrar(
@@ -173,6 +172,27 @@ public class LancamentoService {
                 comando.descricao(),
                 List.of(debito(subconta, comando.valor()), credito(comando.contaId(), comando.valor())),
                 envio.id());
+    }
+
+    /**
+     * O estorno volta para a conta que pagou. A exceção é a devolução de um Pix em análise
+     * (ADR-0030): a conta que pagou foi encerrada — o estado é final, ela nunca mais movimenta —, e
+     * o analista decidiu outra conta do mesmo titular. Quem confere o titular é o Pix (o razão não
+     * conhece pessoas); aqui fica a trava de que só a conta encerrada abre essa porta.
+     */
+    private void exigirDestinoDoEstorno(Lancamento envio, UUID destino) {
+        UUID pagador = envio.contaDeClienteCom(TipoPartida.DEBITO).orElseThrow();
+        if (pagador.equals(destino)) {
+            return;
+        }
+        boolean pagadorEncerrou = contas.buscar(pagador)
+                .filter(conta -> conta.situacao() == SituacaoConta.ENCERRADA)
+                .isPresent();
+        if (!pagadorEncerrou) {
+            throw new EnvioPixInvalidoException(
+                    "O estorno do envio %s só pode voltar para a conta que pagou (outra conta, só se ela foi encerrada)"
+                            .formatted(envio.id()));
+        }
     }
 
     private ResultadoLancamento registrar(

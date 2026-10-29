@@ -62,6 +62,25 @@ class TransferenciaIT extends TesteDeIntegracao {
             assertThat(RAZAO.liquidacao()).isEqualByComparingTo("0");
             assertThat(RAZAO.chamadas("pix:" + id + ":envio")).isEqualTo(1);
             assertThat(RAZAO.chamadas("pix:" + id + ":recebimento")).isEqualTo(1);
+            // A mensagem de quem paga ("teste") é o texto do lançamento: é ela que o extrato mostra
+            // aos dois lados. Antes, ia "Pix para Maria Souza" e a mensagem se perdia (achado do E2E).
+            assertThat(RAZAO.descricao("pix:" + id + ":envio")).isEqualTo("teste");
+            assertThat(RAZAO.descricao("pix:" + id + ":recebimento")).isEqualTo("teste");
+        }
+
+        @Test
+        @DisplayName("sem mensagem: o lançamento leva quem é a outra ponta (\"Pix para Maria Souza\")")
+        void semMensagem() {
+            Conta joao = novaConta("João da Silva", "50.00");
+            Conta maria = novaConta("Maria Souza", "0.00");
+
+            String id = pix(chave(), joao.id(), chaveEmail(maria), "10.00", null)
+                    .statusCode(201)
+                    .body("situacao", equalTo("CONCLUIDA"))
+                    .extract().path("id");
+
+            assertThat(RAZAO.descricao("pix:" + id + ":envio")).isEqualTo("Pix para Maria Souza");
+            assertThat(RAZAO.descricao("pix:" + id + ":recebimento")).isEqualTo("Pix de João da Silva");
         }
 
         @Test

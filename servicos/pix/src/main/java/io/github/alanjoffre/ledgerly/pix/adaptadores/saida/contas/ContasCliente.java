@@ -6,10 +6,13 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.core.Response;
 import java.util.UUID;
+import io.quarkus.oidc.client.filter.OidcClientFilter;
 import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 
 /** Cliente HTTP declarativo do serviço de contas. Endereço e tempos-limite em {@code quarkus.rest-client.contas.*}. */
 @RegisterRestClient(configKey = "contas")
+// O token do Pix (client credentials) vai em toda chamada; o outro lado exige o papel "servico".
+@OidcClientFilter
 @Path("/v1/contas")
 public interface ContasCliente {
 

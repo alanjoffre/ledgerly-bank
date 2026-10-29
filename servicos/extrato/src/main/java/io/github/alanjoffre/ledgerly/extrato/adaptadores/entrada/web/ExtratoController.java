@@ -3,7 +3,10 @@ package io.github.alanjoffre.ledgerly.extrato.adaptadores.entrada.web;
 import io.github.alanjoffre.ledgerly.extrato.adaptadores.entrada.web.Dtos.ExtratoResposta;
 import io.github.alanjoffre.ledgerly.extrato.adaptadores.entrada.web.Dtos.SaldoResposta;
 import io.github.alanjoffre.ledgerly.extrato.aplicacao.ConsultaDoExtrato;
+import io.github.alanjoffre.ledgerly.extrato.aplicacao.PermissaoDeLeitura;
+import io.github.alanjoffre.ledgerly.seguranca.Usuario;
 import java.util.UUID;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,12 +35,18 @@ class ExtratoController {
     ExtratoResposta extrato(
             @PathVariable UUID contaId,
             @RequestParam(defaultValue = "50") int limite,
-            @RequestParam(required = false) Long antesDe) {
-        return ExtratoResposta.de(consulta.extrato(contaId, limite, antesDe));
+            @RequestParam(required = false) Long antesDe,
+            @AuthenticationPrincipal Usuario usuario) {
+        return ExtratoResposta.de(consulta.extrato(contaId, limite, antesDe, permissao(usuario)));
     }
 
     @GetMapping("/saldo")
-    SaldoResposta saldo(@PathVariable UUID contaId) {
-        return SaldoResposta.de(consulta.saldo(contaId));
+    SaldoResposta saldo(@PathVariable UUID contaId, @AuthenticationPrincipal Usuario usuario) {
+        return SaldoResposta.de(consulta.saldo(contaId, permissao(usuario)));
+    }
+
+    /** Analista e serviço leem tudo; o cliente, só o próprio (ADR-0026). */
+    private static PermissaoDeLeitura permissao(Usuario usuario) {
+        return usuario.ehAnalista() || usuario.ehServico() ? PermissaoDeLeitura.TOTAL : usuario::ehDono;
     }
 }

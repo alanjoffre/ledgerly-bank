@@ -1,5 +1,6 @@
 package io.github.alanjoffre.ledgerly.extrato.aplicacao;
 
+import io.github.alanjoffre.ledgerly.extrato.aplicacao.porta.DonoDaConta;
 import io.github.alanjoffre.ledgerly.extrato.aplicacao.porta.MovimentacaoRepository;
 import io.github.alanjoffre.ledgerly.extrato.aplicacao.porta.SaldoRepository;
 import io.github.alanjoffre.ledgerly.extrato.dominio.ContaNaoEncontradaException;
@@ -18,6 +19,10 @@ import org.springframework.stereotype.Service;
  * ({@code OFFSET}). Duas vantagens: o banco vai direto ao ponto pelo índice, sem contar e descartar
  * linhas; e um lançamento novo que chega no meio da navegação não empurra as linhas e não faz o
  * cliente ver uma linha repetida na página seguinte.
+ *
+ * <p><b>Autorização por objeto</b> (ADR-0026): o cliente lê só o extrato das próprias contas. O
+ * dono vem do contas, e a conta de outro cliente responde como uma conta sem extrato (404) — sem
+ * ler o MongoDB.
  */
 @Service
 public class ConsultaDoExtrato {
@@ -27,10 +32,34 @@ public class ConsultaDoExtrato {
 
     private final MovimentacaoRepository movimentacoes;
     private final SaldoRepository saldos;
+    private final DonoDaConta donos;
 
-    public ConsultaDoExtrato(MovimentacaoRepository movimentacoes, SaldoRepository saldos) {
+    public ConsultaDoExtrato(MovimentacaoRepository movimentacoes, SaldoRepository saldos, DonoDaConta donos) {
         this.movimentacoes = movimentacoes;
         this.saldos = saldos;
+        this.donos = donos;
+    }
+
+    /** Como {@link #extrato(UUID, int, Long)}, se quem pede pode ver a conta. */
+    public PaginaDoExtrato extrato(UUID contaId, int limite, Long antesDe, PermissaoDeLeitura permissao) {
+        exigirPermissao(contaId, permissao);
+        return extrato(contaId, limite, antesDe);
+    }
+
+    /** Como {@link #saldo(UUID)}, se quem pede pode ver a conta. */
+    public Saldo saldo(UUID contaId, PermissaoDeLeitura permissao) {
+        exigirPermissao(contaId, permissao);
+        return saldo(contaId);
+    }
+
+    private void exigirPermissao(UUID contaId, PermissaoDeLeitura permissao) {
+        if (permissao.leTudo()) {
+            return;
+        }
+        boolean pode = donos.clienteDe(contaId).map(permissao::podeVer).orElse(false);
+        if (!pode) {
+            throw naoEncontrada(contaId);
+        }
     }
 
     /**

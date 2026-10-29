@@ -44,7 +44,8 @@ flowchart TB
         backoffice["Backoffice de fraude<br/><small>React + TypeScript</small>"]
     end
 
-    gateway["API Gateway<br/><small>Spring Cloud Gateway<br/>+ Keycloak (OAuth2/OIDC)</small>"]
+    gateway["Dois BFFs<br/><small>Spring Cloud Gateway<br/>um por tela, com sessão</small>"]
+    keycloak["Keycloak<br/><small>OAuth2 / OIDC<br/>login e tokens</small>"]
 
     subgraph servicos["Serviços"]
         contas["contas<br/><small>Spring Boot</small>"]
@@ -63,7 +64,8 @@ flowchart TB
     mongo[("MongoDB<br/>extrato")]
 
     web & backoffice --> gateway
-    gateway --> contas & pix & extrato & antifraude
+    gateway -- "login (code + PKCE)" --> keycloak
+    gateway -- "Bearer (TokenRelay)" --> contas & pix & extrato & antifraude
     pix -- "avaliar risco (síncrono)" --> antifraude
     pix -- "debitar/creditar/estornar (síncrono)" --> razao
     pix -- "titular, titularidade (síncrono)" --> contas
@@ -86,10 +88,11 @@ flowchart TB
 
 O formato de cada evento e de cada API interna está no [contrato dos eventos](eventos.md).
 
-### O que já roda (Fases 2 e 3)
+### O que já roda (Fases 2 a 4)
 
-Rodam os serviços **contas**, **razao**, **pix** e **extrato**. Front-end, gateway, Keycloak
-(Fase 4) e antifraude (Fase 5) ainda não existem: hoje a API é chamada direto.
+Rodam os serviços **contas**, **razao**, **pix** e **extrato**, o **Keycloak**, os dois **BFFs**
+(internet banking na porta 8080 e backoffice na 8090) e as duas telas em React, servidas pelos
+próprios BFFs. Só o antifraude (Fase 5) ainda não existe.
 
 Abrir uma conta **não depende mais do razão no ar** ([ADR-0014](../adr/0014-contas-avisa-o-razao-por-evento.md)):
 o serviço de contas grava a conta e o evento juntos, e o razão abre a dele quando o evento chega.
@@ -161,10 +164,45 @@ Fora dos serviços, três módulos de medição e lote, que não vão para produ
 Hoje a conciliação lê uma base sintética; ligá-la aos bancos do Pix e do razão é implementar a
 interface `Fonte` com uma consulta por faixa de ids.
 
+### Segurança e telas (Fase 4)
+
+A pessoa nunca fala com um serviço: fala com o **BFF** da sua tela
+([ADR-0025](../adr/0025-bff-um-por-front-end.md)). O login acontece na página do Keycloak, e o
+token fica guardado na sessão do BFF — o navegador só tem um cookie.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Ana (navegador)
+    participant BFF as BFF internet banking (8080)
+    participant KC as Keycloak (18081)
+    participant CT as contas (8081)
+
+    A->>BFF: GET / (sem sessão) → clica "Entrar"
+    BFF-->>A: 302 para o Keycloak (code_challenge do PKCE)
+    A->>KC: usuário e senha, na página do Keycloak
+    KC-->>A: 302 de volta ao BFF com o code
+    BFF->>KC: troca o code (+ code_verifier) pelos tokens
+    BFF-->>A: cookie de sessão LEDGERLY_IB (o token fica no BFF)
+    A->>BFF: GET /api/v1/contas/{id} + cookie
+    BFF->>CT: GET /v1/contas/{id} + Authorization: Bearer (TokenRelay)
+    CT->>CT: confere o token (emissor, audiência, papel) e o dono (claim cliente_id)
+    CT-->>BFF: 200 — ou 404 se a conta for de outra pessoa (BOLA, ADR-0026)
+    BFF-->>A: a resposta
+```
+
+- **Todo serviço exige token**, inclusive de outro serviço: contas, pix e extrato se chamam com
+  *client credentials* (papel `servico`). O **razão** aceita só `servico` e não tem rota no BFF
+  ([ADR-0027](../adr/0027-token-de-servico-e-razao-sem-rota.md)).
+- **O extrato não sabe o dono da conta** (ele se monta só dos eventos): pergunta ao contas, com
+  token de serviço, e guarda a resposta num cache sem prazo — o dono de uma conta não muda.
+- **O backoffice** (papel `analista`) mostra a fila de Pix em análise e devolve um Pix para outra
+  conta do mesmo titular ([ADR-0030](../adr/0030-devolucao-de-pix-em-analise.md)).
+- **As telas** ([ADR-0029](../adr/0029-react-vite-vitest-playwright.md)) são testadas com Vitest
+  e, de ponta a ponta, com o Playwright contra o sistema inteiro no ar.
+
 ### O que muda nas próximas fases
 
-- **Fase 4:** o cliente entra pelo **gateway**, que confere o token do Keycloak; as APIs internas
-  passam a exigir token de serviço.
 - **Fase 5:** entre o débito e o crédito, o pix pergunta ao **antifraude** a nota de risco. Risco
   alto → a transferência para e vai para o analista.
 

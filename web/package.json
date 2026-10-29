@@ -1,0 +1,21 @@
+{
+  "name": "ledgerly-web",
+  "private": true,
+  "description": "Front-ends do Ledgerly Bank: internet banking e backoffice de fraude (React + TypeScript + Vite).",
+  "workspaces": [
+    "comum",
+    "internet-banking",
+    "backoffice",
+    "e2e"
+  ],
+  "scripts": {
+    "verificar": "npm run tipos --workspaces --if-present && npm run testar --workspaces --if-present && npm run construir --workspaces --if-present",
+    "tipos": "npm run tipos --workspaces --if-present",
+    "testar": "npm run testar --workspaces --if-present",
+    "construir": "npm run construir --workspaces --if-present",
+    "e2e": "npm run e2e -w e2e"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

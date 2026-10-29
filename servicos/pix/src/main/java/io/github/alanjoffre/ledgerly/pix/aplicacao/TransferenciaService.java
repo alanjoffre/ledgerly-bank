@@ -10,15 +10,20 @@ import io.github.alanjoffre.ledgerly.pix.dominio.ChaveIdempotenciaReutilizadaExc
 import io.github.alanjoffre.ledgerly.pix.dominio.ChaveNaoEncontradaException;
 import io.github.alanjoffre.ledgerly.pix.dominio.ChavePix;
 import io.github.alanjoffre.ledgerly.pix.dominio.ChaveRegistrada;
+import io.github.alanjoffre.ledgerly.pix.dominio.ContaDeOutroTitularException;
 import io.github.alanjoffre.ledgerly.pix.dominio.ContaInativaException;
 import io.github.alanjoffre.ledgerly.pix.dominio.ContaNaoEncontradaException;
+import io.github.alanjoffre.ledgerly.pix.dominio.DecisaoDeAnalise;
 import io.github.alanjoffre.ledgerly.pix.dominio.Participante;
+import io.github.alanjoffre.ledgerly.pix.dominio.SituacaoTransferencia;
 import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaInvalidaException;
 import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaNaoEncontradaException;
+import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaForaDeAnaliseException;
 import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaPix;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,6 +40,11 @@ import java.util.UUID;
  *   <li>grava a transferência (situação {@code CRIADA}) e executa a Saga na hora — no caminho
  *       feliz, a resposta já sai {@code CONCLUIDA}.</li>
  * </ol>
+ *
+ * <p><b>Autorização por objeto</b> (ADR-0026): o cliente só paga com a conta dele e só consulta o
+ * Pix que ele fez. A conta (ou o Pix) de outro cliente responde igual a uma que não existe — e a
+ * conferência vem antes de tudo, até do pedido repetido, para a chave de idempotência de outra
+ * pessoa não virar um jeito de ler o Pix dela.
  */
 @ApplicationScoped
 public class TransferenciaService {
@@ -84,8 +94,9 @@ public class TransferenciaService {
 
     private record Destino(ChavePix chave, Dinheiro valor, String descricao) {}
 
-    public Resultado iniciar(Pedido pedido) {
+    public Resultado iniciar(Pedido pedido, Acesso acesso) {
         Destino destino = resolverDestino(pedido);
+        Contas.ContaResumo pagadorConferido = acesso.semDono() ? null : contaDoDono(pedido.pagadorContaId(), acesso);
         String chaveDaTrava = "pix:pedido:" + pedido.chaveIdempotencia();
         if (!trava.travar(chaveDaTrava, VALIDADE_DA_TRAVA)) {
             throw new PedidoEmAndamentoException(
@@ -99,9 +110,9 @@ public class TransferenciaService {
             ChaveRegistrada recebedor = chaves.buscar(destino.chave())
                     .orElseThrow(() -> new ChaveNaoEncontradaException(
                             "Nenhuma conta tem a chave " + destino.chave().mascarada()));
-            Contas.ContaResumo pagador = contas.buscar(pedido.pagadorContaId())
-                    .orElseThrow(() -> new ContaNaoEncontradaException(
-                            "Conta %s não encontrada".formatted(pedido.pagadorContaId())));
+            Contas.ContaResumo pagador = pagadorConferido != null
+                    ? pagadorConferido
+                    : contas.buscar(pedido.pagadorContaId()).orElseThrow(() -> contaNaoEncontrada(pedido.pagadorContaId()));
             if (!pagador.ativa()) {
                 throw new ContaInativaException("A conta pagadora não está ativa");
             }
@@ -127,8 +138,79 @@ public class TransferenciaService {
     }
 
     public TransferenciaPix consultar(UUID id) {
-        return transferencias.buscar(id)
-                .orElseThrow(() -> new TransferenciaNaoEncontradaException("Transferência %s não encontrada".formatted(id)));
+        return transferencias.buscar(id).orElseThrow(() -> transferenciaNaoEncontrada(id));
+    }
+
+    /** Como {@link #consultar(UUID)}, se quem pede é o dono da conta que pagou (ou lê tudo). */
+    public TransferenciaPix consultar(UUID id, Acesso acesso) {
+        TransferenciaPix transferencia = consultar(id);
+        if (!acesso.semDono()) {
+            boolean doDono = contas.buscar(transferencia.pagador().contaId())
+                    .filter(conta -> acesso.podeUsar(conta.clienteId()))
+                    .isPresent();
+            if (!doDono) {
+                throw transferenciaNaoEncontrada(id);
+            }
+        }
+        return transferencia;
+    }
+
+    /** A fila do backoffice: os Pix em análise, do mais antigo para o mais novo. */
+    public List<TransferenciaPix> emAnalise(int limite) {
+        return transferencias.listarPorSituacao(SituacaoTransferencia.EM_ANALISE, limite);
+    }
+
+    /** O pedido de devolução de um Pix em análise, com quem decidiu e por quê. */
+    public record PedidoDeDevolucao(
+            UUID transferenciaId, UUID contaDestinoId, String justificativa, String analistaId, String analistaNome) {}
+
+    /**
+     * A decisão do analista para um Pix em análise (ADR-0030): devolver o dinheiro para outra conta
+     * do mesmo titular, ativa. A decisão é gravada (auditoria) na mesma transação em que a Saga
+     * volta a andar; o estorno sai logo em seguida, como no Pix novo.
+     */
+    public TransferenciaPix devolver(PedidoDeDevolucao pedido) {
+        DecisaoDeAnalise decisao = new DecisaoDeAnalise(
+                UUID.randomUUID(),
+                pedido.transferenciaId(),
+                pedido.analistaId(),
+                pedido.analistaNome(),
+                DecisaoDeAnalise.Decisao.DEVOLVER,
+                pedido.contaDestinoId(),
+                pedido.justificativa(),
+                relogio.instant());
+        TransferenciaPix transferencia = consultar(pedido.transferenciaId());
+        if (transferencia.situacao() != SituacaoTransferencia.EM_ANALISE) {
+            throw new TransferenciaForaDeAnaliseException("A transferência %s não está em análise (situação %s)"
+                    .formatted(transferencia.id(), transferencia.situacao()));
+        }
+        Contas.ContaResumo pagador = contas.buscar(transferencia.pagador().contaId())
+                .orElseThrow(() -> contaNaoEncontrada(transferencia.pagador().contaId()));
+        Contas.ContaResumo destino = contas.buscar(pedido.contaDestinoId())
+                .orElseThrow(() -> contaNaoEncontrada(pedido.contaDestinoId()));
+        if (!destino.clienteId().equals(pagador.clienteId())) {
+            throw new ContaDeOutroTitularException("A conta %s não é do titular que pagou o Pix".formatted(destino.contaId()));
+        }
+        if (!destino.ativa()) {
+            throw new ContaInativaException("A conta %s não está ativa".formatted(destino.contaId()));
+        }
+        registro.decidirDevolucao(decisao);
+        orquestrador.avancar(transferencia.id());
+        return consultar(transferencia.id());
+    }
+
+    private Contas.ContaResumo contaDoDono(UUID contaId, Acesso acesso) {
+        return contas.buscar(contaId)
+                .filter(conta -> acesso.podeUsar(conta.clienteId()))
+                .orElseThrow(() -> contaNaoEncontrada(contaId));
+    }
+
+    private static ContaNaoEncontradaException contaNaoEncontrada(UUID contaId) {
+        return new ContaNaoEncontradaException("Conta %s não encontrada".formatted(contaId));
+    }
+
+    private static TransferenciaNaoEncontradaException transferenciaNaoEncontrada(UUID id) {
+        return new TransferenciaNaoEncontradaException("Transferência %s não encontrada".formatted(id));
     }
 
     private Optional<Resultado> repetido(Pedido pedido, Destino destino) {

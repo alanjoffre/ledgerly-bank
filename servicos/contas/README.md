@@ -5,7 +5,7 @@ O saldo **não** mora aqui — é do [serviço razão](../razao/README.md), que 
 avisa por eventos.
 
 **Stack:** Java 25 · Spring Boot 4 (Web MVC, Data JPA, RestClient, Kafka) · Hibernate · PostgreSQL 18 ·
-Flyway · porta `8081`
+Flyway · Spring Security (*resource server* com JWT) · porta `8081`
 
 ## Como funciona
 
@@ -71,28 +71,54 @@ Duas alterações simultâneas na mesma conta: a segunda a gravar recebe `409 co
 em vez de sobrescrever a primeira (`@Version` do JPA). Sem a trava, 10 de 50 bloqueios simultâneos
 gravariam por cima uns dos outros — ver [ADR-0009](../../docs/adr/0009-concorrencia-com-trava-pessimista-ordenada.md).
 
+### Segurança (Fase 4)
+
+Todo pedido em `/v1/**` exige um token JWT do Keycloak no cabeçalho `Authorization: Bearer`. O
+serviço confere a assinatura (pela chave pública do emissor), o emissor, a validade e a audiência
+`ledgerly-api` ([ADR-0024](../../docs/adr/0024-keycloak-e-realm-como-codigo.md)). A conferência
+vem da biblioteca [seguranca-spring](../../bibliotecas/seguranca-spring/README.md), igual nos três
+serviços Spring.
+
+A autorização tem duas camadas:
+
+1. **O papel** (*role*), na configuração de segurança: `cliente`, `analista` ou `servico` (outro
+   serviço, com o token pedido por *client credentials*,
+   [ADR-0027](../../docs/adr/0027-token-de-servico-e-razao-sem-rota.md)). O que não está na lista
+   é negado (negar por padrão).
+2. **O dono**, no caso de uso: o cliente só vê o próprio cadastro e as próprias contas. O token traz
+   o `cliente_id` da pessoa, e a conta de outro cliente responde **404, igual ao de uma conta que
+   não existe**. Assim nem a existência da conta vaza, e o razão nem é consultado. É a defesa
+   contra BOLA (*Broken Object Level Authorization*), a falha nº 1 da lista do OWASP para APIs
+   ([ADR-0026](../../docs/adr/0026-bola-com-404.md)).
+
+O `/actuator/health` continua aberto, sem token. Para falar com o razão, o contas pede o próprio
+token de serviço ao Keycloak na primeira chamada (não na subida: o contas sobe mesmo com o Keycloak
+fora do ar) e o renova antes de vencer.
+
 ## API
 
-| Método e caminho | O que faz | Sucesso |
-|---|---|---|
-| `POST /v1/clientes` | `{"nome","cpf"}` (CPF com ou sem máscara) | 201 |
-| `GET /v1/clientes/{id}` | Dados do cliente (CPF mascarado) | 200 |
-| `GET /v1/clientes/{id}/contas` | Contas do cliente | 200 |
-| `POST /v1/contas` | `{"clienteId"}` — abre a conta; o razão recebe o `ContaAberta` | 201 |
-| `GET /v1/contas/{id}` | Conta com o saldo (vindo do razão; `0.00` se o razão ainda não a conhece) | 200 |
-| `GET /v1/contas/{id}/titular` | Titular e situação, sem o saldo (`contaId`, `clienteId`, `nome`, `situacao`): responde mesmo com o razão fora do ar. Usado pelo Pix | 200 |
-| `POST /v1/contas/{id}/bloqueio` | Bloqueia | 200 |
-| `DELETE /v1/contas/{id}/bloqueio` | Desbloqueia | 200 |
-| `POST /v1/contas/{id}/encerramento` | Encerra (o razão exige saldo zero) | 200 |
-| `POST /v1/contas/{id}/titularidade` | `{"cpf"}` — o CPF é o do titular? Resposta `{"confere": true\|false}`; o CPF completo nunca sai daqui. Usado pelo Pix | 200 |
+| Método e caminho | O que faz | Quem pode | Sucesso |
+|---|---|---|---|
+| `POST /v1/clientes` | `{"nome","cpf"}` (CPF com ou sem máscara) | serviço | 201 |
+| `GET /v1/clientes/{id}` | Dados do cliente (CPF mascarado) | cliente (só o dono), analista, serviço | 200 |
+| `GET /v1/clientes/{id}/contas` | Contas do cliente (sem o saldo: `saldo` e `moeda` vêm `null`) | cliente (só o dono), analista, serviço | 200 |
+| `POST /v1/contas` | `{"clienteId"}` — abre a conta; o razão recebe o `ContaAberta` | serviço | 201 |
+| `GET /v1/contas/{id}` | Conta com o saldo (vindo do razão; `0.00` se o razão ainda não a conhece) | cliente (só o dono), analista, serviço | 200 |
+| `GET /v1/contas/{id}/titular` | Titular e situação, sem o saldo (`contaId`, `clienteId`, `nome`, `situacao`): responde mesmo com o razão fora do ar. Usado pelo Pix e pelo extrato | serviço | 200 |
+| `POST /v1/contas/{id}/bloqueio` | Bloqueia | analista, serviço | 200 |
+| `DELETE /v1/contas/{id}/bloqueio` | Desbloqueia | analista, serviço | 200 |
+| `POST /v1/contas/{id}/encerramento` | Encerra (o razão exige saldo zero) | serviço | 200 |
+| `POST /v1/contas/{id}/titularidade` | `{"cpf"}` — o CPF é o do titular? Resposta `{"confere": true\|false}`; o CPF completo nunca sai daqui. Usado pelo Pix | serviço | 200 |
 
 ### Erros
 
 | `type` (`urn:ledgerly:erro:...`) | HTTP | Quando |
 |---|---|---|
 | `requisicao-invalida` | 400 | Campo inválido (detalhe em `campos`) |
+| `nao-autenticado` | 401 | Sem token, token vencido, de outro emissor ou de outra audiência (com o cabeçalho `WWW-Authenticate`) |
+| `acesso-negado` | 403 | Token bom, papel errado (ex.: cliente tentando abrir conta) |
 | `cpf-invalido` · `dado-invalido` | 400 | CPF com dígito errado ou mal formado (também na titularidade); nome curto ou longo demais |
-| `cliente-nao-encontrado` · `conta-nao-encontrada` | 404 | Não existe |
+| `cliente-nao-encontrado` · `conta-nao-encontrada` | 404 | Não existe, ou é de outro cliente (a mesma resposta, de propósito) |
 | `cpf-ja-cadastrado` | 409 | CPF repetido (inclusive em cadastros simultâneos) |
 | `conflito-de-atualizacao` | 409 | Outra operação alterou a conta ao mesmo tempo |
 | `transicao-invalida` | 422 | Ex.: desbloquear conta que não está bloqueada |
@@ -111,7 +137,9 @@ java -jar servicos/contas/target/contas-0.1.0-SNAPSHOT.jar
 ```
 
 Variáveis: `CONTAS_PORTA`, `CONTAS_DB_URL`, `CONTAS_DB_USUARIO`, `CONTAS_DB_SENHA`, `CONTAS_RAZAO_URL`,
-`CONTAS_KAFKA` (padrão `localhost:19092`), `CONTAS_OUTBOX_INTERVALO_MS` (padrão `100`).
+`CONTAS_KAFKA` (padrão `localhost:19092`), `CONTAS_OUTBOX_INTERVALO_MS` (padrão `100`),
+`LEDGERLY_EMISSOR` (o Keycloak, padrão `http://localhost:18081/realms/ledgerly`), `CONTAS_CLIENTE_ID` e
+`CONTAS_CLIENTE_SEGREDO` (o token de serviço para o razão; o segredo padrão só vale no ambiente local).
 
 ## Testes
 
@@ -130,9 +158,11 @@ Variáveis: `CONTAS_PORTA`, `CONTAS_DB_URL`, `CONTAS_DB_USUARIO`, `CONTAS_DB_SEN
 | Integração | `KafkaForaDoArIT` | Kafka parado (`docker pause`): abrir responde na hora, o evento espera e sai quando o Kafka volta |
 | Integração | `PublicadorDoOutboxIT` | Limpeza: só some o publicado há mais de 7 dias |
 | Integração | `ConcorrenciaIT` | Trava otimista: 50 bloqueios simultâneos → 1 gravação e **1 evento**; 20 cadastros do mesmo CPF → 1 cliente |
+| Integração | `AutorizacaoIT` | **BOLA**: a conta do Bruno, para a Ana, dá o mesmo 404 de uma conta inexistente, e o razão nem é consultado; token sem `cliente_id` não é dono de nada; o analista vê todas; sem token, 401; cliente em rota de serviço, 403 |
 
 Nos testes de integração, o razão é um **dublê em memória** (`RazaoFalso`), que dá para derrubar
-de propósito; o PostgreSQL e o Kafka são de verdade. O contrato real entre os dois serviços será
+de propósito; o PostgreSQL e o Kafka são de verdade. Os tokens são assinados no próprio teste, com
+uma chave de teste: o Keycloak não precisa estar no ar. O contrato real entre os dois serviços será
 testado com Pact na Fase 7.
 
-Cobertura (unidade + integração): **97% das linhas, 91% dos ramos**.
+Cobertura (unidade + integração): **97% das linhas, 90% dos ramos**.

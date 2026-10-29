@@ -1,0 +1,77 @@
+# Configuração do gateway (BFF). Suba sempre com um perfil:
+#   internet-banking  →  :8080, cookie LEDGERLY_IB, papel cliente
+#   backoffice        →  :8090, cookie LEDGERLY_BO, papel analista
+# Exemplo: java -jar gateway.jar --spring.profiles.active=internet-banking
+
+spring:
+  application:
+    name: gateway
+  threads:
+    virtual:
+      enabled: true
+  web:
+    resources:
+      # Os arquivos da tela (index.html, /assets/...) saem da pasta construída de cada front-end.
+      static-locations: ${ledgerly.bff.pagina}
+
+server:
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        # HttpOnly: o JavaScript não lê o cookie (um XSS não leva a sessão). SameSite=Lax: o
+        # navegador não manda o cookie num POST vindo de outro site. "secure" fica desligado só
+        # porque o ambiente local é http; em nuvem, com https, liga (ver docs/adr/0025).
+        http-only: true
+        same-site: lax
+
+ledgerly:
+  bff:
+    emissor: ${LEDGERLY_EMISSOR:http://localhost:18081/realms/ledgerly}
+    servicos:
+      contas: ${GATEWAY_CONTAS_URL:http://localhost:8081}
+      extrato: ${GATEWAY_EXTRATO_URL:http://localhost:8084}
+      pix: ${GATEWAY_PIX_URL:http://localhost:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+---
+spring:
+  config:
+    activate:
+      on-profile: internet-banking
+server:
+  port: ${GATEWAY_PORTA:8080}
+  servlet:
+    session:
+      cookie:
+        name: LEDGERLY_IB
+ledgerly:
+  bff:
+    papel: cliente
+    # A tela construída (npm run construir). Caminho relativo à pasta de onde o gateway sobe (a raiz do repositório).
+    pagina: ${GATEWAY_PAGINA:file:web/internet-banking/dist/}
+    cliente-id: ledgerly-internet-banking
+    cliente-segredo: ${GATEWAY_CLIENTE_SEGREDO:ib-segredo-local}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: backoffice
+server:
+  port: ${GATEWAY_PORTA:8090}
+  servlet:
+    session:
+      cookie:
+        name: LEDGERLY_BO
+ledgerly:
+  bff:
+    papel: analista
+    pagina: ${GATEWAY_PAGINA:file:web/backoffice/dist/}
+    cliente-id: ledgerly-backoffice
+    cliente-segredo: ${GATEWAY_CLIENTE_SEGREDO:bo-segredo-local}

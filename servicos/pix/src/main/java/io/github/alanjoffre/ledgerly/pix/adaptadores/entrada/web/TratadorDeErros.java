@@ -4,6 +4,9 @@ import com.fasterxml.jackson.core.JacksonException;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.PedidoEmAndamentoException;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.ServicoIndisponivelException;
 import io.github.alanjoffre.ledgerly.pix.dominio.RegraDeNegocioException;
+import io.quarkus.security.AuthenticationFailedException;
+import io.quarkus.security.ForbiddenException;
+import io.quarkus.security.UnauthorizedException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.WebApplicationException;
@@ -34,11 +37,30 @@ class TratadorDeErros {
             "chave-nao-encontrada", 404,
             "conta-nao-encontrada", 404,
             "transferencia-nao-encontrada", 404,
-            "chave-ja-cadastrada", 409);
+            "chave-ja-cadastrada", 409,
+            "transferencia-fora-de-analise", 409);
 
     @ServerExceptionMapper
     Response regraDeNegocio(RegraDeNegocioException e) {
         return problema(STATUS.getOrDefault(e.codigo(), 422), e.codigo(), e.getMessage(), null).build();
+    }
+
+    /**
+     * 401: sem token, vencido, de outro emissor ou assinatura errada. O motivo exato não sai na
+     * resposta (fica no log), para não ensinar o atacante — igual aos serviços Spring.
+     */
+    @ServerExceptionMapper({UnauthorizedException.class, AuthenticationFailedException.class})
+    Response naoAutenticado(RuntimeException e) {
+        LOG.debugf("Pedido sem autenticação válida: %s", e.getMessage());
+        return problema(401, "nao-autenticado", "Envie um token válido no cabeçalho Authorization: Bearer.", null)
+                .header("WWW-Authenticate", "Bearer realm=\"ledgerly\"")
+                .build();
+    }
+
+    /** 403: token bom, papel errado (cliente na rota de analista). */
+    @ServerExceptionMapper
+    Response acessoNegado(ForbiddenException e) {
+        return problema(403, "acesso-negado", "O seu papel não permite esta operação.", null).build();
     }
 
     @ServerExceptionMapper
@@ -101,6 +123,8 @@ class TratadorDeErros {
     private static String titulo(int status) {
         return switch (status) {
             case 400 -> "Requisição inválida";
+            case 401 -> "Não autenticado";
+            case 403 -> "Acesso negado";
             case 404 -> "Não encontrado";
             case 409 -> "Conflito";
             case 422 -> "Regra de negócio";

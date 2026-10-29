@@ -52,6 +52,12 @@ razao:
     intervalo-ms: ${RAZAO_OUTBOX_INTERVALO_MS:100}
     lote: 100
 
+ledgerly:
+  # Quem emite os tokens que este serviço aceita (ADR-0024). A chave pública vem do JWKS do emissor.
+  seguranca:
+    emissor: ${LEDGERLY_EMISSOR:http://localhost:18081/realms/ledgerly}
+    audiencia: ledgerly-api
+
 management:
   endpoints:
     web:

@@ -42,6 +42,16 @@
             <artifactId>nucleo-compartilhado</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Fase 4: confere o token do Keycloak e pede o token de serviço para chamar o razão. -->
+        <dependency>
+            <groupId>io.github.alanjoffre.ledgerly</groupId>
+            <artifactId>seguranca-spring</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security-oauth2-client</artifactId>
+        </dependency>
 
         <!-- API REST (Spring MVC) e validação dos dados de entrada. -->
         <dependency>
@@ -88,6 +98,14 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- TokensDeTeste: tokens assinados de verdade, com a chave na memória. -->
+        <dependency>
+            <groupId>io.github.alanjoffre.ledgerly</groupId>
+            <artifactId>seguranca-spring</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
         <!-- Testes -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

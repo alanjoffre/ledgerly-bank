@@ -38,7 +38,7 @@ class ProjecaoDoExtratoTest {
 
     private final RepositoriosEmMemoria memoria = new RepositoriosEmMemoria();
     private final ProjecaoDoExtrato projecao = new ProjecaoDoExtrato(memoria, memoria);
-    private final ConsultaDoExtrato consulta = new ConsultaDoExtrato(memoria, memoria);
+    private final ConsultaDoExtrato consulta = new ConsultaDoExtrato(memoria, memoria, conta -> java.util.Optional.empty());
 
     private static PartidaRegistrada partida(long sequencia, UUID conta, boolean interna, TipoPartida tipo, String saldo) {
         return new PartidaRegistrada(sequencia, conta, interna, tipo, Dinheiro.reais("1200.00"), Dinheiro.reais(saldo));
@@ -103,6 +103,25 @@ class ProjecaoDoExtratoTest {
         assertThat(linhas.get(1).pix().papel()).isEqualTo(PapelNoPix.ENVIADO);
         assertThat(memoria.documentos.keySet()).noneMatch(chave -> chave.contaId().equals(maria));
         assertThat(consulta.saldo(joao).valor()).isEqualTo(Dinheiro.reais("1500.00"));
+    }
+
+    @Test
+    @DisplayName("Pix devolvido por análise: a saída fica na conta que pagou; a volta, na conta da devolução")
+    void pixDevolvido() {
+        UUID estorno = UUID.randomUUID();
+        UUID outraDoJoao = UUID.randomUUID();
+        projecao.projetar(lancamentoDeEnvio());
+        projecao.projetar(new LancamentoRegistrado(estorno, TipoOperacao.PIX_ESTORNO, null, QUANDO, List.of(
+                partida(20, LIQUIDACAO, true, TipoPartida.DEBITO, "0.00"),
+                partida(1, outraDoJoao, false, TipoPartida.CREDITO, "500.00"))));
+        projecao.projetar(new PixEstornado(pix, new Pagador(joao, "João da Silva"),
+                new Recebedor(maria, "Maria Souza", "EMAIL", "m***@exemplo.com"), envio, estorno,
+                "devolvido por análise", outraDoJoao));
+
+        assertThat(consulta.extrato(outraDoJoao, 10, null).itens()).singleElement()
+                .satisfies(linha -> assertThat(linha.pix().papel()).isEqualTo(PapelNoPix.ESTORNO));
+        assertThat(consulta.extrato(joao, 10, null).itens()).singleElement()
+                .satisfies(linha -> assertThat(linha.pix().situacao()).isEqualTo(SituacaoPix.ESTORNADO));
     }
 
     /**

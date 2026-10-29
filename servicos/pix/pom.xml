@@ -103,6 +103,24 @@
             <artifactId>quarkus-smallrye-health</artifactId>
         </dependency>
 
+        <!--
+          Segurança (ADR-0025): quarkus-oidc confere o token de quem chama (o Pix como "resource
+          server"); quarkus-oidc-client busca no Keycloak o token do próprio Pix (client
+          credentials), e o filtro o põe em cada chamada ao razão e a contas.
+        -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-client-oidc-filter</artifactId>
+        </dependency>
+
         <!-- ZXing: monta a matriz do QR Code (só o núcleo, sem AWT — funciona na imagem nativa). -->
         <dependency>
             <groupId>com.google.zxing</groupId>

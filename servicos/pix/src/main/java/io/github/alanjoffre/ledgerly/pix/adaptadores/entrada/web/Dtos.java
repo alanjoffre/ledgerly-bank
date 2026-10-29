@@ -31,6 +31,9 @@ final class Dtos {
 
     record LerQrCodeRequisicao(@NotBlank String copiaECola) {}
 
+    /** A decisão do analista: para qual conta (do mesmo titular) o dinheiro volta, e por quê. */
+    record DevolucaoRequisicao(@NotNull UUID contaDestinoId, @NotBlank @Size(min = 10, max = 500) String justificativa) {}
+
     /** Informe {@code chave} OU {@code copiaECola}. */
     record TransferenciaRequisicao(
             @NotNull UUID pagadorContaId,
@@ -87,6 +90,7 @@ final class Dtos {
             Recebedor recebedor,
             String motivo,
             Lancamentos lancamentos,
+            UUID contaDevolucaoId,
             int tentativas,
             Instant proximaTentativaEm,
             Instant criadaEm,
@@ -104,6 +108,7 @@ final class Dtos {
                     new Recebedor(t.recebedor().nome(), t.chaveDoRecebedor().mascarada(), t.chaveDoRecebedor().tipo()),
                     t.motivo(),
                     new Lancamentos(t.lancamentoEnvioId(), t.lancamentoRecebimentoId(), t.lancamentoEstornoId()),
+                    t.contaDevolucaoId(),
                     t.tentativas(),
                     emAndamento ? t.proximaTentativaEm() : null,
                     t.criadaEm(),

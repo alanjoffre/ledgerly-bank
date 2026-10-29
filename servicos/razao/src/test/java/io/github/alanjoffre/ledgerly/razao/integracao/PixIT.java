@@ -165,6 +165,29 @@ class PixIT extends TesteDeIntegracao {
         }
 
         @Test
+        @DisplayName("pagador encerrado: o estorno para ele é recusado, e só então pode ir para outra conta (devolução, ADR-0030)")
+        void devolucaoComPagadorEncerrado() {
+            UUID pagador = novaContaCom("30.00");
+            UUID outraDoTitular = novaConta();
+            Lancamento envio = enviar(pagador, "30.00");
+            contas.alterarSituacao(pagador, SituacaoConta.BLOQUEADA);
+            assertThatThrownBy(() -> estornar(outraDoTitular, "30.00", envio.id()))
+                    .isInstanceOf(EnvioPixInvalidoException.class)
+                    .hasMessageContaining("só se ela foi encerrada");
+
+            contas.alterarSituacao(pagador, SituacaoConta.ENCERRADA); // saldo zero: pode encerrar
+            assertThatThrownBy(() -> estornar(pagador, "30.00", envio.id())).isInstanceOf(ContaInativaException.class);
+            ResultadoLancamento devolucao = estornar(outraDoTitular, "30.00", envio.id());
+
+            assertThat(devolucao.lancamento().tipo()).isEqualTo(TipoOperacao.PIX_ESTORNO);
+            assertThat(saldo(outraDoTitular)).isEqualTo(reais("30.00"));
+            assertThat(saldo(ContaRazao.LIQUIDACAO_PIX)).isEqualTo(reais("0.00"));
+            assertThatThrownBy(() -> estornar(outraDoTitular, "30.00", envio.id()))
+                    .isInstanceOf(EnvioPixInvalidoException.class)
+                    .hasMessageContaining("já teve a sua saída");
+        }
+
+        @Test
         @DisplayName("receber e também estornar o mesmo envio: o segundo é recusado, mesmo com dinheiro de outros Pix na Liquidação")
         void duasSaidasDoMesmoEnvio() {
             UUID pagador = novaContaCom("100.00");
