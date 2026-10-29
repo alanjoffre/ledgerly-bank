@@ -34,15 +34,15 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
     }
 
     @Override
-    public boolean inserir(TransferenciaPix t) {
+    public boolean inserir(TransferenciaPix t, Instant reservadaAte) {
         var e = t.estado();
         try (Connection c = banco.getConnection();
                 PreparedStatement sql = c.prepareStatement("""
                         INSERT INTO transferencia_pix (
                             id, chave_idempotencia, pagador_conta_id, pagador_nome,
                             recebedor_conta_id, recebedor_nome, recebedor_chave, recebedor_tipo_chave,
-                            valor, descricao, situacao, tentativas, proxima_tentativa_em, criada_em)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            valor, descricao, situacao, tentativas, proxima_tentativa_em, criada_em, reservada_ate)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT (chave_idempotencia) DO NOTHING
                         """)) {
             sql.setObject(1, e.id());
@@ -59,6 +59,7 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
             sql.setInt(12, e.tentativas());
             Jdbc.instante(sql, 13, e.proximaTentativaEm());
             Jdbc.instante(sql, 14, e.criadaEm());
+            Jdbc.instante(sql, 15, reservadaAte);
             // ON CONFLICT DO NOTHING: com a chave repetida, nenhuma linha entra e não há erro.
             return sql.executeUpdate() == 1;
         } catch (SQLException ex) {
@@ -104,14 +105,14 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
     }
 
     @Override
-    public void salvar(TransferenciaPix t) {
+    public void salvar(TransferenciaPix t, Instant reservadaAte) {
         var e = t.estado();
         try (Connection c = banco.getConnection();
                 PreparedStatement sql = c.prepareStatement("""
                         UPDATE transferencia_pix
                            SET situacao = ?, motivo = ?, lancamento_envio_id = ?, lancamento_recebimento_id = ?,
                                lancamento_estorno_id = ?, conta_devolucao_id = ?, tentativas = ?,
-                               proxima_tentativa_em = ?, finalizada_em = ?, reservada_ate = NULL
+                               proxima_tentativa_em = ?, finalizada_em = ?, reservada_ate = ?
                          WHERE id = ?
                         """)) {
             sql.setString(1, e.situacao().name());
@@ -123,7 +124,8 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
             sql.setInt(7, e.tentativas());
             Jdbc.instante(sql, 8, e.proximaTentativaEm());
             Jdbc.instante(sql, 9, e.finalizadaEm());
-            sql.setObject(10, e.id());
+            Jdbc.instante(sql, 10, reservadaAte);
+            sql.setObject(11, e.id());
             if (sql.executeUpdate() != 1) {
                 throw new IllegalStateException("Transferência %s não encontrada para salvar".formatted(e.id()));
             }

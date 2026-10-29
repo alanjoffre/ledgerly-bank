@@ -5,6 +5,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+### Corrigido
+
+- **Os dois testes instáveis do CI da Fase 4**, cada um uma corrida de verdade, reproduzida antes do
+  conserto ([ADR-0031](docs/adr/0031-as-duas-corridas-dos-testes-instaveis.md)):
+  - **gateway:** o cliente HTTP do JDK 25 falhava com `NullPointerException` num corpo vazio
+    mandado "em partes" (`Transfer-Encoding: chunked`). O gateway agora manda o corpo inteiro, com
+    `Content-Length`, e o teste confere os cabeçalhos. Preso a 2 núcleos: 19 falhas em 30 rodadas
+    antes, 0 depois.
+  - **pix:** o agendador de retomada podia levar a Saga entre um passo e outro, e o pedido
+    respondia **202** ("o razão não respondeu") para um Pix que ia ser concluído. Quem cria o Pix
+    (ou decide a devolução) agora fica com a reserva até o fim. Teste novo `SagaEAgendadorIT`, com
+    o agendador rodando sem pausa: 9 de 60 Pix errados antes, 0 depois.
+
 ## [0.4.0] — 2026-10-28
 
 ### Adicionado — Fase 4 (segurança e front-end)

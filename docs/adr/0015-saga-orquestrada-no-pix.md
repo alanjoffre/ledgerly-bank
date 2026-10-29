@@ -85,7 +85,8 @@ Na mesma prova, o teste do razão fora do ar também falhou (o Pix virou `REJEIT
 esperar).
 
 **Para não fazer o mesmo passo duas vezes ao mesmo tempo**, cada execução **reserva** a
-transferência por 30 s (um `UPDATE ... WHERE reservada_ate < now() RETURNING *`, atômico). A
+transferência por 30 s (um `UPDATE ... WHERE reservada_ate < now() RETURNING *`, atômico) — e,
+desde a ADR-0031, quem criou o Pix já o grava reservado e renova a reserva a cada passo, até o fim. A
 chamada ao razão acontece **fora** de qualquer transação de banco: segurar uma conexão esperando
 outro serviço esgota o pool sob carga.
 

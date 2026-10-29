@@ -50,9 +50,11 @@ tradução e o significado.
 | **Claim** | Cada informação dentro de um token JWT: quem é (`sub`), quem emitiu (`iss`), para quem (`aud`), até quando (`exp`), os papéis. Aqui também o `cliente_id`, o vínculo do login com o cliente do banco. |
 | **Client credentials** | Fluxo do OAuth2 sem pessoa: um **serviço** se identifica com o próprio id e segredo e recebe um token em nome dele. É como contas, pix e extrato se chamam ([ADR-0027](adr/0027-token-de-servico-e-razao-sem-rota.md)). |
 | **Compensação** | Na Saga, o passo que desfaz o efeito de um passo anterior quando um seguinte falha (aqui, o estorno do Pix). Não apaga nada: é um movimento novo, no sentido contrário. |
+| **Condição de corrida** | Defeito em que dois caminhos rodam ao mesmo tempo e o resultado depende de quem chega primeiro. Costuma aparecer só com a máquina ocupada ou com pouca CPU, como no CI. Em inglês, *race condition*. Aqui, as duas da [ADR-0031](adr/0031-as-duas-corridas-dos-testes-instaveis.md). |
 | **Consistência eventual** | Os dados de serviços diferentes podem ficar diferentes por um instante, mas convergem sozinhos. Exemplo: o extrato mostra o Pix milissegundos depois do razão. |
 | **Consumidor, grupo e offset** | Quem lê um tópico do Kafka é um *consumidor*; consumidores com o mesmo nome de *grupo* dividem o trabalho; o *offset* é a posição até onde o grupo já leu. A diferença entre o fim do tópico e o offset é o atraso (*lag*). |
 | **Contexto delimitado** | No DDD, a fronteira dentro da qual um modelo vale. Cada serviço é um: o "Conta" do razão não é o "Conta" do cadastro. Em inglês, *bounded context*. |
+| **Corpo em partes** | Pedido HTTP que manda o corpo em pedaços, sem dizer o tamanho antes (`Transfer-Encoding: chunked`); o contrário é dizer o tamanho no `Content-Length`. O gateway manda sempre o corpo inteiro ([ADR-0031](adr/0031-as-duas-corridas-dos-testes-instaveis.md)). |
 | **CQRS** | *Command Query Responsibility Segregation*: separar o modelo que **grava** do modelo que **lê**, cada um otimizado para a sua tarefa. |
 | **CRC** | *Cyclic Redundancy Check*: número calculado a partir de um texto para detectar alteração. Um caractere trocado no QR Code muda o CRC, e o QR Code é recusado. |
 | **CSP** | *Content Security Policy*: cabeçalho que diz ao navegador de onde a página pode carregar script, estilo e imagem. Com `default-src 'self'`, um script injetado de outro lugar não roda. |
@@ -117,6 +119,7 @@ tradução e o significado.
 | **Teste de carga** | Disparar muitos pedidos ao mesmo tempo contra o serviço no ar e medir vazão e latência. Não é teste de correção, é medição. Aqui, com o Gatling ([ADR-0021](adr/0021-teste-de-carga-com-gatling.md)). |
 | **Teste de ponta a ponta** | Teste que exercita o sistema inteiro no ar, pela tela, como uma pessoa faria: login, Pix, extrato. Pega o que os testes com dublês não pegam — aqui, cinco defeitos. Em inglês, *end-to-end* (E2E). |
 | **Teste de propriedade** | Em vez de testar um exemplo, testa uma regra para milhares de entradas aleatórias. Em inglês, *property-based testing*. |
+| **Teste instável** | Teste que às vezes passa e às vezes falha, sem mudança no código. Quase sempre é uma condição de corrida, no teste ou no produto. Não se resolve repetindo até passar: reproduz, acha a causa, corrige. Em inglês, *flaky test*. |
 | **Thread de plataforma** | A *thread* tradicional do Java, uma por *thread* do sistema operacional: cara (cerca de 1 MB de pilha), por isso usada em grupos fixos (*pool*). |
 | **TokenRelay** | Filtro do gateway que pega o token guardado na sessão e o põe no cabeçalho `Authorization: Bearer` do pedido repassado ao serviço. |
 | **Tópico e partição** | No Kafka, o *tópico* é a fila de um assunto (`razao.lancamentos.v1`); ele é dividido em *partições*, e mensagens com a mesma chave caem sempre na mesma partição, em ordem. |

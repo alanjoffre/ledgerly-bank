@@ -18,8 +18,10 @@ import java.util.UUID;
  * decide a compensação. Na coreografia, cada serviço reagiria a eventos do outro, e a regra
  * "se o crédito falhar, estorne" ficaria espalhada entre eles.
  *
- * <p>Para cada passo: reservar (transação curta) → chamar o razão (sem transação aberta) →
- * registrar o resultado (transação curta). Se o serviço morrer em qualquer ponto, nada se perde:
+ * <p>Reservar (transação curta), e para cada passo: chamar o razão (sem transação aberta) →
+ * registrar o resultado e renovar a reserva (transação curta). Quem reservou fica com a
+ * transferência até ela terminar ou um passo ficar sem resposta: o agendador não a leva no meio
+ * (ADR-0031). Se o serviço morrer em qualquer ponto, nada se perde:
  * <ul>
  *   <li>morreu antes de chamar o razão: a reserva vence e outra execução chama;</li>
  *   <li>morreu depois de o razão mover o dinheiro e antes de registrar: a próxima execução chama
@@ -47,17 +49,21 @@ public class OrquestradorDaSaga {
     }
 
     /**
-     * Executa os passos da transferência até ela terminar ou um passo ficar sem resposta (aí ela
-     * volta mais tarde, pela {@link #retomarPendentes()}).
+     * Reserva a transferência e executa os passos (veja {@link #continuar(TransferenciaPix)}). Se
+     * ela terminou, outra execução está com ela, ou ainda não é hora, não faz nada.
      */
     public void avancar(UUID id) {
+        registro.reservar(id).ifPresent(this::continuar);
+    }
+
+    /**
+     * Executa os passos de uma transferência que já está reservada para quem chama (acabou de ser
+     * criada, ou de ter a devolução decidida), até ela terminar ou um passo ficar sem resposta (aí
+     * ela volta mais tarde, pela {@link #retomarPendentes()}).
+     */
+    public void continuar(TransferenciaPix transferencia) {
         // No máximo três passos: debitar, creditar e (se o crédito for recusado) estornar.
         for (int i = 0; i < Passo.values().length; i++) {
-            var reservada = registro.reservar(id);
-            if (reservada.isEmpty()) {
-                return; // terminou, outra execução está com ela, ou ainda não é hora
-            }
-            TransferenciaPix transferencia = reservada.get();
             Passo passo = transferencia.proximoPasso().orElseThrow();
             ResultadoDoPasso resultado = razao.executar(
                     passo,
@@ -66,13 +72,16 @@ public class OrquestradorDaSaga {
                     transferencia.valor(),
                     descricao(passo, transferencia),
                     passo == Passo.DEBITAR ? null : transferencia.lancamentoEnvioId());
-            registro.registrar(transferencia, passo, resultado);
+            boolean segue = registro.registrar(transferencia, passo, resultado);
 
             if (resultado instanceof ResultadoDoPasso.SemResposta semResposta) {
                 Level nivel = transferencia.precisaDeAlerta() ? Level.WARNING : Level.INFO;
                 LOG.log(nivel, "Pix {0}: {1} sem resposta do razão ({2}); tentativa {3}, próxima em {4}",
-                        id, passo, semResposta.erro(), transferencia.tentativas(), transferencia.proximaTentativaEm());
-                return;
+                        transferencia.id(), passo, semResposta.erro(), transferencia.tentativas(),
+                        transferencia.proximaTentativaEm());
+            }
+            if (!segue) {
+                return; // terminou, ou vai esperar: a reserva já foi solta
             }
         }
     }

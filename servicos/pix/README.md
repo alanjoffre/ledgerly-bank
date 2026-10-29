@@ -52,7 +52,9 @@ saída só por envio, mesmo que alguém peça as duas
 ([ADR-0019](../../docs/adr/0019-contas-quentes-em-subcontas.md)).
 
 Se o serviço morrer no meio, outra execução assume: cada passo **reserva** a transferência por 30 s,
-e um agendador retoma, a cada segundo, as que ficaram paradas.
+e um agendador retoma, a cada segundo, as que ficaram paradas. O pedido que criou o Pix fica com a
+reserva do começo ao fim, e o agendador só pega o que parou sem resposta do razão
+([ADR-0031](../../docs/adr/0031-as-duas-corridas-dos-testes-instaveis.md)).
 
 ### A devolução de um Pix em análise (Fase 4)
 

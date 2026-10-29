@@ -12,7 +12,10 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Um serviço de mentira atrás do gateway: responde 200 e guarda o último pedido que recebeu. */
 final class ServicoFalso {
 
-    record Pedido(String metodo, String caminho, String authorization, String cookie, String csrf, String corpo) {}
+    /** {@code partes} e {@code tamanho}: os cabeçalhos Transfer-Encoding e Content-Length (ADR-0031). */
+    record Pedido(
+            String metodo, String caminho, String authorization, String cookie, String csrf, String corpo,
+            String partes, String tamanho) {}
 
     private final String nome;
     private final HttpServer servidor;
@@ -33,7 +36,9 @@ final class ServicoFalso {
                     cabecalhos.getFirst("Authorization"),
                     cabecalhos.getFirst("Cookie"),
                     cabecalhos.getFirst("X-XSRF-TOKEN"),
-                    new String(troca.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
+                    new String(troca.getRequestBody().readAllBytes(), StandardCharsets.UTF_8),
+                    cabecalhos.getFirst("Transfer-Encoding"),
+                    cabecalhos.getFirst("Content-Length")));
             byte[] resposta = ("{\"servico\":\"" + nome + "\"}").getBytes(StandardCharsets.UTF_8);
             troca.getResponseHeaders().add("Content-Type", "application/json");
             troca.sendResponseHeaders(200, resposta.length);

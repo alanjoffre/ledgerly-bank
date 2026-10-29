@@ -121,6 +121,9 @@ class InternetBankingTest {
             var recebido = SERVICOS.get(servico).ultimo();
             assertThat(recebido.caminho()).isEqualTo(esperado.replace("{conta}", CONTA));
             assertThat(recebido.authorization()).isEqualTo("Bearer " + ana.token());
+            // O corpo nunca vai "em partes": a corrida do cliente HTTP do JDK (ADR-0031).
+            assertThat(recebido.partes()).as("Transfer-Encoding").isNull();
+            assertThat(recebido.tamanho()).as("Content-Length").isEqualTo(metodo.equals("GET") ? null : "15");
         }
 
         @Test
@@ -139,6 +142,8 @@ class InternetBankingTest {
             var recebido = SERVICOS.get("pix").ultimo();
             assertThat(recebido.metodo()).isEqualTo("POST");
             assertThat(recebido.corpo()).isEqualTo("{\"valor\":\"10.00\"}");
+            assertThat(recebido.tamanho()).isEqualTo("17");
+            assertThat(recebido.partes()).isNull();
             assertThat(recebido.cookie()).isNull();
             assertThat(recebido.csrf()).isNull();
         }

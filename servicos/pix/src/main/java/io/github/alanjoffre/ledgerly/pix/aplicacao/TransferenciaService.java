@@ -130,7 +130,8 @@ public class TransferenciaService {
                 // trava venceu). O UNIQUE do banco decidiu; este vira um pedido repetido.
                 return repetido(pedido, destino).orElseThrow();
             }
-            orquestrador.avancar(nova.id());
+            // Já reservada para este pedido: o agendador não a leva no meio (ADR-0031).
+            orquestrador.continuar(nova);
             return new Resultado(consultar(nova.id()), false);
         } finally {
             trava.liberar(chaveDaTrava);
@@ -194,8 +195,7 @@ public class TransferenciaService {
         if (!destino.ativa()) {
             throw new ContaInativaException("A conta %s não está ativa".formatted(destino.contaId()));
         }
-        registro.decidirDevolucao(decisao);
-        orquestrador.avancar(transferencia.id());
+        orquestrador.continuar(registro.decidirDevolucao(decisao));
         return consultar(transferencia.id());
     }
 

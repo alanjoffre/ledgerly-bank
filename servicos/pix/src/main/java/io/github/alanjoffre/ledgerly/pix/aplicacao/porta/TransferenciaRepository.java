@@ -12,12 +12,14 @@ import java.util.UUID;
 public interface TransferenciaRepository {
 
     /**
-     * Grava a transferência nova.
+     * Grava a transferência nova, já reservada para quem a criou: o agendador de retomada não a pega
+     * enquanto o pedido que a criou executa os passos (ADR-0031).
      *
+     * @param reservadaAte até quando quem criou fica com ela
      * @return {@code false} se já existe uma com a mesma chave de idempotência (dois pedidos iguais
      *     ao mesmo tempo: só um grava)
      */
-    boolean inserir(TransferenciaPix transferencia);
+    boolean inserir(TransferenciaPix transferencia, Instant reservadaAte);
 
     Optional<TransferenciaPix> buscar(UUID id);
 
@@ -33,8 +35,13 @@ public interface TransferenciaRepository {
      */
     Optional<TransferenciaPix> reservar(UUID id, Instant agora, Duration validade);
 
-    /** Grava o novo estado e libera a reserva. */
-    void salvar(TransferenciaPix transferencia);
+    /**
+     * Grava o novo estado.
+     *
+     * @param reservadaAte até quando quem executa continua com a transferência (o próximo passo é
+     *     agora, e é dela); {@code null} libera a reserva
+     */
+    void salvar(TransferenciaPix transferencia, Instant reservadaAte);
 
     /** As transferências numa situação, das mais antigas para as mais novas (a fila do backoffice). */
     List<TransferenciaPix> listarPorSituacao(SituacaoTransferencia situacao, int limite);

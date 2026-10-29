@@ -47,3 +47,4 @@ sem que se saiba o que se perde. O formato segue o modelo de Michael Nygard, o m
 | [0028](0028-gateway-no-boot-4-0.md) | O gateway no Spring Boot 4.0, enquanto o Spring Cloud do 4.1 não sai | Aceita |
 | [0029](0029-react-vite-vitest-playwright.md) | Telas em React + TypeScript + Vite, testadas com Vitest e Playwright | Aceita |
 | [0030](0030-devolucao-de-pix-em-analise.md) | Devolução de Pix em análise pelo backoffice, com trilha de auditoria | Aceita |
+| [0031](0031-as-duas-corridas-dos-testes-instaveis.md) | As duas corridas por trás dos testes instáveis da Fase 4 | Aceita |

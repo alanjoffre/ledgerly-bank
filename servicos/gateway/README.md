@@ -59,7 +59,10 @@ em toda chamada, é o serviço.
 
 O **razão não tem rota**: só outro serviço, com token de serviço, fala com ele
 ([ADR-0027](../../docs/adr/0027-token-de-servico-e-razao-sem-rota.md)). O cookie de sessão e o
-cabeçalho de CSRF não seguem para os serviços: lá eles não significam nada.
+cabeçalho de CSRF não seguem para os serviços: lá eles não significam nada. O corpo do pedido vai
+inteiro, com `Content-Length`, e nunca "em partes": contorna uma corrida no cliente HTTP do JDK 25
+([ClienteHttp](src/main/java/io/github/alanjoffre/ledgerly/gateway/ClienteHttp.java),
+[ADR-0031](../../docs/adr/0031-as-duas-corridas-dos-testes-instaveis.md)).
 
 | Caminho do próprio gateway | O que faz |
 |---|---|
