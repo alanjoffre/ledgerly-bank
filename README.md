@@ -98,6 +98,15 @@ evento, no [contrato dos eventos](docs/arquitetura/eventos.md).
 
 O detalhe de cada fase está no [roteiro](docs/roadmap.md).
 
+**O projeto está concluído, na versão 1.0.0.** O que ele prova e o que não prova:
+
+- **Prova:** 1.141 testes automatizados, 96,7% de mutação no domínio, 92,6% de cobertura, 12 interações em contrato e
+  [47 decisões](docs/adr/README.md) escritas com o preço de cada uma.
+- **Não prova:** nunca teve cliente nem plantão de verdade, e os dados são sintéticos. Não há alerta nenhum. A AWS está em
+  Terraform e nunca foi aplicada, e o Kubernetes é local, de um nó. Os testes de ponta a ponta rodam só à mão, fora do CI. A
+  mutação cobre só o domínio, e os contratos, só o caminho do dinheiro. Durante uma queda do antifraude, nenhuma regra de risco
+  vale ([ADR-0041](docs/adr/0041-circuit-breaker-no-antifraude.md)).
+
 ## Como rodar
 
 Pré-requisitos: **JDK 25**, **Docker** e, para as telas, **Node 22**. O Maven não precisa ser

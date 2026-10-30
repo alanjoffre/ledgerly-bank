@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [1.0.0] — 2026-10-30
+
+Fechamento do projeto: todas as fases do [roteiro](docs/roadmap.md) entregues. Sem mudança de código em relação à 0.7.0.
+
+### Adicionado
+
+- O balanço do projeto no README: o que ele prova e o que não prova.
+- O post do projeto completo em `docs/linkedin/`.
+
 ## [0.7.0] — 2026-10-30
 
 ### Adicionado — Fase 7 (qualidade)
@@ -326,7 +335,8 @@ falhava, e coberto agora também por teste do gateway, do pix ou da tela, que ro
 - CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot.
 - Documentação: arquitetura C4, ADRs 0001–0007, roteiro de fases, glossário, guia de ambiente.
 
-[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.7.0...HEAD
+[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v1.0.0
 [0.7.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.7.0
 [0.6.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.6.0
 [0.5.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.5.0
