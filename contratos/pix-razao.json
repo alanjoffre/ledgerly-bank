@@ -1,0 +1,379 @@
+{
+  "consumer": {
+    "name": "pix"
+  },
+  "interactions": [
+    {
+      "description": "um envio de Pix maior que o saldo",
+      "providerStates": [
+        {
+          "name": "a conta est\u00E1 sem saldo"
+        }
+      ],
+      "request": {
+        "body": {
+          "contaId": "0a000000-0000-4000-8000-000000000001",
+          "descricao": "Pix",
+          "valor": "30.00"
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "contrato-sem-saldo"
+        },
+        "matchingRules": {
+          "body": {
+            "$.contaId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.descricao": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.valor": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d{2}$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/pix/envios"
+      },
+      "response": {
+        "body": {
+          "detail": "Saldo insuficiente",
+          "type": "urn:ledgerly:erro:saldo-insuficiente"
+        },
+        "headers": {
+          "Content-Type": "application/problem+json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.detail": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 422
+      }
+    },
+    {
+      "description": "um envio de Pix",
+      "providerStates": [
+        {
+          "name": "a conta tem saldo"
+        }
+      ],
+      "request": {
+        "body": {
+          "contaId": "0a000000-0000-4000-8000-000000000001",
+          "descricao": "Pix",
+          "valor": "30.00"
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "contrato-envio"
+        },
+        "matchingRules": {
+          "body": {
+            "$.contaId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.descricao": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.valor": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d{2}$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/pix/envios"
+      },
+      "response": {
+        "body": {
+          "id": "0a000000-0000-4000-8000-0000000000f1"
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=UTF-8"
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json(;\\s?charset=[\\w\\-]+)?"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      }
+    },
+    {
+      "description": "o estorno de um Pix",
+      "providerStates": [
+        {
+          "name": "j\u00E1 houve um envio de Pix"
+        }
+      ],
+      "request": {
+        "body": {
+          "contaId": "0a000000-0000-4000-8000-000000000001",
+          "descricao": "Pix",
+          "lancamentoEnvioId": "0a000000-0000-4000-8000-0000000000e1",
+          "valor": "30.00"
+        },
+        "generators": {
+          "body": {
+            "$.lancamentoEnvioId": {
+              "dataType": "STRING",
+              "expression": "${envioId}",
+              "type": "ProviderState"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "contrato-estorno"
+        },
+        "matchingRules": {
+          "body": {
+            "$.contaId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.descricao": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.lancamentoEnvioId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.valor": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d{2}$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/pix/estornos"
+      },
+      "response": {
+        "body": {
+          "id": "0a000000-0000-4000-8000-0000000000f1"
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=UTF-8"
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json(;\\s?charset=[\\w\\-]+)?"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      }
+    },
+    {
+      "description": "o recebimento de um Pix",
+      "providerStates": [
+        {
+          "name": "j\u00E1 houve um envio de Pix"
+        }
+      ],
+      "request": {
+        "body": {
+          "contaId": "0a000000-0000-4000-8000-000000000001",
+          "descricao": "Pix",
+          "lancamentoEnvioId": "0a000000-0000-4000-8000-0000000000e1",
+          "valor": "30.00"
+        },
+        "generators": {
+          "body": {
+            "$.lancamentoEnvioId": {
+              "dataType": "STRING",
+              "expression": "${envioId}",
+              "type": "ProviderState"
+            }
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "Idempotency-Key": "contrato-recebimento"
+        },
+        "matchingRules": {
+          "body": {
+            "$.contaId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.descricao": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.lancamentoEnvioId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.valor": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d{2}$"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/pix/recebimentos"
+      },
+      "response": {
+        "body": {
+          "id": "0a000000-0000-4000-8000-0000000000f1"
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=UTF-8"
+        },
+        "matchingRules": {
+          "body": {
+            "$.id": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json(;\\s?charset=[\\w\\-]+)?"
+                }
+              ]
+            }
+          }
+        },
+        "status": 201
+      }
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.7.6"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "razao"
+  }
+}

@@ -249,10 +249,14 @@ Três usos, cada um com a sua defesa contra o erro do modelo:
 - **Rastros e métricas** ([ADR-0042](../adr/0042-opentelemetry-e-otel-lgtm.md)): OpenTelemetry em todos os serviços,
   ligado só quando pedido. O rastro para no Kafka: os eventos do *outbox* não continuam o `traceId`.
 
-### O que muda na próxima fase
+### Qualidade (Fase 7)
 
-- **Fase 7:** *mutation testing* (PIT), testes de contrato (Pact), análise estática (Sonar), *runbooks* de
-  operação e o vídeo de demonstração.
+- **Testes de mutação** ([ADR-0044](../adr/0044-testes-de-mutacao-com-pit.md)): no domínio de cada serviço, 96,7% dos
+  mutantes morrem. Fora do `verify`, toda segunda-feira.
+- **Contratos entre serviços** ([ADR-0045](../adr/0045-contratos-entre-servicos-com-pact.md)): 12 interações no caminho
+  do dinheiro, em `contratos/`. Renomear um campo que alguém lê reprova o build do provedor.
+- **Análise estática** ([ADR-0046](../adr/0046-sonar-local-e-condicionado-no-ci.md)): SonarQube local; no CI, só com o segredo.
+- **[Runbooks](../runbooks/README.md):** o que fazer quando cada parte falha, com a falha provocada de verdade.
 
 ## Princípios
 

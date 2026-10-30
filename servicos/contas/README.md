@@ -164,7 +164,7 @@ Variáveis: `CONTAS_PORTA`, `CONTAS_DB_URL`, `CONTAS_DB_USUARIO`, `CONTAS_DB_SEN
 
 Nos testes de integração, o razão é um **dublê em memória** (`RazaoFalso`), que dá para derrubar
 de propósito; o PostgreSQL e o Kafka são de verdade. Os tokens são assinados no próprio teste, com
-uma chave de teste: o Keycloak não precisa estar no ar. O contrato real entre os dois serviços será
-testado com Pact na Fase 7.
+uma chave de teste: o Keycloak não precisa estar no ar. O contrato real entre os dois serviços é
+conferido com Pact ([ADR-0045](../../docs/adr/0045-contratos-entre-servicos-com-pact.md)).
 
 Cobertura (unidade + integração): **97% das linhas, 90% dos ramos**.

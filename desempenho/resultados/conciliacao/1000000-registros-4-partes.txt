@@ -1,0 +1,7 @@
+Quando: 2026-10-30 17:36 · máquina: 16 núcleos, 17 GB · openjdk version "25.0.5" 2026-10-20 LTS
+Conciliação em lote: 1,000,000 registros por lado, 4 faixas, 16 núcleos, 1 rodadas
+Em sequência (1 thread):               399 ms  (2,506,266 registros/s)
+Em paralelo (  4 virtual threads):     154 ms  (6,493,506 registros/s)
+Ganho: 2.6x
+Conferidos: 1,000,005 · conciliados: 999,978 · falta no razão: 7 · sobra no razão: 5 · divergentes: 15
+Os dois jeitos deram o mesmo resultado: sim

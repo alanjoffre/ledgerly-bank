@@ -95,4 +95,12 @@ class ChavePixTest {
         assertThatThrownBy(() -> ChavePix.identificar(valor)).isInstanceOf(ChaveInvalidaException.class);
         assertThatThrownBy(() -> new ChavePix(TipoChave.EMAIL, valor)).isInstanceOf(ChaveInvalidaException.class);
     }
+
+    @Test
+    @DisplayName("e-mail gigante cai no limite de tamanho, antes da expressão regular (que estouraria a pilha)")
+    void emailGigante() {
+        // Sem o limite de 77 caracteres, a expressão dá StackOverflowError a partir de ~10 mil (ADR-0046).
+        String gigante = "a@b" + ".c".repeat(100_000) + ".com";
+        assertThatThrownBy(() -> ChavePix.identificar(gigante)).isInstanceOf(ChaveInvalidaException.class);
+    }
 }

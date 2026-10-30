@@ -92,4 +92,11 @@ class GuardrailDeNumerosTest {
         // O texto fixo passa no próprio guardrail: ele também só usa números da avaliação.
         assertThat(GuardrailDeNumeros.problema(e.texto(), retida())).isEmpty();
     }
+
+    @Test
+    @DisplayName("tamanho: até o máximo passa; um caractere a mais cai")
+    void tamanhoNoLimite() {
+        assertThat(GuardrailDeNumeros.problema("x".repeat(GuardrailDeNumeros.TAMANHO_MAXIMO), retida())).isEmpty();
+        assertThat(GuardrailDeNumeros.problema("x".repeat(GuardrailDeNumeros.TAMANHO_MAXIMO + 1), retida())).isPresent();
+    }
 }

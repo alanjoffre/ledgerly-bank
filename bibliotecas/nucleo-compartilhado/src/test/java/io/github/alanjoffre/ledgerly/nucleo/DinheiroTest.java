@@ -260,4 +260,34 @@ class DinheiroTest {
             assertThat(Dinheiro.reais("10.5")).hasToString("BRL 10.50");
         }
     }
+
+    @Nested
+    @DisplayName("comparações no limite")
+    class ComparacoesNoLimite {
+
+        private final Dinheiro dez = Dinheiro.reais("10.00");
+
+        @Test
+        @DisplayName("igual não é maior nem menor; e cada lado responde não quando deve")
+        void igualNaoEMaiorNemMenor() {
+            assertThat(dez.ehMaiorQue(Dinheiro.reais("10.00"))).isFalse();
+            assertThat(dez.ehMenorQue(Dinheiro.reais("10.00"))).isFalse();
+            assertThat(dez.ehMaiorQue(Dinheiro.reais("10.01"))).isFalse();
+            assertThat(dez.ehMenorQue(Dinheiro.reais("9.99"))).isFalse();
+        }
+
+        @Test
+        @DisplayName("zero não é positivo, e dez não é zero")
+        void zeroNaoEPositivo() {
+            assertThat(Dinheiro.reais("0.00").ehPositivo()).isFalse();
+            assertThat(dez.ehZero()).isFalse();
+        }
+
+        @Test
+        @DisplayName("a moeda vai na formatação: dólar em pt-BR não sai como real")
+        void formataComAMoedaDoValor() {
+            assertThat(Dinheiro.de(new BigDecimal("10.00"), Currency.getInstance("USD")).formatar(Locale.of("pt", "BR")))
+                    .contains("US$").doesNotContain("R$");
+        }
+    }
 }

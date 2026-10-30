@@ -59,3 +59,8 @@ sem que se saiba o que se perde. O formato segue o modelo de Michael Nygard, o m
 | [0040](0040-terraform-validado-e-simulador-local.md) | Validar o Terraform sem conta e simular com o Moto, no lugar do LocalStack | Aceita |
 | [0041](0041-circuit-breaker-no-antifraude.md) | *Circuit breaker* do Pix para o antifraude | Aceita |
 | [0042](0042-opentelemetry-e-otel-lgtm.md) | OpenTelemetry nos serviços, com o otel-lgtm só quando pedido | Aceita |
+| [0043](0043-reprodutibilidade-do-modelo.md) | O modelo de risco se confere com tolerância, não byte a byte | Aceita |
+| [0044](0044-testes-de-mutacao-com-pit.md) | Testes de mutação com PIT no domínio, fora do verify | Aceita |
+| [0045](0045-contratos-entre-servicos-com-pact.md) | Contratos entre serviços com Pact, em arquivos no repositório | Aceita |
+| [0046](0046-sonar-local-e-condicionado-no-ci.md) | SonarQube local e Sonar no CI só se houver segredo | Aceita |
+| [0047](0047-eventos-do-kafka-no-volume.md) | Os eventos do Kafka ficam no volume, e o CI confere | Aceita |

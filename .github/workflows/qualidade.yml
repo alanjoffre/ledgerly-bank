@@ -1,0 +1,75 @@
+# Qualidade: as medidas caras, que não precisam rodar a cada envio. Toda segunda e quando pedido, à mão.
+# - Mutação (ADR-0044): altera o domínio de propósito e confere que algum teste reprova.
+# - Sonar (ADR-0046): só roda se o repositório tiver o segredo SONAR_TOKEN; sem ele, o passo é pulado.
+
+name: Qualidade
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mutacao:
+    name: Mutação no domínio (PIT)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      # Um módulo por vez: o limite de 90% vale para cada um, não para a média.
+      - name: Rodar o PIT
+        run: |
+          for modulo in bibliotecas/nucleo-compartilhado servicos/razao servicos/contas servicos/pix \
+                        servicos/antifraude servicos/extrato servicos/assistente; do
+            ./mvnw --batch-mode --no-transfer-progress -Pmutacao -pl "$modulo" -am \
+              test-compile org.pitest:pitest-maven:mutationCoverage
+          done
+
+      - name: Publicar os relatórios
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutacao-pit
+          path: "**/target/pit-reports/"
+          if-no-files-found: ignore
+          retention-days: 14
+
+  sonar:
+    name: Análise de código (Sonar)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.SONAR_TOKEN != ''
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        if: env.SONAR_TOKEN != ''
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: maven
+
+      - name: Analisar
+        if: env.SONAR_TOKEN != ''
+        run: >
+          ./mvnw --batch-mode --no-transfer-progress verify
+          org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+          -Dsonar.host.url=https://sonarcloud.io -Dsonar.organization=alanjoffre
+
+      - name: Sem SONAR_TOKEN
+        if: env.SONAR_TOKEN == ''
+        run: echo "Sem o segredo SONAR_TOKEN; análise pulada. Local, ver docs/runbooks/qualidade.md"

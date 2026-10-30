@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @DisplayName("CPF")
@@ -62,5 +63,12 @@ class CpfTest {
         assertThat(cpf.formatado()).isEqualTo(n.substring(0, 3) + "." + n.substring(3, 6) + "." + n.substring(6, 9) + "-" + n.substring(9));
         assertThat(cpf.mascarado()).isEqualTo("***." + n.substring(3, 6) + "." + n.substring(6, 9) + "-**");
         assertThat(cpf).hasToString(cpf.mascarado());
+    }
+
+    @ParameterizedTest(name = "{0} → {1}")
+    @DisplayName("a conta do dígito, com valores calculados à mão (só o início do número, não um CPF inteiro)")
+    @CsvSource({"000000000, 0", "000000001, 9", "100000000, 1", "000000006, 0", "000000010, 8", "0000000001, 9", "1000000000, 0"})
+    void contaDoDigito(String inicio, int digito) {
+        assertThat(Cpf.digitoVerificador(inicio, inicio.length())).isEqualTo(digito);
     }
 }

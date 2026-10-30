@@ -1,0 +1,109 @@
+<!doctype html>
+<!--
+  Imagem do post do projeto completo. Gera o PNG com:
+    chrome-headless-shell --screenshot=projeto-completo.png --window-size=1080,1350 \
+      --force-device-scale-factor=2 --virtual-time-budget=4000 projeto-completo.html
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ledgerly Bank — O projeto completo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=block" rel="stylesheet">
+<style>
+  :root {
+    --fundo: #0b1220;
+    --cartao: #111a2e;
+    --linha: #1f2a44;
+    --texto: #e6ebf5;
+    --suave: #93a0bd;
+    --verde: #34d399;
+    --ambar: #fbbf24;
+    --destaque: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1350px; }
+  body {
+    background:
+      radial-gradient(900px 600px at 100% 0%, rgba(96, 165, 250, 0.16), transparent 60%),
+      radial-gradient(700px 500px at 0% 100%, rgba(52, 211, 153, 0.10), transparent 60%),
+      var(--fundo);
+    color: var(--texto);
+    font-family: "Inter", "DejaVu Sans", sans-serif;
+    padding: 72px 72px 64px;
+    display: flex;
+    flex-direction: column;
+  }
+  .topo {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--suave); font-weight: 600;
+  }
+  .marca { display: flex; align-items: center; gap: 14px; color: var(--texto); letter-spacing: 0.04em; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--destaque), var(--verde));
+    display: grid; place-items: center; color: #0b1220; font-weight: 800; font-size: 24px; letter-spacing: 0;
+  }
+  .fase { border: 1px solid var(--linha); border-radius: 999px; padding: 8px 18px; font-size: 19px; }
+  h1 { margin-top: 40px; font-size: 52px; line-height: 1.1; font-weight: 800; letter-spacing: -0.025em; }
+  h1 .verde { color: var(--verde); }
+  .sub { margin-top: 16px; font-size: 23px; line-height: 1.4; color: var(--suave); }
+  .numeros { margin-top: 26px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .numero { background: var(--cartao); border: 1px solid var(--linha); border-radius: 16px; padding: 12px 20px; }
+  .numero b { display: block; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; color: var(--destaque); }
+  .numero span { font-size: 17px; color: var(--suave); line-height: 1.3; display: block; }
+  .rotulo {
+    margin-top: 26px; margin-bottom: 12px; font-size: 17px; text-transform: uppercase; letter-spacing: 0.08em;
+    font-weight: 700; color: var(--ambar);
+  }
+  .provas { background: var(--cartao); border: 1px solid var(--linha); border-radius: 16px; overflow: hidden; }
+  .prova { display: grid; grid-template-columns: 196px 1fr; gap: 18px; padding: 11px 22px; border-top: 1px solid var(--linha); align-items: baseline; }
+  .prova:first-child { border-top: 0; }
+  .prova b { font-size: 20px; font-weight: 700; color: var(--verde); }
+  .prova span { font-size: 20px; line-height: 1.3; }
+  .rodape {
+    margin-top: auto;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 1px solid var(--linha); padding-top: 22px;
+  }
+  .stack { font-size: 20px; color: var(--suave); line-height: 1.5; }
+  .stack b { color: var(--texto); font-weight: 600; }
+  .autor { text-align: right; font-size: 20px; color: var(--suave); line-height: 1.5; }
+  .autor b { color: var(--texto); font-size: 25px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="topo">
+    <div class="marca"><div class="logo">L</div>Ledgerly Bank</div>
+    <div class="fase">Projeto completo</div>
+  </div>
+
+  <h1>Um banco digital do zero. <span class="verde">Nenhuma afirmação sem prova.</span></h1>
+
+  <p class="sub">Razão contábil, Pix, antifraude com IA e nuvem, em oito fases. Fictício e com dados sintéticos: o que importa é o porquê de cada peça.</p>
+
+  <div class="numeros">
+    <div class="numero"><b>7</b><span>serviços em Java 25</span></div>
+    <div class="numero"><b>1.141</b><span>testes automatizados</span></div>
+    <div class="numero"><b>47</b><span>decisões escritas, com o preço</span></div>
+    <div class="numero"><b>R$ 0</b><span>de nuvem; AWS validada, nunca aplicada</span></div>
+  </div>
+
+  <div class="rotulo">Cada fase deixou uma prova</div>
+  <div class="provas">
+    <div class="prova"><b>Razão</b><span>Sem a trava, 1.500 saques numa conta com R$ 1.000: R$ 500 de gasto duplo</span></div>
+    <div class="prova"><b>Pix</b><span>Sem resposta não é recusa: repete o passo com a mesma chave, e estorna só na recusa</span></div>
+    <div class="prova"><b>Desempenho</b><span>Uma linha era o gargalo: de 99 para 489 depósitos por segundo em 16 sub-contas</span></div>
+    <div class="prova"><b>Segurança e telas</b><span>Todos os testes passavam; um navegador de verdade achou 5 defeitos</span></div>
+    <div class="prova"><b>IA</b><span>Pix suspeito retido antes do débito; assistente com 27 de 30 na avaliação</span></div>
+    <div class="prova"><b>Operação</b><span>Antifraude travado: de 18 para mais de 121 Pix por segundo, com o preço medido</span></div>
+    <div class="prova"><b>Qualidade</b><span>523 de 541 mutantes mortos; um ensaio achou o Kafka apagando os eventos</span></div>
+  </div>
+
+  <div class="rodape">
+    <div class="stack"><b>Spring Boot · Quarkus · Kafka · React · Kubernetes</b><br>92,6% de cobertura · tudo em português</div>
+    <div class="autor"><b>Alan Joffre</b><br>github.com/alanjoffre/ledgerly-bank</div>
+  </div>
+</body>
+</html>

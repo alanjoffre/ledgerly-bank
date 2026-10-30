@@ -5,6 +5,41 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [0.7.0] — 2026-10-30
+
+### Adicionado — Fase 7 (qualidade)
+
+- **Testes de mutação (PIT):** perfil `mutacao`, no domínio de cada módulo, com limite de 90% por módulo. Medido: 523 de 541
+  mutantes mortos, 96,7% ([ADR-0044](docs/adr/0044-testes-de-mutacao-com-pit.md)).
+- **Contratos (Pact):** 12 interações em `contratos/`, conferidas pelos provedores no build; o CI reprova se o arquivo mudou
+  sem ser versionado ([ADR-0045](docs/adr/0045-contratos-entre-servicos-com-pact.md)).
+- **Sonar:** SonarQube no perfil `qualidade` do compose e job condicionado ao segredo `SONAR_TOKEN`
+  ([ADR-0046](docs/adr/0046-sonar-local-e-condicionado-no-ci.md)).
+- **Workflow `Qualidade`:** mutação e Sonar, toda segunda-feira e sob demanda.
+- **Runbooks** em `docs/runbooks/`, com as falhas provocadas de verdade.
+- **Vídeo dos testes de ponta a ponta:** `VIDEO=1 npm run e2e`.
+- [Demonstração da Fase 7](docs/guias/demo-fase-7.md).
+
+### Corrigido
+
+- **O Kafka apagava os eventos a cada `down`, desde a Fase 0:** gravava em `/tmp/kafka-logs`, dentro do contêiner, com o volume
+  vazio. Agora grava no volume, o CI confere, e `scripts/reconstruir-extrato.sh` recusa tópico vazio antes de apagar o extrato
+  ([ADR-0047](docs/adr/0047-eventos-do-kafka-no-volume.md)). **Quem já tinha o ambiente:** o extrato antigo fica sem os eventos, e
+  voltar a um estado coerente exige apagar os volumes e semear de novo.
+- **CI vermelho na `main`:** o treino do modelo varia até 9e-6 conforme o processador, e a folga era 1e-6. `ml/conferir.py`
+  compara com tolerância medida, e a afirmação "byte a byte" da ADR-0032 foi corrigida
+  ([ADR-0043](docs/adr/0043-reprodutibilidade-do-modelo.md)).
+- **Teste instável** `AutorizacaoIT.contaDeOutroEhComoSeNaoExistisse`: `doesNotContain("999")` contra um corpo com UUID aleatório
+  reprovava em ~0,7% das execuções.
+- **Gerador de CPF dos testes:** chamava a função testada, e um cálculo errado passaria despercebido.
+- **Teste sem asserção** em `ContratoComRazaoTest`, apontado pelo Sonar.
+
+### Testes — Fase 7
+
+- Limites na fronteira exata em `Dinheiro`, `Lancamento`, `ContaRazao`, `ChaveIdempotencia`, `TransferenciaPix`, `ChavePix`,
+  `PoliticaDeRisco` e nos guardrails.
+- **1.141 testes:** 1.061 Java (795 de unidade, 266 de integração), 73 de tela e 7 de ponta a ponta. Cobertura de 92,6% no Sonar.
+
 ## [0.6.0] — 2026-10-30
 
 ### Adicionado — Fase 6 (infraestrutura e nuvem)
@@ -291,7 +326,8 @@ falhava, e coberto agora também por teste do gateway, do pix ou da tela, que ro
 - CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot.
 - Documentação: arquitetura C4, ADRs 0001–0007, roteiro de fases, glossário, guia de ambiente.
 
-[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.6.0...HEAD
+[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.7.0
 [0.6.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.6.0
 [0.5.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.5.0
 [0.4.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.4.0

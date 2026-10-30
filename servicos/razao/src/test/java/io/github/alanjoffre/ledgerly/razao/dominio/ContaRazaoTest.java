@@ -163,4 +163,12 @@ class ContaRazaoTest {
                     .isInstanceOf(ContaInativaException.class);
         }
     }
+
+    @Test
+    @DisplayName("só a conta interna pode ficar negativa; a de cliente, nunca")
+    void quemPodeFicarNegativa() {
+        assertThat(contaDeClienteCom("0.00").permiteSaldoNegativo()).isFalse();
+        assertThat(ContaRazao.reconstituir(ContaRazao.LIQUIDACAO_PIX, Natureza.DEVEDORA, Dinheiro.REAL, true,
+                reais("0.00"), SituacaoConta.ATIVA).permiteSaldoNegativo()).isTrue();
+    }
 }

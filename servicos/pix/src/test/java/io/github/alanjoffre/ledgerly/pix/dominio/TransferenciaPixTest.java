@@ -487,4 +487,70 @@ class TransferenciaPixTest {
             assertThat(TransferenciaPix.reconstituir(t.estado()).notaDeRisco()).isEqualTo(12);
         }
     }
+
+    @Nested
+    @DisplayName("os limites")
+    class Limites {
+
+        private TransferenciaPix comDescricao(String descricao) {
+            return TransferenciaPix.criar("chave-1", JOAO, MARIA, CHAVE, reais("1.00"), descricao, AGORA);
+        }
+
+        private TransferenciaPix comChave(String chave) {
+            return TransferenciaPix.criar(chave, JOAO, MARIA, CHAVE, reais("1.00"), "Aluguel", AGORA);
+        }
+
+        @Test
+        @DisplayName("descrição: 140 caracteres passa, 141 não")
+        void descricao() {
+            assertThat(comDescricao("x".repeat(140)).descricao()).hasSize(140);
+            assertThatThrownBy(() -> comDescricao("x".repeat(141))).isInstanceOf(TransferenciaInvalidaException.class);
+        }
+
+        @Test
+        @DisplayName("chave de idempotência: 100 caracteres passa, 101 não; do ! ao ~ passa, espaço e DEL não")
+        void chave() {
+            assertThat(comChave("x".repeat(100)).chaveIdempotencia()).hasSize(100);
+            assertThat(comChave("!~").chaveIdempotencia()).isEqualTo("!~");
+            assertThatThrownBy(() -> comChave("x".repeat(101))).isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> comChave("a b")).isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> comChave("a\u007f")).isInstanceOf(TransferenciaInvalidaException.class);
+        }
+
+        @Test
+        @DisplayName("motivo: 400 caracteres ficam inteiros; 401 são cortados com reticências")
+        void motivo() {
+            // "Retido pelo antifraude (nota 770): " tem 35 caracteres.
+            TransferenciaPix inteiro = criada("100.00");
+            inteiro.aplicarAvaliacao(new ResultadoDaAvaliacao.Segurar(770, "x".repeat(365)), AGORA);
+            assertThat(inteiro.motivo()).hasSize(400).endsWith("x");
+
+            TransferenciaPix cortado = criada("100.00");
+            cortado.aplicarAvaliacao(new ResultadoDaAvaliacao.Segurar(770, "x".repeat(366)), AGORA);
+            assertThat(cortado.motivo()).hasSize(400).endsWith("…");
+        }
+
+        @Test
+        @DisplayName("a resposta só é definitiva no fim de verdade: retido e em andamento respondem 202")
+        void respostaDefinitiva() {
+            assertThat(SituacaoTransferencia.CONCLUIDA.respostaDefinitiva()).isTrue();
+            assertThat(SituacaoTransferencia.REJEITADA.respostaDefinitiva()).isTrue();
+            assertThat(SituacaoTransferencia.RETIDA.respostaDefinitiva()).isFalse();
+            assertThat(SituacaoTransferencia.CRIADA.respostaDefinitiva()).isFalse();
+        }
+
+        @Test
+        @DisplayName("justificativa da análise: de 10 a 500 caracteres, sem contar os espaços das pontas")
+        void justificativa() {
+            assertThat(decisao("x".repeat(10)).justificativa()).hasSize(10);
+            assertThat(decisao("x".repeat(500)).justificativa()).hasSize(500);
+            assertThatThrownBy(() -> decisao("x".repeat(9))).isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> decisao("x".repeat(501))).isInstanceOf(TransferenciaInvalidaException.class);
+        }
+
+        private DecisaoDeAnalise decisao(String justificativa) {
+            return new DecisaoDeAnalise(UUID.randomUUID(), UUID.randomUUID(), "analista-1", "Analista",
+                    DecisaoDeAnalise.Decisao.LIBERAR, null, justificativa, AGORA);
+        }
+    }
 }

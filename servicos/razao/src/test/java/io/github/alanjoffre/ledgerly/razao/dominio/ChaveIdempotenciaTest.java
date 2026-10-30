@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -22,5 +23,15 @@ class ChaveIdempotenciaTest {
     @ValueSource(strings = {"", "   ", "com espaco", "ação", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"})
     void recusa(String valor) {
         assertThatThrownBy(() -> new ChaveIdempotencia(valor)).isInstanceOf(LancamentoInvalidoException.class);
+    }
+
+    @Test
+    @DisplayName("os limites: 100 caracteres passa, 101 não; do ! ao ~ passa, espaço e DEL não")
+    void limites() {
+        assertThat(new ChaveIdempotencia("x".repeat(100)).valor()).hasSize(100);
+        assertThat(new ChaveIdempotencia("!~").valor()).isEqualTo("!~");
+        assertThatThrownBy(() -> new ChaveIdempotencia("x".repeat(101))).isInstanceOf(LancamentoInvalidoException.class);
+        assertThatThrownBy(() -> new ChaveIdempotencia("a b")).isInstanceOf(LancamentoInvalidoException.class);
+        assertThatThrownBy(() -> new ChaveIdempotencia("a\u007f")).isInstanceOf(LancamentoInvalidoException.class);
     }
 }

@@ -73,6 +73,15 @@
         <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
         <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
         <jacoco-maven-plugin.version>0.8.16</jacoco-maven-plugin.version>
+        <pitest.version>1.30.1</pitest.version>
+        <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
+        <!-- Análise de código (ADR-0046). Sem servidor configurado, nada disso roda. -->
+        <sonar.projectKey>alanjoffre_ledgerly-bank</sonar.projectKey>
+        <sonar.projectName>Ledgerly Bank</sonar.projectName>
+        <sonar.coverage.jacoco.xmlReportPaths>${maven.multiModuleProjectDirectory}/**/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <pact.version>4.7.6</pact.version>
+        <pitest-junit5.version>1.2.3</pitest-junit5.version>
+        <pitest.threads>4</pitest.threads>
 
         <!-- Cobertura mínima de testes exigida no build (linhas). -->
         <cobertura.minima>0.90</cobertura.minima>
@@ -96,6 +105,17 @@
                 <groupId>org.assertj</groupId>
                 <artifactId>assertj-core</artifactId>
                 <version>${assertj.version}</version>
+            </dependency>
+            <!-- Testes de contrato entre serviços (ADR-0045): quem chama descreve, quem responde confere. -->
+            <dependency>
+                <groupId>au.com.dius.pact.consumer</groupId>
+                <artifactId>junit5</artifactId>
+                <version>${pact.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>au.com.dius.pact.provider</groupId>
+                <artifactId>junit5</artifactId>
+                <version>${pact.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.tngtech.archunit</groupId>
@@ -133,12 +153,26 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <!-- Os contratos ficam versionados em contratos/ (ADR-0045). -->
+                        <systemPropertyVariables>
+                            <pact.rootDir>${maven.multiModuleProjectDirectory}/contratos</pact.rootDir>
+                            <pact.writer.overwrite>true</pact.writer.overwrite>
+                        </systemPropertyVariables>
+                    </configuration>
                 </plugin>
                 <!-- Failsafe roda os testes de integração (classes *IT), com banco de verdade. -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven-failsafe-plugin.version}</version>
+                    <configuration>
+                        <!-- Os contratos ficam versionados em contratos/ (ADR-0045). -->
+                        <systemPropertyVariables>
+                            <pact.rootDir>${maven.multiModuleProjectDirectory}/contratos</pact.rootDir>
+                            <pact.writer.overwrite>true</pact.writer.overwrite>
+                        </systemPropertyVariables>
+                    </configuration>
                     <executions>
                         <execution>
                             <goals>
@@ -147,6 +181,11 @@
                             </goals>
                         </execution>
                     </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>${sonar-maven-plugin.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -272,6 +311,59 @@
             <properties>
                 <jacoco.skip>true</jacoco.skip>
             </properties>
+        </profile>
+        <!--
+          Teste de mutação (PIT): muda o código de propósito (troca um > por um >=, tira uma chamada) e
+          roda os testes de unidade. Se nenhum teste falhar, o mutante "sobreviveu": a linha é executada,
+          mas nada confere o que ela faz. Só o domínio entra, e só os testes de unidade, senão leva
+          horas. Fora do build normal; ver ADR-0044.
+              ./mvnw -Pmutacao -pl servicos/razao -am test-compile org.pitest:pitest-maven:mutationCoverage
+        -->
+        <profile>
+            <id>mutacao</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.pitest</groupId>
+                        <artifactId>pitest-maven</artifactId>
+                        <version>${pitest.version}</version>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.pitest</groupId>
+                                <artifactId>pitest-junit5-plugin</artifactId>
+                                <version>${pitest-junit5.version}</version>
+                            </dependency>
+                        </dependencies>
+                        <configuration>
+                            <targetClasses>
+                                <param>io.github.alanjoffre.ledgerly.*.dominio.*</param>
+                                <param>io.github.alanjoffre.ledgerly.nucleo.*</param>
+                            </targetClasses>
+                            <!-- A exceção só carrega o código do erro: quem confere é o teste de integração,
+                                 pela resposta da API, e ele não entra nesta conta (ADR-0044). -->
+                            <excludedClasses>
+                                <param>*Exception</param>
+                            </excludedClasses>
+                            <!-- Só os testes do domínio: os da biblioteca de segurança vêm no classpath e
+                                 não têm o que dizer sobre estas classes. -->
+                            <targetTests>
+                                <param>io.github.alanjoffre.ledgerly.*.dominio.*</param>
+                                <param>io.github.alanjoffre.ledgerly.nucleo.*</param>
+                            </targetTests>
+                            <threads>${pitest.threads}</threads>
+                            <!-- Abaixo disso, o build falha: medido em cada módulo na Fase 7 (ADR-0044). -->
+                            <mutationThreshold>90</mutationThreshold>
+                            <timestampedReports>false</timestampedReports>
+                            <outputFormats>
+                                <format>HTML</format>
+                                <format>XML</format>
+                            </outputFormats>
+                            <failWhenNoMutations>false</failWhenNoMutations>
+                            <skipFailingTests>false</skipFailingTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

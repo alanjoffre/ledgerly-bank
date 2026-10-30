@@ -125,6 +125,9 @@ services:
       # Tópico só existe se for criado de propósito — um nome digitado errado vira erro, não um tópico novo.
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      # Sem isto, a imagem grava em /tmp/kafka-logs, DENTRO do contêiner, e o volume fica vazio: um
+      # "down" apagaria os eventos, inclusive o tópico de onde o extrato se reconstrói.
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
     volumes:
       - kafka-dados:/var/lib/kafka/data
     healthcheck:
@@ -233,6 +236,21 @@ services:
       timeout: 5s
       retries: 30
 
+  # SonarQube local: análise de código, sem conta nem custo (ADR-0046). Ocupa ~2 GB de memória, por isso fica
+  # de fora do padrão. Em http://localhost:19000; como rodar, em docs/runbooks/qualidade.md
+  sonarqube:
+    image: sonarqube:26.10.0.133078-community@sha256:f95aaa9016dd4e92c7d70691167a6d96dbb5d8acffd61eba1cb4335d364a7840
+    profiles: ["qualidade"]
+    ports:
+      - "127.0.0.1:19000:9000"
+    volumes:
+      - sonarqube-dados:/opt/sonarqube/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/api/system/status | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+
   # Kafka UI — tela web para ver tópicos e mensagens. Opcional: só sobe com
   #   docker compose -f infra/docker/compose.yaml --profile ferramentas up -d
   # e abre em http://localhost:18080
@@ -250,6 +268,7 @@ services:
 
 volumes:
   postgres-dados:
+  sonarqube-dados:
   pgvector-dados:
   ollama-modelos:
   mongo-dados:

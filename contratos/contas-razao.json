@@ -1,0 +1,146 @@
+{
+  "consumer": {
+    "name": "contas"
+  },
+  "interactions": [
+    {
+      "description": "o encerramento de uma conta com saldo zero",
+      "providerStates": [
+        {
+          "name": "a conta existe no raz\u00E3o com saldo zero"
+        }
+      ],
+      "request": {
+        "body": {
+          "situacao": "ENCERRADA"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "PUT",
+        "path": "/v1/contas/0b000000-0000-4000-8000-000000000001/situacao"
+      },
+      "response": {
+        "status": 200
+      }
+    },
+    {
+      "description": "a consulta de uma conta",
+      "providerStates": [
+        {
+          "name": "a conta existe no raz\u00E3o com saldo"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/v1/contas/0b000000-0000-4000-8000-000000000001"
+      },
+      "response": {
+        "body": {
+          "moeda": "BRL",
+          "saldo": "100.00"
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=UTF-8"
+        },
+        "matchingRules": {
+          "body": {
+            "$.saldo": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d+\\.\\d{2}$"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json(;\\s?charset=[\\w\\-]+)?"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "o encerramento de uma conta com saldo",
+      "providerStates": [
+        {
+          "name": "a conta existe no raz\u00E3o com saldo"
+        }
+      ],
+      "request": {
+        "body": {
+          "situacao": "ENCERRADA"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "PUT",
+        "path": "/v1/contas/0b000000-0000-4000-8000-000000000001/situacao"
+      },
+      "response": {
+        "body": {
+          "detail": "A conta tem saldo",
+          "type": "urn:ledgerly:erro:encerramento-com-saldo"
+        },
+        "headers": {
+          "Content-Type": "application/problem+json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.detail": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "status": 422
+      }
+    },
+    {
+      "description": "a consulta de uma conta que o raz\u00E3o ainda n\u00E3o conhece",
+      "providerStates": [
+        {
+          "name": "a conta n\u00E3o existe no raz\u00E3o"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/v1/contas/0b000000-0000-4000-8000-000000000001"
+      },
+      "response": {
+        "body": {
+          "type": "urn:ledgerly:erro:conta-nao-encontrada"
+        },
+        "headers": {
+          "Content-Type": "application/problem+json"
+        },
+        "status": 404
+      }
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.7.6"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "razao"
+  }
+}

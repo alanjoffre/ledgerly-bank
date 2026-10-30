@@ -169,4 +169,13 @@ class LancamentoTest {
         Lancamento l = lancamento(List.of(partida(A, TipoPartida.DEBITO, "10"), partida(B, TipoPartida.CREDITO, "10")));
         assertThatThrownBy(() -> l.partidas().clear()).isInstanceOf(UnsupportedOperationException.class);
     }
+
+    @Test
+    @DisplayName("descrição: 140 caracteres passa, 141 não, e sem descrição também passa")
+    void limiteDaDescricao() {
+        Lancamento.validarDescricao(null);
+        Lancamento.validarDescricao("x".repeat(140));
+        assertThatThrownBy(() -> Lancamento.validarDescricao("x".repeat(141)))
+                .isInstanceOf(LancamentoInvalidoException.class);
+    }
 }

@@ -61,6 +61,7 @@ tradução e o significado.
 | **Consistência eventual** | Os dados de serviços diferentes podem ficar diferentes por um instante, mas convergem sozinhos. Exemplo: o extrato mostra o Pix milissegundos depois do razão. |
 | **Consumidor, grupo e offset** | Quem lê um tópico do Kafka é um *consumidor*; consumidores com o mesmo nome de *grupo* dividem o trabalho; o *offset* é a posição até onde o grupo já leu. A diferença entre o fim do tópico e o offset é o atraso (*lag*). |
 | **Contexto delimitado** | No DDD, a fronteira dentro da qual um modelo vale. Cada serviço é um: o "Conta" do razão não é o "Conta" do cadastro. Em inglês, *bounded context*. |
+| **Contrato guiado pelo consumidor** | Teste em que quem chama um serviço grava o que usa dele, e quem responde confere no próprio build. Em inglês, *consumer-driven contract*. Aqui, com o Pact. Ver [ADR-0045](adr/0045-contratos-entre-servicos-com-pact.md). |
 | **Corpo em partes** | Pedido HTTP que manda o corpo em pedaços, sem dizer o tamanho antes (`Transfer-Encoding: chunked`); o contrário é dizer o tamanho no `Content-Length`. O gateway manda sempre o corpo inteiro ([ADR-0031](adr/0031-as-duas-corridas-dos-testes-instaveis.md)). |
 | **CQRS** | *Command Query Responsibility Segregation*: separar o modelo que **grava** do modelo que **lê**, cada um otimizado para a sua tarefa. |
 | **CRC** | *Cyclic Redundancy Check*: número calculado a partir de um texto para detectar alteração. Um caractere trocado no QR Code muda o CRC, e o QR Code é recusado. |
@@ -115,6 +116,7 @@ tradução e o significado.
 | **Moto** | Simulador da API da AWS, em Python, usado para aplicar parte do Terraform sem conta nem custo. |
 | **MSK (Managed Streaming for Apache Kafka)** | O Kafka gerenciado da AWS. Está descrito no Terraform e nunca foi aplicado. |
 | **Multi-stage (imagem Docker)** | Dockerfile com vários estágios: compila num e copia só o resultado para o último, sem levar o compilador para a imagem final. |
+| **Mutante** | Cópia do código com uma alteração proposital (trocar `>` por `>=`, devolver 0). Se um teste reprova, o mutante **morreu**; se nenhum reprova, **sobreviveu**: há um comportamento sem proteção. Um mutante **equivalente** não muda o comportamento, e nenhum teste pode matá-lo. Ver [ADR-0044](adr/0044-testes-de-mutacao-com-pit.md). |
 | **NodePort** | Tipo de Service do Kubernetes que abre a mesma porta em todos os nós do cluster. É como o k3d deixa as telas alcançarem os serviços a partir da máquina. |
 | **OAuth2** | Padrão de **autorização**: em vez de dar a senha a cada sistema, a pessoa entra num servidor de identidade, e o sistema recebe um token com prazo e com o que ele pode fazer. |
 | **OIDC** | *OpenID Connect*: camada sobre o OAuth2 que acrescenta a **identidade** — quem é a pessoa (o *ID token*), o login e a saída padronizados. |
@@ -123,11 +125,13 @@ tradução e o significado.
 | **OpenTelemetry** | Padrão aberto para gerar e enviar rastros, métricas e logs, sem prender o código a um fornecedor. |
 | **OTLP (OpenTelemetry Protocol)** | O protocolo com que os serviços enviam rastros e métricas ao coletor ([ADR-0042](adr/0042-opentelemetry-e-otel-lgtm.md)). |
 | **Outbox Pattern** | Gravar o evento numa tabela "caixa de saída" na mesma transação do dado; um processo separado publica no Kafka. Garante que dado e evento nunca divergem. |
+| **Pact** | Ferramenta de testes de contrato entre serviços: grava o que o consumidor espera e confere no provedor. Ver [ADR-0045](adr/0045-contratos-entre-servicos-com-pact.md). |
 | **Paginação por cursor** | Pedir a próxima página a partir do último item visto ("depois deste"), em vez do número da página. Não repete nem pula itens quando chegam itens novos. Em inglês, *keyset pagination*. |
 | **Papel (role)** | Um conjunto de permissões dado a quem entra. Aqui: `cliente` (vê o que é seu), `analista` (o backoffice) e `servico` (um serviço chamando outro). |
 | **Particionamento** | Dividir os dados em partes que não se sobrepõem, para cada uma ser processada sozinha, em paralelo (aqui, faixas de ids). |
 | **PDB (PodDisruptionBudget)** | Objeto do Kubernetes que limita quantas cópias de um serviço podem sair ao mesmo tempo numa manutenção. |
 | **pgvector** | Extensão do PostgreSQL que guarda vetores e acha os mais parecidos com um outro. É onde ficam os trechos da ajuda do assistente. |
+| **PIT** | Ferramenta de teste de mutação para Java (também *pitest*). Ver [ADR-0044](adr/0044-testes-de-mutacao-com-pit.md). |
 | **PKCE** | *Proof Key for Code Exchange* (fala-se "pixi"): no login, quem pediu cria um segredo e manda só o resumo dele; ao trocar o código pelo token, mostra o segredo. Um código roubado no caminho não serve para ninguém. |
 | **Playwright** | Ferramenta da Microsoft que controla um navegador de verdade (aqui, o Chromium) para testes de ponta a ponta: clica, digita e confere a tela como uma pessoa. |
 | **Pod** | A menor unidade do Kubernetes: um ou mais contêineres que rodam juntos. |
@@ -149,12 +153,14 @@ tradução e o significado.
 | **Regressão logística** | Modelo estatístico que soma os sinais, cada um com um peso, e transforma a soma numa probabilidade. Simples, rápido e explicável: a parte de cada sinal é o motivo. |
 | **Reserva por tempo** | Marcar um registro como "em uso por mim até tal hora". Se quem reservou morrer, a reserva vence e outro assume. Em inglês, *lease*. |
 | **Resource server** | No OAuth2, o serviço que **recebe** o token e confere antes de responder (assinatura, emissor, audiência, papel). Aqui, contas, razão, pix, extrato, antifraude e assistente. |
+| **Runbook** | Roteiro para quem está de plantão: o sintoma, como confirmar, o que fazer e como saber que resolveu. Ver [runbooks/](runbooks/README.md). |
 | **Saga** | Uma transação que atravessa vários serviços em passos; se um passo falha, os anteriores são desfeitos com compensações. **Orquestrada**: um coordenador conduz os passos (aqui, o serviço Pix). **Coreografada**: cada serviço reage aos eventos do outro. |
 | **Scoped Values** | Valor ligado a um trecho de código (`ScopedValue.where(...).run(...)`) e visto por tudo o que roda dentro dele, inclusive as subtarefas. Substitui o `ThreadLocal` com duas vantagens: não pode ser alterado no meio do caminho e some sozinho no fim. Final no Java 25. |
 | **Sidecar** | Contêiner auxiliar que roda no mesmo pod do serviço, para fazer um trabalho à parte. No k3d, um `socat` ao lado do gateway encaminha a porta do Keycloak. |
 | **SIGSTOP** | Sinal do Linux que congela um processo sem matá-lo: ele continua "no ar", mas não responde. É como a medição do circuit breaker simula o antifraude travado. |
 | **SKIP LOCKED** | Opção do `SELECT ... FOR UPDATE` que pula as linhas já travadas por outra transação em vez de esperar. Permite vários publicadores lendo a mesma tabela de Outbox sem se atrapalhar. |
 | **socat** | Ferramenta de linha de comando que repassa conexões de uma porta para outra. É o sidecar dos gateways no k3d. |
+| **Sonar** | SonarQube (instalado) ou SonarCloud (serviço): análise estática que aponta *bugs* prováveis, duplicação e regras de segurança, sem rodar o código. Ver [ADR-0046](adr/0046-sonar-local-e-condicionado-no-ci.md). |
 | **Sonda (probe)** | Pergunta periódica do Kubernetes ao serviço. *Readiness*: pode receber pedidos? *Liveness*: precisa reiniciar? *Startup*: já subiu? |
 | **SPA** | *Single Page Application*: a tela carrega uma vez e, dali em diante, só troca dados com a API; a navegação entre páginas acontece no próprio navegador. |
 | **Structured Concurrency** | Concorrência "estruturada": tarefas paralelas abertas dentro de um bloco (`StructuredTaskScope`), como variáveis locais. O bloco só termina quando todas terminam; se uma falha, as outras são canceladas. Nenhuma thread fica solta. Preview no Java 25. |
@@ -162,6 +168,7 @@ tradução e o significado.
 | **Terraform** | Ferramenta de infraestrutura como código: descreve os recursos da nuvem em arquivos e calcula o que criar, mudar ou apagar (o *plan*). |
 | **Testcontainers** | Biblioteca que sobe um banco de dados de verdade (em Docker) durante o teste. |
 | **Teste de carga** | Disparar muitos pedidos ao mesmo tempo contra o serviço no ar e medir vazão e latência. Não é teste de correção, é medição. Aqui, com o Gatling ([ADR-0021](adr/0021-teste-de-carga-com-gatling.md)). |
+| **Teste de mutação** | Confere se os testes percebem um erro: altera o código de propósito e vê se algum reprova. Em inglês, *mutation testing*. A cobertura diz que a linha rodou; a mutação, que alguém repararia. |
 | **Teste de ponta a ponta** | Teste que exercita o sistema inteiro no ar, pela tela, como uma pessoa faria: login, Pix, extrato. Pega o que os testes com dublês não pegam — aqui, cinco defeitos. Em inglês, *end-to-end* (E2E). |
 | **Teste de propriedade** | Em vez de testar um exemplo, testa uma regra para milhares de entradas aleatórias. Em inglês, *property-based testing*. |
 | **Teste instável** | Teste que às vezes passa e às vezes falha, sem mudança no código. Quase sempre é uma condição de corrida, no teste ou no produto. Não se resolve repetindo até passar: reproduz, acha a causa, corrige. Em inglês, *flaky test*. |

@@ -95,7 +95,8 @@ class AutorizacaoIT extends TesteDeIntegracao {
                     .isEqualTo("urn:ledgerly:erro:conta-nao-encontrada");
             assertThat(inexistente).hasStatus(404).bodyJson().extractingPath("$.type")
                     .isEqualTo("urn:ledgerly:erro:conta-nao-encontrada");
-            assertThat(deOutro.getResponse().getContentAsByteArray()).asString().doesNotContain("999");
+            // "999.00", não "999": o id da conta na resposta é aleatório e pode ter "999" (já aconteceu no CI).
+            assertThat(deOutro.getResponse().getContentAsByteArray()).asString().doesNotContain("999.00");
             assertThat(razao().consultasDeSaldo()).as("o saldo do Bruno não foi buscado").isEqualTo(antes);
         }
 

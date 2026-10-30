@@ -72,4 +72,20 @@ class GuardrailDeSaidaTest {
         assertThat(Reais.valores("R$ 1.234,56, R$ 50, 9,90 e 3 Pix; conta 12345-6"))
                 .containsExactly(new BigDecimal("1234.56"), new BigDecimal("50"), new BigDecimal("9.90"));
     }
+
+    @Test
+    @DisplayName("tamanho: até o máximo passa; um caractere a mais cai")
+    void tamanhoNoLimite() {
+        assertThat(GuardrailDeSaida.problema("x".repeat(GuardrailDeSaida.TAMANHO_MAXIMO), List.of(), List.of())).isEmpty();
+        assertThat(GuardrailDeSaida.problema("x".repeat(GuardrailDeSaida.TAMANHO_MAXIMO + 1), List.of(), List.of())).isPresent();
+    }
+
+    @Test
+    @DisplayName("as respostas prontas: a recusa não cita fonte; a reserva mantém as fontes")
+    void respostasProntas() {
+        assertThat(Resposta.recusa().origem()).isEqualTo(Resposta.Origem.RECUSA);
+        assertThat(Resposta.recusa().fontes()).isEmpty();
+        assertThat(Resposta.reserva(List.of("pix-retido")).origem()).isEqualTo(Resposta.Origem.RESERVA);
+        assertThat(Resposta.reserva(List.of("pix-retido")).fontes()).containsExactly("pix-retido");
+    }
 }

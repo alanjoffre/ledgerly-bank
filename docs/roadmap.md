@@ -159,8 +159,19 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 - [Demonstração](guias/demo-fase-6.md): imagens, cluster, Terraform, circuito e painel
 - ADRs 0038–0042
 
-## ⬜ Fase 7 — Qualidade e lançamento
+## ✅ Fase 7 — Qualidade e lançamento
 
-- *Mutation testing* (PIT), testes de contrato (Pact), SonarCloud
-- *Runbooks* de operação
-- Vídeo de demonstração e post final
+- **Testes de mutação** ([ADR-0044](adr/0044-testes-de-mutacao-com-pit.md)): 523 de 541 mutantes mortos (96,7%) no domínio, com
+  limite de 90% por módulo, toda segunda-feira. O achado: o gerador de CPF dos testes chamava a função testada
+- **Contratos com Pact** ([ADR-0045](adr/0045-contratos-entre-servicos-com-pact.md)): 12 interações no caminho do dinheiro, em
+  `contratos/`, sem *broker*. Extrato, assistente, gateways e eventos ficaram de fora, e a ADR registra
+- **Sonar** ([ADR-0046](adr/0046-sonar-local-e-condicionado-no-ci.md)): SonarQube local e job condicionado ao segredo
+- **Modelo de risco** ([ADR-0043](adr/0043-reprodutibilidade-do-modelo.md)): conferido com tolerância, o que tirou o CI do vermelho.
+  A promessa de "byte a byte" da ADR-0032 estava errada
+- **Teste instável corrigido:** `contaDeOutroEhComoSeNaoExistisse` falhava em ~0,7% das execuções, por um UUID contendo "999"
+- **[Runbooks](runbooks/README.md):** subir e voltar versão, razão fora, antifraude, outbox e DLT, extrato, integridade e qualidade
+- **O ensaio dos runbooks achou um defeito da Fase 0** ([ADR-0047](adr/0047-eventos-do-kafka-no-volume.md)): o Kafka gravava dentro do contêiner, e um `down` apagava os eventos
+- **1.141 testes:** 1.061 Java (795 de unidade, 266 de integração), 73 de tela e 7 de ponta a ponta. Cobertura de 92,6% no Sonar
+- [Demonstração](guias/demo-fase-7.md): mutação, contrato, Sonar, runbook e vídeo
+- ADRs 0043–0047
+- **Lançamento:** v0.7.0 com o trabalho da fase e v1.0.0 no fechamento. Os vídeos de demonstração saem de `VIDEO=1` nos testes de ponta a ponta e não ficam no repositório

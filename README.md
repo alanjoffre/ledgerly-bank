@@ -51,7 +51,7 @@ está registrada numa [ADR](docs/adr/README.md), com as alternativas descartadas
 | **Concorrência e multithreading em Java** | Prova de saldo sem gasto duplo sob 1.500 saques simultâneos; [contas quentes em sub-contas](docs/adr/0019-contas-quentes-em-subcontas.md), medidas com Gatling; [*virtual threads* medidas](docs/adr/0020-virtual-threads-medidas-no-razao.md); conciliação em lote com [*Structured Concurrency* e *Scoped Values*](docs/adr/0022-conciliacao-em-lote-com-structured-concurrency.md); [JMH](docs/adr/0023-micro-benchmarks-com-jmh.md) |
 | **Infra e nuvem: Docker, Kubernetes e AWS** | Docker *multi-stage* e imagem nativa; Kubernetes (k3d) com Helm, HPA e sondas; Terraform da AWS validado sem conta; OpenTelemetry e Grafana; *circuit breaker* |
 | **Bancos relacionais e NoSQL** | PostgreSQL (um banco por serviço), MongoDB, Redis; pgvector (a busca por vetores do assistente) |
-| **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, cobertura mínima no build; Vitest e Testing Library nas telas; Playwright de ponta a ponta; contrato (Pact) e *mutation testing* (PIT) (planejado: Fase 7) |
+| **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, cobertura mínima no build; Vitest e Testing Library nas telas; Playwright de ponta a ponta; [contratos com Pact](docs/adr/0045-contratos-entre-servicos-com-pact.md), [testes de mutação com PIT](docs/adr/0044-testes-de-mutacao-com-pit.md) e [Sonar](docs/adr/0046-sonar-local-e-condicionado-no-ci.md) |
 
 ## Arquitetura
 
@@ -94,7 +94,7 @@ evento, no [contrato dos eventos](docs/arquitetura/eventos.md).
 | 4 | Segurança (Keycloak, BFF, BOLA) e front-end React, com testes de ponta a ponta | ✅ |
 | 5 | IA aplicada: antifraude (ONNX + regras), Pix retido, assistente do extrato (RAG) e *evals* | ✅ |
 | 6 | Imagens e Kubernetes (k3d + Helm), Terraform da AWS, *circuit breaker* e OpenTelemetry | ✅ |
-| 7 | Qualidade (PIT, Pact, SonarCloud) e lançamento | ⬜ |
+| 7 | Qualidade (PIT, Pact, Sonar), *runbooks* e lançamento | ✅ |
 
 O detalhe de cada fase está no [roteiro](docs/roadmap.md).
 
@@ -145,6 +145,37 @@ docker compose -f infra/docker/compose.yaml --profile ia up -d --wait ollama
 O que cada passo mostra está nas demonstrações da [Fase 2](docs/guias/demo-fase-2.md), da
 [Fase 3](docs/guias/demo-fase-3.md), da [Fase 4](docs/guias/demo-fase-4.md), da
 [Fase 5](docs/guias/demo-fase-5.md) e da [Fase 6](docs/guias/demo-fase-6.md).
+
+## Destaque: a cobertura dizia 100%, e o teste não testava
+
+O CPF tinha 100% de cobertura. Os **testes de mutação** ([ADR-0044](docs/adr/0044-testes-de-mutacao-com-pit.md)) alteram o
+código de propósito para ver se algum teste percebe, e ali 8 alterações passaram, inclusive "o dígito verificador é sempre 0".
+O motivo: o gerador de CPF dos testes chamava a própria função testada. Se o cálculo estivesse errado, o gerador erraria igual.
+
+| Módulo (domínio) | Mutantes mortos | Antes dos reforços |
+| --- | --- | --- |
+| núcleo, antifraude, assistente, extrato | 165 de 165 (100%) | antifraude 88%, assistente 91% |
+| razão | 104 de 105 (99,0%) | 88% |
+| contas | 60 de 62 (96,8%) | 71% |
+| Pix | 194 de 209 (92,8%) | 84% |
+
+**Total: 523 de 541, 96,7%.** Os 18 que sobraram estão explicados na ADR: alguns não mudam o comportamento, e os limites de
+*parse* do QR Code ficaram sem reforço. As duas colunas não são a mesma régua: antes, as exceções ainda contavam.
+
+Nesta mesma fase:
+
+- **Contratos** ([ADR-0045](docs/adr/0045-contratos-entre-servicos-com-pact.md)): renomear `saldo` no razão reprova o build do
+  razão, sem subir o Pix. Renomear um campo que ninguém lê não reprova, e está certo. São 12 interações, só no caminho do
+  dinheiro; o que ficou de fora está escrito.
+- **O CI vermelho sem o código mudar** ([ADR-0043](docs/adr/0043-reprodutibilidade-do-modelo.md)): o treino do modelo varia até 9e-6
+  conforme o processador, e a folga era 1e-6. A promessa de "byte a byte" estava errada, e foi corrigida por escrito.
+- **Análise estática** ([ADR-0046](docs/adr/0046-sonar-local-e-condicionado-no-ci.md)): 92,6% de cobertura e portão aprovado; 20 avisos
+  olhados, nenhum defeito em produção, e nenhum calado com anotação. Por isso o painel segue com notas C e D, e a ADR explica.
+- **[Runbooks](docs/runbooks/README.md):** o que fazer quando algo falha, e o que aconteceu ao provocar a falha de verdade.
+- **O ensaio achou um defeito da Fase 0** ([ADR-0047](docs/adr/0047-eventos-do-kafka-no-volume.md)): o Kafka gravava dentro do contêiner, e
+  cada `down` apagava os eventos de onde o extrato se reconstrói. Sete fases de testes não viram, porque nenhum reiniciava o ambiente.
+
+**1.141 testes:** 1.061 Java (795 de unidade, 266 de integração), 73 de tela e 7 de ponta a ponta.
 
 ## Destaque: operar é medir a falha, não só subir o serviço
 
@@ -368,6 +399,7 @@ ledgerly-bank/
 │   ├── antifraude/             # nota de risco do Pix: modelo ONNX + regras (Quarkus)
 │   ├── assistente/             # "pergunte ao seu extrato": RAG + ferramentas (Spring Boot)
 │   └── gateway/                # os dois BFFs (Spring Cloud Gateway)
+├── contratos/                  # o que cada serviço espera do outro (Pact), gerado pelos testes
 ├── ml/                         # o treino do modelo de risco (Python, fora do build)
 ├── avaliacao/                  # a avaliação do assistente contra o modelo de verdade
 ├── web/                        # as telas (React + TypeScript) e os testes de ponta a ponta
@@ -388,6 +420,7 @@ ledgerly-bank/
 │   ├── adr/                    # decisões de arquitetura
 │   ├── arquitetura/            # diagramas C4 e o contrato dos eventos
 │   ├── guias/                  # como fazer (ambiente local...)
+│   ├── runbooks/               # o que fazer quando algo falha
 │   └── glossario.md            # termos de banco e de tecnologia
 ├── .github/workflows/          # CI no GitHub Actions
 └── pom.xml                     # POM pai do Maven
@@ -398,12 +431,14 @@ ledgerly-bank/
 - [Visão geral da arquitetura](docs/arquitetura/visao-geral.md)
 - [Decisões de arquitetura (ADR)](docs/adr/README.md)
 - [Roteiro de fases](docs/roadmap.md)
+- [Runbooks](docs/runbooks/README.md) — o que fazer quando algo falha
 - [Glossário](docs/glossario.md) — termos de banco e de tecnologia explicados
 - [Guia de ambiente local](docs/guias/ambiente-local.md)
 - [Contrato dos eventos](docs/arquitetura/eventos.md) — tópicos do Kafka e formato de cada evento
 - Demonstrações: [Fase 1](docs/guias/demo-fase-1.md) · [Fase 2](docs/guias/demo-fase-2.md) ·
   [Fase 3](docs/guias/demo-fase-3.md) · [Fase 4](docs/guias/demo-fase-4.md) ·
-  [Fase 5](docs/guias/demo-fase-5.md) · [Fase 6](docs/guias/demo-fase-6.md)
+  [Fase 5](docs/guias/demo-fase-5.md) · [Fase 6](docs/guias/demo-fase-6.md) ·
+  [Fase 7](docs/guias/demo-fase-7.md)
 - [Kubernetes local](infra/k8s/README.md) · [Terraform da AWS](infra/terraform/README.md)
 - Serviços: [razão](servicos/razao/README.md) · [contas](servicos/contas/README.md) ·
   [pix](servicos/pix/README.md) · [extrato](servicos/extrato/README.md) ·

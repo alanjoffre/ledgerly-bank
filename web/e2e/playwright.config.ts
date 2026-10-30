@@ -20,5 +20,7 @@ export default defineConfig({
     locale: "pt-BR",
     timezoneId: "America/Sao_Paulo",
     trace: "retain-on-failure",
+    // VIDEO=1 grava cada teste em test-results/, para a demonstração (docs/guias/demo-fase-7.md).
+    video: process.env.VIDEO === "1" ? { mode: "on", size: { width: 1280, height: 720 } } : "off",
   },
 });

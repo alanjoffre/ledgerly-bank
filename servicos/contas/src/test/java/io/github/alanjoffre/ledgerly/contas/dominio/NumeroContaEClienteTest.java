@@ -14,7 +14,7 @@ class NumeroContaEClienteTest {
 
     @ParameterizedTest(name = "{0} → dígito {1}")
     @DisplayName("dígito verificador módulo 11")
-    @CsvSource({"100001, 2", "1, 9", "10, 8", "100002, 0"})
+    @CsvSource({"100001, 2", "1, 9", "10, 8", "100002, 0", "6, 0"})
     void digito(int numero, int digito) {
         // Ex.: 100001 → da direita: 1×2 + 0×3 + 0×4 + 0×5 + 0×6 + 1×7 = 9; 11 - (9 % 11) = 2.
         // 100002 → 2×2 + 1×7 = 11; 11 - (11 % 11) = 11, que vira 0.
@@ -44,6 +44,8 @@ class NumeroContaEClienteTest {
     void cliente() {
         Cpf cpf = new Cpf(CpfsDeTeste.gerar());
         assertThat(Cliente.cadastrar("  Maria   Exemplo  ", cpf, Instant.EPOCH).nome()).isEqualTo("Maria Exemplo");
+        assertThat(Cliente.cadastrar("Mo", cpf, Instant.EPOCH).nome()).isEqualTo("Mo");
+        assertThat(Cliente.cadastrar("x".repeat(120), cpf, Instant.EPOCH).nome()).hasSize(120);
         assertThatThrownBy(() -> Cliente.cadastrar("M", cpf, Instant.EPOCH)).isInstanceOf(DadoInvalidoException.class);
         assertThatThrownBy(() -> Cliente.cadastrar("x".repeat(121), cpf, Instant.EPOCH))
                 .isInstanceOf(DadoInvalidoException.class);

@@ -17,13 +17,14 @@ ml/.venv/bin/python ml/treinar.py
 ```
 
 As versões estão fixas em [requisitos.txt](requisitos.txt) (scikit-learn 1.9.1, skl2onnx 1.20.0,
-onnxruntime 1.31.1). Com a semente fixa, **rodar de novo dá o mesmo modelo, byte a byte**: o
-`git diff` fica vazio (cerca de 10 s numa máquina comum).
+onnxruntime 1.31.1). Com a semente fixa, **rodar de novo na mesma máquina dá o mesmo modelo**. Em outro processador, os últimos
+dígitos podem mudar ([ADR-0043](../docs/adr/0043-reprodutibilidade-do-modelo.md)). Não é defeito e não é para versionar: se só
+isso mudou no `git diff`, descarte. O treino leva cerca de 10 s.
 
-O CI (job `ml`) treina de novo a cada envio e confere que as métricas são as mesmas e que os pesos
-e as probabilidades de referência não mudaram além de 0,000001. A tolerância existe porque outro
-processador pode mudar o último dígito de um número de ponto flutuante. Se mudar mais que isso,
-alguém mexeu no treino e não copiou o modelo, e o CI fica vermelho.
+O CI (job `ml`) treina de novo a cada envio e confere com [conferir.py](conferir.py) que os pesos e as probabilidades de referência não mudaram além de
+0,0001, e as métricas além de 0,0002 (as que vêm de contagem têm folga maior: a ADR explica). A tolerância existe porque o treino usa números de 32 bits e cada
+processador arredonda de um jeito: medimos até 0,00001 de diferença entre as famílias de CPU. Se mudar mais que
+isso, alguém mexeu no treino e não copiou o modelo, e o CI fica vermelho.
 
 ## Os dados: sintéticos
 

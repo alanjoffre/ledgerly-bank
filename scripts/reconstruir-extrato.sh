@@ -30,13 +30,24 @@ if curl -sf -o /dev/null "$EXTRATO/actuator/health"; then
 fi
 ok "parado"
 
-passo "2. Apagar o modelo de leitura (coleções do banco extrato no MongoDB)"
+passo "2. Conferir que o tópico tem eventos para reler"
+# Apagar o extrato só é seguro se os eventos estão lá. Com o tópico vazio, reconstruir perderia o
+# extrato sem trazer nada de volta (ADR-0047). A soma é da posição final de cada partição.
+eventos=$("${COMPOSE[@]}" exec -T kafka /opt/kafka/bin/kafka-get-offsets.sh --bootstrap-server localhost:9092 \
+  --topic razao.lancamentos.v1 </dev/null | awk -F: '{ soma += $3 } END { print soma + 0 }')
+if [ "$eventos" -eq 0 ]; then
+  echo "  ✘ o tópico razao.lancamentos.v1 está vazio: nada foi apagado" >&2
+  exit 1
+fi
+ok "$eventos eventos em razao.lancamentos.v1"
+
+passo "3. Apagar o modelo de leitura (coleções do banco extrato no MongoDB)"
 # </dev/null: sem isso o "exec -T" consome a entrada do próprio script.
 "${COMPOSE[@]}" exec -T mongo mongosh --quiet -u extrato -p extrato_local --authenticationDatabase extrato extrato \
   --eval 'db.getCollectionNames().forEach(c => { db.getCollection(c).drop(); print("  apagada: " + c); })' </dev/null
 ok "extrato vazio (os índices são recriados quando o serviço sobe)"
 
-passo "3. Voltar o grupo '$GRUPO' para o primeiro evento de cada tópico"
+passo "4. Voltar o grupo '$GRUPO' para o primeiro evento de cada tópico"
 args=()
 for topico in "${TOPICOS[@]}"; do args+=(--topic "$topico"); done
 "${COMPOSE[@]}" exec -T kafka /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \

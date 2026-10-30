@@ -41,6 +41,14 @@ jobs:
       - name: Build
         run: ./mvnw --batch-mode --no-transfer-progress verify
 
+      # Os testes dos consumidores regravam contratos/. Se o arquivo mudou ou é novo, alguém mudou o que um
+      # serviço espera do outro e não versionou: o provedor foi conferido contra o contrato antigo (ADR-0045).
+      # O git diff não enxerga arquivo novo; o status enxerga.
+      - name: Conferir que os contratos estão versionados
+        run: |
+          git status --porcelain contratos
+          test -z "$(git status --porcelain contratos)"
+
       - name: Publicar relatório de cobertura
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -93,38 +101,16 @@ jobs:
 
       # Com a semente fixa, treinar de novo tem de dar o mesmo modelo (ADR-0032). Se não der, alguém
       # mudou o treino e não copiou o modelo, ou uma biblioteca mudou o resultado: o teste de
-      # paridade do Java estaria conferindo outro modelo. A comparação tem tolerância, não é byte a
-      # byte: outro processador pode mudar o último dígito de um número de ponto flutuante.
+      # paridade do Java estaria conferindo outro modelo. A comparação tem tolerância porque o
+      # processador da máquina do CI muda os últimos dígitos do treino (ADR-0043).
       - name: Treinar e conferir que o modelo é o mesmo
         run: |
+          lscpu | grep -E "Model name|Flags" | sed -E 's/Flags:.*(avx512f).*/Tem AVX-512/; /Flags:/d'
           mkdir -p "$RUNNER_TEMP/versionado"
           cp ml/metricas.json servicos/antifraude/src/main/resources/modelo/pesos.json \
              servicos/antifraude/src/test/resources/modelo/referencia.csv "$RUNNER_TEMP/versionado/"
           ml/.venv/bin/python ml/treinar.py
-          ml/.venv/bin/python - "$RUNNER_TEMP/versionado" <<'EOF'
-          import csv, json, sys
-          antes = sys.argv[1]
-          def lista(caminho):
-              with open(caminho) as f:
-                  return [float(v) for linha in csv.DictReader(f) for v in linha.values()]
-          def pesos(caminho):
-              with open(caminho) as f:
-                  p = json.load(f)
-              return p["media"] + p["escala"] + p["pesos"]
-          erros = []
-          if json.load(open(f"{antes}/metricas.json")) != json.load(open("ml/metricas.json")):
-              erros.append("ml/metricas.json mudou")
-          for nome, ler, novo in [
-              ("pesos.json", pesos, "servicos/antifraude/src/main/resources/modelo/pesos.json"),
-              ("referencia.csv", lista, "servicos/antifraude/src/test/resources/modelo/referencia.csv"),
-          ]:
-              a, b = ler(f"{antes}/{nome}"), ler(novo)
-              if len(a) != len(b) or max(abs(x - y) for x, y in zip(a, b)) > 1e-6:
-                  erros.append(f"{nome} mudou")
-          for e in erros:
-              print(f"::error::O treino gerou um modelo diferente do versionado: {e}")
-          sys.exit(1 if erros else 0)
-          EOF
+          ml/.venv/bin/python ml/conferir.py "$RUNNER_TEMP/versionado"
 
   infra:
     name: Validar infraestrutura local
@@ -177,6 +163,11 @@ jobs:
             done
           done
           echo "Tópicos confirmados."
+          # O Kafka tem de gravar no volume: em /tmp, um "down" apagaria os eventos (ADR-0047).
+          docker compose -f infra/docker/compose.yaml exec -T kafka \
+            test -d /var/lib/kafka/data/contas.eventos.v1-0 </dev/null \
+            || { echo "::error::O Kafka não está gravando no volume"; exit 1; }
+          echo "Eventos no volume."
 
       - name: Conferir o realm do Keycloak
         run: |

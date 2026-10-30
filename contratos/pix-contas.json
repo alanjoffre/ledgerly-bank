@@ -1,0 +1,171 @@
+{
+  "consumer": {
+    "name": "pix"
+  },
+  "interactions": [
+    {
+      "description": "o pedido do titular de uma conta que n\u00E3o existe",
+      "providerStates": [
+        {
+          "name": "a conta n\u00E3o existe"
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "path": "/v1/contas/0a000000-0000-4000-8000-000000000002/titular"
+      },
+      "response": {
+        "status": 404
+      }
+    },
+    {
+      "description": "a confer\u00EAncia do CPF do titular",
+      "providerStates": [
+        {
+          "name": "existe uma conta ativa"
+        }
+      ],
+      "request": {
+        "body": {
+          "cpf": "00000000000"
+        },
+        "generators": {
+          "body": {
+            "$.cpf": {
+              "dataType": "STRING",
+              "expression": "${cpf}",
+              "type": "ProviderState"
+            }
+          },
+          "path": {
+            "dataType": "STRING",
+            "expression": "/v1/contas/${contaId}/titularidade",
+            "type": "ProviderState"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.cpf": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          }
+        },
+        "method": "POST",
+        "path": "/v1/contas/0a000000-0000-4000-8000-000000000002/titularidade"
+      },
+      "response": {
+        "body": {
+          "confere": true
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=UTF-8"
+        },
+        "matchingRules": {
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json(;\\s?charset=[\\w\\-]+)?"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    },
+    {
+      "description": "o pedido do titular de uma conta",
+      "providerStates": [
+        {
+          "name": "existe uma conta ativa"
+        }
+      ],
+      "request": {
+        "generators": {
+          "path": {
+            "dataType": "STRING",
+            "expression": "/v1/contas/${contaId}/titular",
+            "type": "ProviderState"
+          }
+        },
+        "method": "GET",
+        "path": "/v1/contas/0a000000-0000-4000-8000-000000000002/titular"
+      },
+      "response": {
+        "body": {
+          "abertaEm": "2026-10-30T12:00:00Z",
+          "clienteId": "0a000000-0000-4000-8000-000000000003",
+          "nome": "Ana Exemplo",
+          "situacao": "ATIVA"
+        },
+        "headers": {
+          "Content-Type": "application/json; charset=UTF-8"
+        },
+        "matchingRules": {
+          "body": {
+            "$.abertaEm": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+                }
+              ]
+            },
+            "$.clienteId": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+                }
+              ]
+            },
+            "$.nome": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {
+            "Content-Type": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "regex",
+                  "regex": "application/json(;\\s?charset=[\\w\\-]+)?"
+                }
+              ]
+            }
+          }
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pact-jvm": {
+      "version": "4.7.6"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "contas"
+  }
+}

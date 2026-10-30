@@ -1,12 +1,14 @@
 package io.github.alanjoffre.ledgerly.antifraude.dominio;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class PoliticaDeRiscoTest {
@@ -114,5 +116,38 @@ class PoliticaDeRiscoTest {
     void motivoDoModeloIgualAoDaRegraNaoRepete() {
         var a = avaliar(fatos("50.00", 6, false, 900), modelo(0.3, Map.of(Sinal.PIX_NA_ULTIMA_HORA, 1.2)));
         assertThat(a.motivos()).extracting(Motivo::codigo).containsExactly("regra:rajada");
+    }
+
+    @Test
+    @DisplayName("motivo do modelo: peso de 0,25 entra; abaixo disso, não")
+    void pesoMinimoDoMotivo() {
+        var motivos = avaliar(fatos("50.00", 0, true, 900),
+                modelo(0.5, Map.of(Sinal.RECEBEDOR_NOVO, 0.25, Sinal.VALOR, 0.2499))).motivos();
+        assertThat(motivos).extracting(Motivo::codigo).containsExactly("modelo:recebedor-novo");
+    }
+
+    @Test
+    @DisplayName("as vezes da média: sempre uma casa, com vírgula")
+    void vezes() {
+        assertThat(PoliticaDeRisco.vezes(new BigDecimal("15"))).isEqualTo("15,0");
+        assertThat(PoliticaDeRisco.vezes(new BigDecimal("1.26"))).isEqualTo("1,3");
+    }
+
+    @Test
+    @DisplayName("os extremos valem: probabilidade 0 e 1, nota 0 e 1000; além deles, não")
+    void extremos() {
+        assertThat(modelo(0.0, Map.of()).probabilidade()).isZero();
+        assertThat(modelo(1.0, Map.of()).probabilidade()).isEqualTo(1.0);
+        assertThatThrownBy(() -> modelo(-0.001, Map.of())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> modelo(1.001, Map.of())).isInstanceOf(IllegalArgumentException.class);
+        Avaliacao base = avaliar(fatos("50.00", 0, false, 900), modelo(0.1, Map.of()));
+        for (int nota : new int[] {0, PoliticaDeRisco.NOTA_MAXIMA}) {
+            assertThat(new Avaliacao(base.pedido(), base.fatos(), nota, base.decisao(), base.motivos(), base.modelo(),
+                    base.avaliadaEm()).nota()).isEqualTo(nota);
+        }
+        for (int nota : new int[] {-1, PoliticaDeRisco.NOTA_MAXIMA + 1}) {
+            assertThatThrownBy(() -> new Avaliacao(base.pedido(), base.fatos(), nota, base.decisao(), base.motivos(),
+                    base.modelo(), base.avaliadaEm())).isInstanceOf(IllegalArgumentException.class);
+        }
     }
 }
