@@ -12,7 +12,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.StructuredTaskScope;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -143,10 +145,20 @@ class ConciliadorTest {
         @DisplayName("uma faixa falha: o erro sobe e as outras são canceladas na hora, sem ficar rodando soltas")
         void falhaCancelaAsOutras() {
             var canceladas = new AtomicInteger();
+            // A falha espera as outras 3 começarem. Sem isso, com núcleos sobrando, ela chega antes de
+            // a thread principal criar as outras: faixa nunca iniciada não fica solta, mas também não
+            // conta como cancelada (16 falhas em 25 rodadas com 4 núcleos).
+            var comecaram = new CountDownLatch(3);
             Fonte lenta = faixa -> {
                 if (faixa.inicio().getMostSignificantBits() == 0L) {
+                    try {
+                        comecaram.await(5, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
                     throw new IllegalStateException("banco fora do ar");
                 }
+                comecaram.countDown();
                 long base = faixa.inicio().getMostSignificantBits();
                 // 10 mil registros, 10 ms cada: sem cancelamento, 100 s por faixa.
                 return LongStream.rangeClosed(1, 10_000).mapToObj(n -> {

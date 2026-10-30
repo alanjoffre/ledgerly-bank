@@ -66,6 +66,10 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 - **Os testes de ponta a ponta do Pix retido dependiam da hora:** de madrugada o modelo soma o sinal
   do horário e a nota sobe (500 → 882 com R$ 1.500,00; com R$ 2.000,00 passa de 900 e o antifraude
   recusa sozinho). O teste confere a nota por expressão, e a recusa usa R$ 1.500,00.
+- **Um teste instável da conciliação** (`falhaCancelaAsOutras`, da Fase 3): com núcleos sobrando, a
+  faixa que falha chegava antes de as outras começarem, e faixa nunca iniciada não conta como
+  cancelada. O produto estava certo; o teste agora espera as 3 começarem. Com 4 núcleos: 16 falhas em
+  25 rodadas antes, 0 depois.
 - **Os dois testes instáveis do CI da Fase 4**, cada um uma corrida de verdade, reproduzida antes do
   conserto ([ADR-0031](docs/adr/0031-as-duas-corridas-dos-testes-instaveis.md)):
   - **gateway:** o cliente HTTP do JDK 25 falhava com `NullPointerException` num corpo vazio
