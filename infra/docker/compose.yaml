@@ -222,7 +222,7 @@ services:
   # OpenTelemetry numa imagem só, para a máquina local. Ocupa 3,7 GB, por isso fica de fora do padrão.
   # Grafana em http://localhost:13000; os serviços enviam com LEDGERLY_OTEL=1 ./scripts/servicos.sh subir
   lgtm:
-    image: grafana/otel-lgtm:0.36.0@sha256:57c04cbd8e7022f32bb84c4ac005d79baf8b08e2c5be44facf11f5f1f9944ba2
+    image: grafana/otel-lgtm:0.38.1@sha256:0df9bc14142000b161344bd24caf6ddd319b7319055aedaf9b0692b125730af7
     profiles: ["observabilidade"]
     ports:
       - "127.0.0.1:13000:3000"
