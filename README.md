@@ -143,7 +143,7 @@ docker compose -f infra/docker/compose.yaml --profile ia up -d --wait ollama
 ```
 
 O que cada passo mostra está nas demonstrações da [Fase 2](docs/guias/demo-fase-2.md), da
-[Fase 3](docs/guias/demo-fase-3.md), da [Fase 4](docs/guias/demo-fase-4.md) e da
+[Fase 3](docs/guias/demo-fase-3.md), da [Fase 4](docs/guias/demo-fase-4.md), da
 [Fase 5](docs/guias/demo-fase-5.md) e da [Fase 6](docs/guias/demo-fase-6.md).
 
 ## Destaque: operar é medir a falha, não só subir o serviço
