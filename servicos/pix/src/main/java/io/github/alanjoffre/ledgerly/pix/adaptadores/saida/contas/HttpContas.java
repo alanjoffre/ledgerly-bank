@@ -8,6 +8,7 @@ import io.github.alanjoffre.ledgerly.pix.dominio.ContaNaoEncontradaException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.core.Response;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
@@ -38,7 +39,8 @@ class HttpContas implements Contas {
                     contaId,
                     uuidOuNulo(corpo.path("clienteId").asText(null)),
                     corpo.path("nome").asText(),
-                    "ATIVA".equals(corpo.path("situacao").asText())));
+                    "ATIVA".equals(corpo.path("situacao").asText()),
+                    instanteOuNulo(corpo.path("abertaEm").asText(null))));
         } catch (ProcessingException e) {
             throw indisponivel(e);
         }
@@ -66,6 +68,10 @@ class HttpContas implements Contas {
         } catch (Exception e) {
             throw new ServicoIndisponivelException("Resposta ilegível do serviço de contas");
         }
+    }
+
+    private static Instant instanteOuNulo(String texto) {
+        return texto == null ? null : Instant.parse(texto);
     }
 
     private static UUID uuidOuNulo(String texto) {

@@ -41,6 +41,28 @@ services:
       timeout: 3s
       retries: 20
 
+  # PostgreSQL com pgvector — o banco do assistente (Fase 5, ADR-0036). O pgvector é uma extensão
+  # que guarda vetores (a "impressão digital" do sentido de um texto) e busca os mais parecidos:
+  # é onde ficam os trechos dos artigos de ajuda. Um contêiner à parte porque a imagem do
+  # Postgres de cima não traz a extensão; o banco continua sendo só do assistente.
+  pgvector:
+    image: pgvector/pgvector:0.8.7-pg18
+    environment:
+      POSTGRES_USER: ledgerly_admin
+      POSTGRES_PASSWORD: ledgerly_local
+      POSTGRES_DB: postgres
+    ports:
+      - "127.0.0.1:15433:5432"
+    volumes:
+      - pgvector-dados:/var/lib/postgresql
+      # Só na PRIMEIRA subida: cria o usuário e o banco do assistente, com a extensão ligada.
+      - ./pgvector/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgerly_admin -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   # MongoDB — banco de documentos (NoSQL). Guarda o extrato: o "modelo de leitura"
   # do CQRS, montado a partir dos eventos e otimizado para a tela do cliente.
   mongo:
@@ -160,6 +182,35 @@ services:
       retries: 40
       start_period: 20s
 
+  # Ollama — roda o modelo de linguagem na própria máquina, de graça e sem mandar dado para fora
+  # (ADR-0034). Usa a placa de vídeo (GPU NVIDIA): por isso fica num perfil à parte, e o CI, que
+  # não tem placa de vídeo, não o sobe. Sem ele, a explicação do antifraude cai no texto fixo e o
+  # assistente responde a mensagem de reserva: nada quebra.
+  #   docker compose -f infra/docker/compose.yaml --profile ia up -d --wait
+  #   ./scripts/modelos.sh           (baixa os modelos uma vez: qwen3:4b-instruct, gemma3:4b e bge-m3)
+  ollama:
+    image: ollama/ollama:0.40.13
+    profiles: ["ia"]
+    environment:
+      # O modelo fica na memória da placa por 30 min depois do último uso: a 1ª resposta é a lenta.
+      OLLAMA_KEEP_ALIVE: 30m
+    ports:
+      - "127.0.0.1:11434:11434"
+    volumes:
+      - ollama-modelos:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   # Kafka UI — tela web para ver tópicos e mensagens. Opcional: só sobe com
   #   docker compose -f infra/docker/compose.yaml --profile ferramentas up -d
   # e abre em http://localhost:18080
@@ -177,6 +228,8 @@ services:
 
 volumes:
   postgres-dados:
+  pgvector-dados:
+  ollama-modelos:
   mongo-dados:
   redis-dados:
   kafka-dados:

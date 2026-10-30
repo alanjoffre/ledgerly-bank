@@ -17,12 +17,12 @@ flowchart TB
     analista(["👤 Analista de fraude<br/><small>revisa alertas</small>"])
     ledgerly["🏦 <b>Ledgerly Bank</b><br/><small>contas, razão contábil, Pix,<br/>antifraude com IA e extrato</small>"]
     spi["Sistema de pagamentos<br/>instantâneos (simulado)<br/><small>papel do SPI/Bacen</small>"]
-    llm["Provedor de LLM<br/><small>explica alertas de fraude</small>"]
+    llm["Ollama<br/><small>modelos de linguagem abertos,<br/>na própria máquina</small>"]
 
-    cliente -- "consulta saldo, faz Pix" --> ledgerly
-    analista -- "aprova ou bloqueia transações" --> ledgerly
+    cliente -- "consulta saldo, faz Pix,<br/>pergunta ao assistente" --> ledgerly
+    analista -- "libera ou recusa Pix retido,<br/>devolve, bloqueia" --> ledgerly
     ledgerly -- "liquida Pix entre bancos" --> spi
-    ledgerly -- "pede explicação de alerta" --> llm
+    ledgerly -- "explicação do alerta,<br/>respostas do assistente" --> llm
 
     classDef sistema fill:#1168bd,stroke:#0b4884,color:#fff
     classDef externo fill:#999,stroke:#6b6b6b,color:#fff
@@ -34,6 +34,10 @@ flowchart TB
 
 O **SPI** (Sistema de Pagamentos Instantâneos) é a infraestrutura do Banco Central que liquida o Pix
 entre instituições. Aqui ele é **simulado**: o projeto não se conecta a nenhum sistema real.
+
+O **Ollama** roda os modelos de linguagem na própria máquina, em contêiner: nenhuma API paga, e
+nenhum dado sai dali ([ADR-0034](../adr/0034-modelo-de-linguagem-local-ollama.md)). Sem ele, o
+banco funciona igual, com textos fixos de reserva.
 
 ## Nível 2 — Contêineres
 
@@ -51,22 +55,30 @@ flowchart TB
         contas["contas<br/><small>Spring Boot</small>"]
         razao["razao<br/><small>Spring Boot<br/>partidas dobradas</small>"]
         pix["pix<br/><small>Quarkus<br/>Saga</small>"]
-        antifraude["antifraude<br/><small>Quarkus + IA</small>"]
+        antifraude["antifraude<br/><small>Quarkus<br/>regras + modelo ONNX</small>"]
         extrato["extrato<br/><small>CQRS - leitura</small>"]
+        assistente["assistente<br/><small>Spring Boot + LangChain4j<br/>RAG e ferramentas</small>"]
     end
+
+    ollama["Ollama<br/><small>gemma3 · qwen3-instruct · bge-m3</small>"]
 
     kafka{{"Kafka<br/><small>eventos</small>"}}
 
     pgContas[("PostgreSQL<br/>contas")]
     pgRazao[("PostgreSQL<br/>razao")]
     pgPix[("PostgreSQL<br/>pix")]
+    pgAntifraude[("PostgreSQL<br/>antifraude")]
+    pgvector[("pgvector<br/><small>trechos da ajuda</small>")]
     redis[("Redis<br/><small>trava rápida<br/>contra pedido repetido</small>")]
     mongo[("MongoDB<br/>extrato")]
 
     web & backoffice --> gateway
     gateway -- "login (code + PKCE)" --> keycloak
-    gateway -- "Bearer (TokenRelay)" --> contas & pix & extrato & antifraude
-    pix -- "avaliar risco (síncrono)" --> antifraude
+    gateway -- "Bearer (TokenRelay)" --> contas & pix & extrato & antifraude & assistente
+    pix -- "avaliar risco, antes do débito (síncrono)" --> antifraude
+    assistente -- "saldo e lançamentos,<br/>com o token do cliente" --> contas & extrato
+    antifraude -- "explicação para a analista" --> ollama
+    assistente -- "resposta e vetores" --> ollama
     pix -- "debitar/creditar/estornar (síncrono)" --> razao
     pix -- "titular, titularidade (síncrono)" --> contas
     contas -- "encerrar (síncrono)" --> razao
@@ -75,24 +87,25 @@ flowchart TB
     razao --- pgRazao
     pix --- pgPix
     pix --- redis
-    antifraude --- redis
+    antifraude --- pgAntifraude
     extrato --- mongo
+    assistente --- pgvector
 
     contas -- "ContaAberta, ContaBloqueada...<br/>(via Outbox)" --> kafka
     razao -- "LancamentoRegistrado<br/>(via Outbox)" --> kafka
     pix -- "PixConcluido / PixEstornado<br/>(via Outbox)" --> kafka
     kafka --> razao
     kafka --> extrato
-    kafka --> antifraude
 ```
 
 O formato de cada evento e de cada API interna está no [contrato dos eventos](eventos.md).
 
-### O que já roda (Fases 2 a 4)
+### O que já roda (Fases 2 a 5)
 
-Rodam os serviços **contas**, **razao**, **pix** e **extrato**, o **Keycloak**, os dois **BFFs**
-(internet banking na porta 8080 e backoffice na 8090) e as duas telas em React, servidas pelos
-próprios BFFs. Só o antifraude (Fase 5) ainda não existe.
+Rodam os seis serviços (**contas**, **razao**, **pix**, **antifraude**, **extrato** e
+**assistente**), o **Keycloak**, os dois **BFFs** (internet banking na porta 8080 e backoffice na
+8090) e as duas telas em React, servidas pelos próprios BFFs. O **Ollama** sobe à parte (perfil `ia`
+do compose), porque pede placa de vídeo.
 
 Abrir uma conta **não depende mais do razão no ar** ([ADR-0014](../adr/0014-contas-avisa-o-razao-por-evento.md)):
 o serviço de contas grava a conta e o evento juntos, e o razão abre a dele quando o evento chega.
@@ -130,6 +143,7 @@ sequenceDiagram
     C->>PX: POST /v1/transferencias + Idempotency-Key
     Note over PX: Redis: segundo clique? 409 na hora (ADR-0018)
     PX->>PX: INSERT transferência CRIADA
+    PX->>PX: antifraude (ADR-0033): APROVADA, ou RETIDA / REJEITADA sem mover dinheiro
     PX->>RZ: POST /v1/pix/envios (pagador → Liquidação Pix)
     PX->>PX: DEBITADA
     PX->>RZ: POST /v1/pix/recebimentos + lancamentoEnvioId (Liquidação Pix → recebedor)
@@ -201,10 +215,30 @@ sequenceDiagram
 - **As telas** ([ADR-0029](../adr/0029-react-vite-vitest-playwright.md)) são testadas com Vitest
   e, de ponta a ponta, com o Playwright contra o sistema inteiro no ar.
 
+### IA aplicada (Fase 5)
+
+Três usos, cada um com a sua defesa contra o erro do modelo:
+
+- **A nota de risco do Pix** ([ADR-0032](../adr/0032-antifraude-regras-e-modelo-onnx.md)):
+  regras explícitas + um modelo de regressão logística treinado em Python (dados sintéticos) e
+  executado na JVM em ONNX, em microssegundos. Ela é dada **antes do débito**: nota a partir de 200
+  segura o Pix para a analista; a partir de 900, recusa. Sem resposta do antifraude, até R$ 500,00
+  o Pix segue e acima disso fica retido ([ADR-0033](../adr/0033-pix-retido-antes-do-debito.md)). O
+  cliente não vê a nota nem os motivos.
+- **A explicação para a analista** ([ADR-0035](../adr/0035-explicacao-com-trava-de-numeros.md)):
+  o `gemma3:4b` escreve um parágrafo com os fatos do Pix retido; uma trava descarta o texto que traz
+  um número que não está na avaliação, e vale um texto fixo.
+- **O assistente do internet banking** ([ADR-0036](../adr/0036-assistente-rag-ferramentas-e-travas.md)):
+  o `qwen3:4b-instruct-2507` responde com a busca nos artigos de ajuda (RAG no pgvector) e três ferramentas **só
+  de leitura**, que chamam o contas e o extrato com o token do próprio cliente. Uma trava de entrada
+  barra a tentativa de trocar as instruções, e uma de saída barra o valor que não veio das
+  ferramentas. A qualidade do modelo de verdade se mede com uma avaliação de 30 perguntas, fora do
+  CI ([ADR-0037](../adr/0037-avaliacao-do-assistente-fora-do-ci.md)).
+
 ### O que muda nas próximas fases
 
-- **Fase 5:** entre o débito e o crédito, o pix pergunta ao **antifraude** a nota de risco. Risco
-  alto → a transferência para e vai para o analista.
+- **Fase 6:** imagens Docker e Kubernetes, Terraform da AWS validado no CI, observabilidade
+  (OpenTelemetry, Prometheus, Grafana) e resiliência (*circuit breaker*, *retry*).
 
 ## Princípios
 

@@ -34,6 +34,9 @@ final class Dtos {
     /** A decisão do analista: para qual conta (do mesmo titular) o dinheiro volta, e por quê. */
     record DevolucaoRequisicao(@NotNull UUID contaDestinoId, @NotBlank @Size(min = 10, max = 500) String justificativa) {}
 
+    /** Por que a analista liberou ou recusou o Pix retido (vai para a auditoria). */
+    record DecisaoRequisicao(@NotBlank @Size(min = 10, max = 500) String justificativa) {}
+
     /** Informe {@code chave} OU {@code copiaECola}. */
     record TransferenciaRequisicao(
             @NotNull UUID pagadorContaId,
@@ -89,12 +92,32 @@ final class Dtos {
             Pagador pagador,
             Recebedor recebedor,
             String motivo,
+            Integer notaDeRisco,
             Lancamentos lancamentos,
             UUID contaDevolucaoId,
             int tentativas,
             Instant proximaTentativaEm,
             Instant criadaEm,
             Instant finalizadaEm) {
+
+        /** O que o cliente lê de um Pix barrado na análise de risco, no lugar da nota e das regras. */
+        static final String RETIDO_PARA_O_CLIENTE = "Pix em análise de segurança antes de sair da sua conta. Nenhum dinheiro saiu.";
+        static final String RECUSADO_PARA_O_CLIENTE = "Pix não autorizado pela análise de segurança. Nenhum dinheiro saiu da sua conta.";
+
+        /**
+         * A visão do cliente: sem a nota de risco e sem os motivos do antifraude. Contar ao cliente a
+         * nota, as regras e o limite da falha segura ensinaria quem aplica o golpe a passar por baixo
+         * deles (ADR-0033).
+         */
+        static TransferenciaResposta paraOCliente(TransferenciaPix t) {
+            TransferenciaResposta r = de(t);
+            String motivo = !t.barradoNaAnaliseDeRisco() ? r.motivo()
+                    : t.situacao() == SituacaoTransferencia.RETIDA ? RETIDO_PARA_O_CLIENTE
+                    : RECUSADO_PARA_O_CLIENTE;
+            return new TransferenciaResposta(r.id(), r.situacao(), r.valor(), r.moeda(), r.descricao(), r.pagador(),
+                    r.recebedor(), motivo, null, r.lancamentos(), r.contaDevolucaoId(), r.tentativas(),
+                    r.proximaTentativaEm(), r.criadaEm(), r.finalizadaEm());
+        }
 
         static TransferenciaResposta de(TransferenciaPix t) {
             boolean emAndamento = !t.situacao().ehFinal();
@@ -107,6 +130,7 @@ final class Dtos {
                     new Pagador(t.pagador().contaId(), t.pagador().nome()),
                     new Recebedor(t.recebedor().nome(), t.chaveDoRecebedor().mascarada(), t.chaveDoRecebedor().tipo()),
                     t.motivo(),
+                    t.notaDeRisco(),
                     new Lancamentos(t.lancamentoEnvioId(), t.lancamentoRecebimentoId(), t.lancamentoEstornoId()),
                     t.contaDevolucaoId(),
                     t.tentativas(),

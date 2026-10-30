@@ -55,7 +55,8 @@ class ContaController {
     TitularResposta consultarTitular(@PathVariable UUID id) {
         var titular = contas.consultarTitular(id);
         return new TitularResposta(
-                titular.conta().id(), titular.conta().clienteId(), titular.titularNome(), titular.conta().situacao());
+                titular.conta().id(), titular.conta().clienteId(), titular.titularNome(), titular.conta().situacao(),
+                titular.conta().abertaEm());
     }
 
     @PostMapping("/{id}/bloqueio")

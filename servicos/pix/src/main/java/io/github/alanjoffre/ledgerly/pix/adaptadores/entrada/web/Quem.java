@@ -35,6 +35,11 @@ class Quem {
         return dono -> clienteId.filter(dono::equals).isPresent();
     }
 
+    /** Analista e serviço veem a nota e os motivos do antifraude; o cliente, não (ADR-0033). */
+    boolean veAAnaliseDeRisco() {
+        return identidade.hasRole(ANALISTA) || identidade.hasRole(SERVICO);
+    }
+
     /** O {@code sub}: o id da pessoa no Keycloak. */
     String id() {
         return token.getSubject();

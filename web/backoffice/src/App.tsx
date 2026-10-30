@@ -4,6 +4,8 @@ import { Link, NavLink, Route, Routes } from "react-router";
 import { ConsultaDeConta } from "./paginas/ConsultaDeConta.tsx";
 import { Decisao } from "./paginas/Decisao.tsx";
 import { FilaDeAnalise } from "./paginas/FilaDeAnalise.tsx";
+import { FilaDeRetidos } from "./paginas/FilaDeRetidos.tsx";
+import { Retido } from "./paginas/Retido.tsx";
 
 type Estado = { tipo: "carregando" } | { tipo: "fora" } | { tipo: "falha"; mensagem: string } | { tipo: "dentro"; eu: Eu };
 
@@ -37,6 +39,7 @@ export function App() {
         <Link className="marca" to="/">Ledgerly · Backoffice</Link>
         <nav className="acoes menu">
           <NavLink to="/">Fila de análise</NavLink>
+          <NavLink to="/retidos">Pix retidos</NavLink>
           <NavLink to="/contas">Contas</NavLink>
         </nav>
         <span className="quem">
@@ -50,6 +53,8 @@ export function App() {
           <Routes>
             <Route path="/" element={<FilaDeAnalise />} />
             <Route path="/transferencias/:id" element={<Decisao />} />
+            <Route path="/retidos" element={<FilaDeRetidos />} />
+            <Route path="/retidos/:id" element={<Retido />} />
             <Route path="/contas" element={<ConsultaDeConta />} />
             <Route path="/contas/:contaId" element={<ConsultaDeConta />} />
             <Route path="*" element={<p>Página não encontrada. <Link to="/">Voltar à fila</Link></p>} />

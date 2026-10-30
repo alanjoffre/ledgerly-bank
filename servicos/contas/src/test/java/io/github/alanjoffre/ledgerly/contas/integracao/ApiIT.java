@@ -217,7 +217,7 @@ class ApiIT extends TesteDeIntegracao {
         }
 
         @Test
-        @DisplayName("titular: nome, cliente e situação, sem saldo e sem CPF; conta inexistente: 404")
+        @DisplayName("titular: nome, cliente, situação e abertura, sem saldo e sem CPF; conta inexistente: 404")
         void titular() throws Exception {
             String cpf = CpfsDeTeste.gerar();
             UUID cliente = id(cadastrar("Maria Exemplo", cpf));
@@ -229,6 +229,7 @@ class ApiIT extends TesteDeIntegracao {
                     .hasPathSatisfying("$.nome", v -> v.assertThat().isEqualTo("Maria Exemplo"))
                     .hasPathSatisfying("$.clienteId", v -> v.assertThat().isEqualTo(cliente.toString()))
                     .hasPathSatisfying("$.situacao", v -> v.assertThat().isEqualTo("BLOQUEADA"))
+                    .hasPathSatisfying("$.abertaEm", v -> v.assertThat().asString().isNotBlank())
                     .doesNotHavePath("$.saldo");
             assertThat(resposta.getResponse().getContentAsString()).doesNotContain(cpf.substring(3, 9));
             assertThat(http.get().uri("/v1/contas/{id}/titular", UUID.randomUUID())).hasStatus(HttpStatus.NOT_FOUND);

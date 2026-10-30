@@ -35,3 +35,9 @@ node_modules/
 web/*/dist/
 web/e2e/test-results/
 web/e2e/playwright-report/
+
+# Fase 5: o ambiente Python do treino do modelo (ml/requisitos.txt recria).
+ml/.venv/
+ml/__pycache__/
+# O Playwright rodado dentro de web/ (em vez de web/e2e) deixa esta pasta.
+web/test-results/

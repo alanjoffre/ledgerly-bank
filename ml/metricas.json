@@ -1,0 +1,62 @@
+{
+  "dados": {
+    "pix": 60000,
+    "taxa_de_fraude": 0.02,
+    "teste": 15000,
+    "semente": 20261029
+  },
+  "limiar": 0.5,
+  "escolhido": "regressao_logistica",
+  "candidatos": {
+    "regressao_logistica": {
+      "precisao_media": 0.5531,
+      "auc_roc": 0.9396,
+      "precisao_no_limiar": 0.7705,
+      "revocacao_no_limiar": 0.3381
+    },
+    "arvores_com_gradiente": {
+      "precisao_media": 0.5171,
+      "auc_roc": 0.9517,
+      "precisao_no_limiar": 0.6988,
+      "revocacao_no_limiar": 0.4173
+    }
+  },
+  "limiares_do_escolhido": [
+    {
+      "limiar": 0.1,
+      "retidos_por_mil": 37.6,
+      "precisao": 0.3387,
+      "revocacao": 0.6871
+    },
+    {
+      "limiar": 0.2,
+      "retidos_por_mil": 20.4,
+      "precisao": 0.5065,
+      "revocacao": 0.5576
+    },
+    {
+      "limiar": 0.3,
+      "retidos_por_mil": 14.3,
+      "precisao": 0.6215,
+      "revocacao": 0.4784
+    },
+    {
+      "limiar": 0.5,
+      "retidos_por_mil": 8.1,
+      "precisao": 0.7705,
+      "revocacao": 0.3381
+    },
+    {
+      "limiar": 0.7,
+      "retidos_por_mil": 4.9,
+      "precisao": 0.8378,
+      "revocacao": 0.223
+    },
+    {
+      "limiar": 0.9,
+      "retidos_por_mil": 1.9,
+      "precisao": 1.0,
+      "revocacao": 0.1007
+    }
+  ]
+}

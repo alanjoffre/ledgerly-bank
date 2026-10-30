@@ -38,6 +38,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
 
     public static final RazaoFalso RAZAO = new RazaoFalso();
     public static final ContasFalsas CONTAS = new ContasFalsas();
+    public static final AntifraudeFalso ANTIFRAUDE = new AntifraudeFalso();
     /** Quantos tokens o Pix pediu ao Keycloak falso (o token é reaproveitado até perto de vencer). */
     public static final AtomicInteger TOKENS_EMITIDOS = new AtomicInteger();
 
@@ -50,6 +51,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
         }
         servidor.createContext("/v1/pix/", troca -> exigirToken(troca, RAZAO::atender));
         servidor.createContext("/v1/contas/", troca -> exigirToken(troca, CONTAS::atender));
+        servidor.createContext("/v1/avaliacoes", troca -> exigirToken(troca, ANTIFRAUDE::atender));
         servidor.createContext("/realms/ledgerly/", ServicosFalsos::keycloak);
         servidor.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
         servidor.start();
@@ -58,6 +60,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
         return Map.of(
                 "quarkus.rest-client.razao.url", url,
                 "quarkus.rest-client.contas.url", url,
+                "quarkus.rest-client.antifraude.url", url,
                 "quarkus.oidc.auth-server-url", TokensPix.emissor(),
                 // Tempo-limite curto nos testes: o caso "razão lento" não precisa esperar 3 s.
                 "quarkus.rest-client.razao.read-timeout", "800");
@@ -321,7 +324,10 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
     /** O serviço de contas falso: titular, situação e CPF de cada conta. */
     public static final class ContasFalsas {
 
-        private record Conta(String nome, String situacao, String cpf, UUID clienteId) {}
+        private record Conta(String nome, String situacao, String cpf, UUID clienteId, java.time.Instant abertaEm) {}
+
+        /** A abertura das contas dos testes: há mais de um ano, a não ser que o teste diga outra. */
+        static final java.time.Instant ABERTURA_PADRAO = java.time.Instant.parse("2025-06-01T12:00:00Z");
 
         private final Map<UUID, Conta> contas = new ConcurrentHashMap<>();
         private volatile boolean foraDoAr;
@@ -332,15 +338,19 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
         }
 
         public void conta(UUID id, String nome, String cpf, UUID clienteId) {
-            contas.put(id, new Conta(nome, "ATIVA", cpf, clienteId));
+            contas.put(id, new Conta(nome, "ATIVA", cpf, clienteId, ABERTURA_PADRAO));
+        }
+
+        public void abertaEm(UUID id, java.time.Instant abertaEm) {
+            contas.computeIfPresent(id, (k, c) -> new Conta(c.nome(), c.situacao(), c.cpf(), c.clienteId(), abertaEm));
         }
 
         public void bloquear(UUID id) {
-            contas.computeIfPresent(id, (k, c) -> new Conta(c.nome(), "BLOQUEADA", c.cpf(), c.clienteId()));
+            contas.computeIfPresent(id, (k, c) -> new Conta(c.nome(), "BLOQUEADA", c.cpf(), c.clienteId(), c.abertaEm()));
         }
 
         public void encerrar(UUID id) {
-            contas.computeIfPresent(id, (k, c) -> new Conta(c.nome(), "ENCERRADA", c.cpf(), c.clienteId()));
+            contas.computeIfPresent(id, (k, c) -> new Conta(c.nome(), "ENCERRADA", c.cpf(), c.clienteId(), c.abertaEm()));
         }
 
         public void foraDoAr(boolean valor) {
@@ -363,13 +373,83 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
                         "contaId", partes[3],
                         "clienteId", conta.clienteId().toString(),
                         "nome", conta.nome(),
-                        "situacao", conta.situacao()));
+                        "situacao", conta.situacao(),
+                        "abertaEm", conta.abertaEm().toString()));
                 case "titularidade" -> {
                     String cpf = JSON.readTree(troca.getRequestBody()).path("cpf").asText().replaceAll("\\D", "");
                     responder(troca, 200, Map.of("confere", cpf.equals(conta.cpf())));
                 }
                 default -> responder(troca, 404, problema(404, "nao-encontrado", partes[4]));
             }
+        }
+    }
+
+    /**
+     * O antifraude falso: aprova tudo com nota 12, a não ser que o teste mande outra decisão, deixe
+     * ele fora do ar ou lento. Guarda os pedidos, para o teste conferir o que o Pix mandou.
+     */
+    public static final class AntifraudeFalso {
+
+        private volatile String decisao;
+        private volatile int nota;
+        private volatile java.util.List<String> motivos;
+        private volatile boolean foraDoAr;
+        private volatile long demoraMs;
+        private final java.util.List<JsonNode> pedidos = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        AntifraudeFalso() {
+            zerar();
+        }
+
+        public void zerar() {
+            decisao = "APROVAR";
+            nota = 12;
+            motivos = java.util.List.of();
+            foraDoAr = false;
+            demoraMs = 0;
+            pedidos.clear();
+        }
+
+        /** As próximas avaliações respondem esta decisão. */
+        public void decidir(String decisao, int nota, String... motivos) {
+            this.decisao = decisao;
+            this.nota = nota;
+            this.motivos = java.util.List.of(motivos);
+        }
+
+        public void foraDoAr(boolean valor) {
+            foraDoAr = valor;
+        }
+
+        /** Responde depois deste tempo (para passar do limite do Pix). */
+        public void demorar(long ms) {
+            demoraMs = ms;
+        }
+
+        public java.util.List<JsonNode> pedidos() {
+            return java.util.List.copyOf(pedidos);
+        }
+
+        void atender(HttpExchange troca) throws IOException {
+            JsonNode pedido = JSON.readTree(troca.getRequestBody());
+            pedidos.add(pedido);
+            if (foraDoAr) {
+                responder(troca, 503, problema(503, "indisponivel", "fora do ar"));
+                return;
+            }
+            if (demoraMs > 0) {
+                try {
+                    Thread.sleep(demoraMs);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            responder(troca, 200, Map.of(
+                    "transferenciaId", pedido.path("transferenciaId").asText(),
+                    "nota", nota,
+                    "decisao", decisao,
+                    "motivos", motivos.stream().map(t -> Map.of("codigo", "teste", "texto", t)).toList(),
+                    "modelo", "risco-pix@teste"));
         }
     }
 }

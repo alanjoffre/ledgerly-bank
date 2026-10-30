@@ -1,6 +1,7 @@
 import { ENDERECO_DE_LOGIN, quemSouEu, sair, type Eu } from "@ledgerly/comum";
 import { useEffect, useState } from "react";
 import { Link, Route, Routes } from "react-router";
+import { Assistente } from "./paginas/Assistente.tsx";
 import { EnviarPix } from "./paginas/EnviarPix.tsx";
 import { ExtratoDaConta } from "./paginas/ExtratoDaConta.tsx";
 import { MinhasChaves } from "./paginas/MinhasChaves.tsx";
@@ -34,11 +35,13 @@ export function App() {
   }
 
   const { eu } = estado;
+  const cliente = eu.papeis.includes("cliente") && !!eu.clienteId;
   return (
     <>
       <header className="topo">
         <Link className="marca" to="/">Ledgerly Bank</Link>
         <span className="quem">
+          {cliente && <Link to="/assistente">Assistente</Link>}{" "}
           Olá, {eu.nome} <button className="secundario" onClick={() => void sair()}>Sair</button>
         </span>
       </header>
@@ -53,6 +56,7 @@ export function App() {
             <Route path="/contas/:contaId" element={<ExtratoDaConta />} />
             <Route path="/contas/:contaId/pix" element={<EnviarPix />} />
             <Route path="/contas/:contaId/chaves" element={<MinhasChaves />} />
+            <Route path="/assistente" element={<Assistente />} />
             <Route path="*" element={<p>Página não encontrada. <Link to="/">Voltar ao início</Link></p>} />
           </Routes>
         )}

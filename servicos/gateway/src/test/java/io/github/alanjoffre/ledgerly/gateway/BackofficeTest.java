@@ -25,7 +25,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 @ActiveProfiles("backoffice")
 class BackofficeTest {
 
-    private static final Map<String, ServicoFalso> SERVICOS = ServicoFalso.tres();
+    private static final Map<String, ServicoFalso> SERVICOS = ServicoFalso.todos();
 
     @DynamicPropertySource
     static void servicos(DynamicPropertyRegistry registro) {
@@ -64,6 +64,36 @@ class BackofficeTest {
         var recebido = SERVICOS.get("pix").ultimo();
         assertThat(recebido.caminho()).isEqualTo("/v1/transferencias/" + id + "/devolucao");
         assertThat(recebido.authorization()).isEqualTo("Bearer " + carla.token());
+    }
+
+    @Test
+    @DisplayName("a analista lê a avaliação do antifraude de um Pix retido; pedir uma avaliação não passa do gateway")
+    void avaliacaoDoAntifraude() {
+        var carla = new Sessoes(registros, tokens).de("carla", null, "analista");
+        String id = UUID.randomUUID().toString();
+        assertThat(mvc.get().uri("/api/v1/avaliacoes/" + id)
+                        .session(carla.sessao())
+                        .with(authentication(carla.autenticacao())))
+                .hasStatusOk();
+        var recebido = SERVICOS.get("antifraude").ultimo();
+        assertThat(recebido.caminho()).isEqualTo("/v1/avaliacoes/" + id);
+        assertThat(recebido.authorization()).isEqualTo("Bearer " + carla.token());
+        assertThat(mvc.get().uri("/api/v1/avaliacoes/" + id + "/explicacao")
+                        .session(carla.sessao())
+                        .with(authentication(carla.autenticacao())))
+                .hasStatusOk();
+        assertThat(SERVICOS.get("antifraude").ultimo().caminho()).isEqualTo("/v1/avaliacoes/" + id + "/explicacao");
+
+        SERVICOS.get("antifraude").esquecer();
+        assertThat(mvc.post().uri("/api/v1/avaliacoes")
+                        .session(carla.sessao())
+                        .with(authentication(carla.autenticacao()))
+                        .cookie(new Cookie("XSRF-TOKEN", "valor-da-tela"))
+                        .header("X-XSRF-TOKEN", "valor-da-tela")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .hasStatus4xxClientError();
+        assertThat(SERVICOS.get("antifraude").ultimo()).isNull();
     }
 
     @Test

@@ -5,10 +5,12 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * O registro de auditoria de uma decisão sobre um Pix em análise (ADR-0030): quem decidiu, o quê,
- * para qual conta, por quê e quando. Só se acrescenta; nunca muda nem sai — como o razão.
+ * O registro de auditoria de uma decisão do backoffice sobre um Pix (ADR-0030, ADR-0033): quem
+ * decidiu, o quê, para qual conta, por quê e quando. Só se acrescenta; nunca muda nem sai — como o
+ * razão.
  *
  * @param analistaId o {@code sub} do token do analista (o id dele no Keycloak)
+ * @param contaDestinoId a conta da devolução; {@code null} em liberar e recusar
  */
 public record DecisaoDeAnalise(
         UUID id,
@@ -23,9 +25,13 @@ public record DecisaoDeAnalise(
     public static final int TAMANHO_MINIMO_JUSTIFICATIVA = 10;
     public static final int TAMANHO_MAXIMO_JUSTIFICATIVA = 500;
 
-    /** Por ora, uma decisão só: devolver para outra conta do titular. */
     public enum Decisao {
-        DEVOLVER
+        /** Pix em análise: devolver para outra conta do titular (ADR-0030). */
+        DEVOLVER,
+        /** Pix retido pelo antifraude: pode sair (ADR-0033). */
+        LIBERAR,
+        /** Pix retido pelo antifraude: não sai. */
+        RECUSAR
     }
 
     public DecisaoDeAnalise {
@@ -34,6 +40,9 @@ public record DecisaoDeAnalise(
         Objects.requireNonNull(analistaId, "o analista é obrigatório");
         Objects.requireNonNull(decisao, "a decisão é obrigatória");
         Objects.requireNonNull(decididaEm, "o momento é obrigatório");
+        if ((decisao == Decisao.DEVOLVER) != (contaDestinoId != null)) {
+            throw new TransferenciaInvalidaException("Só a devolução tem conta de destino");
+        }
         String texto = justificativa == null ? "" : justificativa.strip();
         if (texto.length() < TAMANHO_MINIMO_JUSTIFICATIVA || texto.length() > TAMANHO_MAXIMO_JUSTIFICATIVA) {
             throw new TransferenciaInvalidaException("A justificativa deve ter de %d a %d caracteres"

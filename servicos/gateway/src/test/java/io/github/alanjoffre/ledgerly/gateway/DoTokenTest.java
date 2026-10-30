@@ -49,7 +49,7 @@ class DoTokenTest {
     void usuario() {
         UUID cliente = UUID.randomUUID();
         var bff = new PropriedadesDoBff("cliente", "http://localhost:18081/realms/ledgerly", "ledgerly-internet-banking", "s",
-                new PropriedadesDoBff.Servicos(URI.create("http://c"), URI.create("http://e"), URI.create("http://p")), "file:dist/");
+                new PropriedadesDoBff.Servicos(URI.create("http://c"), URI.create("http://e"), URI.create("http://p"), URI.create("http://a"), URI.create("http://s")), "file:dist/");
         var registro = new ConfiguracaoDeLogin().registros(bff).findByRegistrationId(ConfiguracaoDeLogin.REGISTRO);
         var tokenDeAcesso = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER,
                 Sessoes.tokenDeAcesso("ana", cliente, "cliente"), Instant.now(), Instant.now().plusSeconds(60));

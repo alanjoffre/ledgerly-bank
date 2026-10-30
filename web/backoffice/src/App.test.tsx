@@ -125,6 +125,136 @@ describe("decisão", () => {
   });
 });
 
+describe("Pix retidos", () => {
+  const retido = (extra = {}) => pix({
+    situacao: "RETIDA", valor: "4800.00", notaDeRisco: 770, tentativas: 0,
+    motivo: "Retido pelo antifraude (nota 770): valor de R$ 4.800,00; 15,0 vezes a média dos Pix anteriores do pagador", ...extra,
+  });
+  const avaliacao = {
+    transferenciaId: PIX, nota: 770, decisao: "SEGURAR", modelo: "risco-pix@0123456789ab", avaliadaEm: "2026-10-28T13:00:00Z",
+    motivos: [
+      { codigo: "modelo:fora-do-costume", texto: "15,0 vezes a média dos Pix anteriores do pagador" },
+      { codigo: "modelo:recebedor-novo", texto: "primeiro Pix do pagador para esta conta" },
+    ],
+    fatos: { valor: "4800.00", razaoDaMedia: "15", pixNaUltimaHora: 1, recebedorNovo: true, madrugada: false, idadeDaContaRecebedoraEmDias: 3 },
+  };
+  const rotas = (extra = {}) => ({
+    "GET /api/eu": { corpo: CARLA },
+    [`GET /api/v1/transferencias/${PIX}`]: { corpo: retido() },
+    [`GET /api/v1/avaliacoes/${PIX}`]: { corpo: avaliacao },
+    [`GET /api/v1/avaliacoes/${PIX}/explicacao`]: { corpo: {
+      texto: "O valor é 15,0 vezes a média do pagador e vai para uma conta que ele nunca pagou.",
+      origem: "MODELO_DE_LINGUAGEM", modelo: "gemma3:4b", explicadaEm: "2026-10-28T13:00:05Z",
+    } },
+    ...extra,
+  });
+  const JUSTIFICATIVA = "Cliente confirmou o Pix por telefone.";
+
+  it("a fila mostra a nota; o Pix sem nota (antifraude fora do ar) aparece como 'sem nota'", async () => {
+    fetchFalso({
+      "GET /api/eu": { corpo: CARLA },
+      "GET /api/v1/transferencias?situacao=RETIDA&limite=50": { corpo: [retido(), retido({ id: "outro", notaDeRisco: null, pagador: { contaId: PAGADORA, nome: "Caio" } })] },
+    });
+    abrir("/retidos");
+    const tabela = await screen.findByRole("table", { name: "Pix retidos" });
+    expect(tabela).toHaveTextContent("770");
+    expect(tabela).toHaveTextContent("R$ 4.800,00");
+    expect(tabela).toHaveTextContent("sem nota");
+    expect(within(tabela).getByRole("link", { name: "Analisar o Pix retido de Ana" })).toHaveAttribute("href", `/retidos/${PIX}`);
+  });
+
+  it("fila vazia", async () => {
+    fetchFalso({ "GET /api/eu": { corpo: CARLA }, "GET /api/v1/transferencias?situacao=RETIDA&limite=50": { corpo: [] } });
+    abrir("/retidos");
+    expect(await screen.findByRole("status")).toHaveTextContent("Nenhum Pix retido.");
+  });
+
+  it("mostra por que foi retido: nota, motivos e os fatos que o antifraude viu", async () => {
+    fetchFalso(rotas());
+    abrir(`/retidos/${PIX}`);
+    const porQue = await screen.findByRole("region", { name: "Por que foi retido" });
+    expect(porQue).toHaveTextContent("Nota 770 de 1000");
+    expect(within(porQue).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      "15,0 vezes a média dos Pix anteriores do pagador", "primeiro Pix do pagador para esta conta",
+    ]);
+    const fatos = within(porQue).getByRole("table", { name: "O que o antifraude viu" });
+    expect(fatos).toHaveTextContent("15,0 vezes a média");
+    expect(fatos).toHaveTextContent("Já pagou esta conta antesnão");
+    expect(fatos).toHaveTextContent("3 dias");
+
+    const explicacao = await within(porQue).findByRole("figure", { name: "Explicação" });
+    expect(explicacao).toHaveTextContent("vai para uma conta que ele nunca pagou");
+    expect(explicacao).toHaveTextContent("modelo de linguagem local (gemma3:4b) e conferida número a número");
+  });
+
+  it("explicação em texto fixo diz que é fixo; explicação que falhou some, e o resto fica", async () => {
+    fetchFalso(rotas({ [`GET /api/v1/avaliacoes/${PIX}/explicacao`]: { corpo: {
+      texto: "Nota 770 de 1000: o Pix foi retido para uma pessoa analisar.", origem: "TEXTO_FIXO", modelo: null, explicadaEm: "2026-10-28T13:00:05Z",
+    } } }));
+    const { unmount } = abrir(`/retidos/${PIX}`);
+    expect(await screen.findByRole("figure", { name: "Explicação" })).toHaveTextContent("Texto fixo, montado com os motivos");
+    unmount();
+
+    fetchFalso(rotas({ [`GET /api/v1/avaliacoes/${PIX}/explicacao`]: { status: 503, corpo: { detail: "fora do ar" } } }));
+    abrir(`/retidos/${PIX}`);
+    expect(await screen.findByRole("region", { name: "Por que foi retido" })).toHaveTextContent("Nota 770 de 1000");
+    await vi.waitFor(() => expect(screen.queryByText("Escrevendo a explicação…")).toBeNull());
+    expect(screen.queryByRole("figure")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("libera com justificativa: o Pix segue", async () => {
+    const rede = fetchFalso(rotas({ [`POST /api/v1/transferencias/${PIX}/liberacao`]: { corpo: retido({ situacao: "CONCLUIDA" }) } }));
+    abrir(`/retidos/${PIX}`);
+    const liberar = await screen.findByRole("button", { name: "Liberar" });
+    await userEvent.type(screen.getByLabelText(/Justificativa/), "curta");
+    expect(liberar).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Recusar" })).toBeDisabled();
+    await userEvent.clear(screen.getByLabelText(/Justificativa/));
+    await userEvent.type(screen.getByLabelText(/Justificativa/), JUSTIFICATIVA);
+    await userEvent.click(liberar);
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Pix liberado. Agora está CONCLUIDA.");
+    expect(rede.chamadas.find((c) => c.rota.startsWith("POST"))!.corpo).toEqual({ justificativa: JUSTIFICATIVA });
+    expect(rede.vezes(`POST /api/v1/transferencias/${PIX}/recusa`)).toBe(0);
+  });
+
+  it("recusa: nenhum dinheiro sai", async () => {
+    const rede = fetchFalso(rotas({ [`POST /api/v1/transferencias/${PIX}/recusa`]: { corpo: retido({ situacao: "REJEITADA" }) } }));
+    abrir(`/retidos/${PIX}`);
+    await userEvent.type(await screen.findByLabelText(/Justificativa/), "Cliente não reconhece: golpe do falso parente.");
+    await userEvent.click(screen.getByRole("button", { name: "Recusar" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Pix recusado. Nenhum dinheiro saiu.");
+    expect(rede.vezes(`POST /api/v1/transferencias/${PIX}/recusa`)).toBe(1);
+  });
+
+  it("outra analista decidiu antes (409): diz isso", async () => {
+    fetchFalso(rotas({ [`POST /api/v1/transferencias/${PIX}/liberacao`]: { status: 409, corpo: { detail: "A transferência não está retida." } } }));
+    abrir(`/retidos/${PIX}`);
+    await userEvent.type(await screen.findByLabelText(/Justificativa/), JUSTIFICATIVA);
+    await userEvent.click(screen.getByRole("button", { name: "Liberar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Este Pix já foi decidido ou não está mais retido.");
+  });
+
+  it("sem avaliação (o antifraude não respondeu): avisa, e a decisão continua possível", async () => {
+    fetchFalso(rotas({
+      [`GET /api/v1/transferencias/${PIX}`]: { corpo: retido({ notaDeRisco: null, motivo: "Retido sem avaliação: o valor passa de R$ 500,00 e o antifraude não respondeu (HTTP 503)" }) },
+      [`GET /api/v1/avaliacoes/${PIX}`]: { status: 404, corpo: { detail: "Avaliação não encontrada" } },
+    }));
+    abrir(`/retidos/${PIX}`);
+    expect(await screen.findByText(/O antifraude não respondeu a tempo/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Liberar" })).toBeInTheDocument();
+  });
+
+  it("Pix que não está retido não mostra a decisão", async () => {
+    fetchFalso(rotas({ [`GET /api/v1/transferencias/${PIX}`]: { corpo: retido({ situacao: "CONCLUIDA" }) } }));
+    abrir(`/retidos/${PIX}`);
+    expect(await screen.findByRole("region", { name: "O Pix" })).toHaveTextContent("CONCLUIDA");
+    expect(screen.queryByRole("button", { name: "Liberar" })).toBeNull();
+  });
+});
+
 describe("contas", () => {
   it("consulta, bloqueia e desbloqueia", async () => {
     const rede = fetchFalso({

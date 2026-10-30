@@ -25,3 +25,13 @@ updates:
     groups:
       imagens:
         patterns: ["*"]
+
+  # Fase 5: as bibliotecas do treino do modelo de risco (ml/requisitos.txt). Uma versão nova pode
+  # mudar o modelo gerado; o job "ml" do CI acusa, e aí se treina de novo de propósito.
+  - package-ecosystem: pip
+    directory: /ml
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]

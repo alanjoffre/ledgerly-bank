@@ -37,8 +37,8 @@ import java.util.UUID;
  *   <li><b>pedido repetido?</b> se a chave já tem transferência, devolve a mesma (é o
  *       {@code UNIQUE} do banco que garante, com ou sem Redis);</li>
  *   <li>resolve o recebedor pela chave e o pagador pelo serviço de contas;</li>
- *   <li>grava a transferência (situação {@code CRIADA}) e executa a Saga na hora — no caminho
- *       feliz, a resposta já sai {@code CONCLUIDA}.</li>
+ *   <li>grava a transferência (situação {@code CRIADA}) e executa a Saga na hora: antifraude,
+ *       débito e crédito — no caminho feliz, a resposta já sai {@code CONCLUIDA}.</li>
  * </ol>
  *
  * <p><b>Autorização por objeto</b> (ADR-0026): o cliente só paga com a conta dele e só consulta o
@@ -159,6 +159,36 @@ public class TransferenciaService {
     /** A fila do backoffice: os Pix em análise, do mais antigo para o mais novo. */
     public List<TransferenciaPix> emAnalise(int limite) {
         return transferencias.listarPorSituacao(SituacaoTransferencia.EM_ANALISE, limite);
+    }
+
+    /** A fila dos Pix retidos pelo antifraude, do mais antigo para o mais novo (ADR-0033). */
+    public List<TransferenciaPix> retidas(int limite) {
+        return transferencias.listarPorSituacao(SituacaoTransferencia.RETIDA, limite);
+    }
+
+    /** A decisão da analista sobre um Pix retido: liberar ou recusar, com quem decidiu e por quê. */
+    public record PedidoDeDecisao(
+            UUID transferenciaId, boolean liberar, String justificativa, String analistaId, String analistaNome) {}
+
+    /**
+     * Liberar (a Saga segue: débito e crédito, na hora) ou recusar (fim, sem dinheiro movido) um Pix
+     * retido. A decisão é gravada (auditoria) na mesma transação em que a situação muda.
+     */
+    public TransferenciaPix decidirRetida(PedidoDeDecisao pedido) {
+        DecisaoDeAnalise decisao = new DecisaoDeAnalise(
+                UUID.randomUUID(),
+                pedido.transferenciaId(),
+                pedido.analistaId(),
+                pedido.analistaNome(),
+                pedido.liberar() ? DecisaoDeAnalise.Decisao.LIBERAR : DecisaoDeAnalise.Decisao.RECUSAR,
+                null,
+                pedido.justificativa(),
+                relogio.instant());
+        TransferenciaPix transferencia = registro.decidirRetida(decisao);
+        if (pedido.liberar()) {
+            orquestrador.continuar(transferencia);
+        }
+        return consultar(transferencia.id());
     }
 
     /** O pedido de devolução de um Pix em análise, com quem decidiu e por quê. */

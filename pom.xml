@@ -41,6 +41,10 @@
         <module>servicos/pix</module>
         <module>servicos/extrato</module>
         <module>servicos/gateway</module>
+        <!-- Fase 5: o antifraude (modelo ONNX + regras, ADR-0032). -->
+        <module>servicos/antifraude</module>
+        <!-- Fase 5: o assistente "pergunte ao seu extrato" (RAG + ferramentas só de leitura, ADR-0036). -->
+        <module>servicos/assistente</module>
         <!-- Fase 3: medições. Compilam no build; rodam só quando alguém pede (ver cada pom). -->
         <module>desempenho/carga</module>
         <module>desempenho/jmh</module>

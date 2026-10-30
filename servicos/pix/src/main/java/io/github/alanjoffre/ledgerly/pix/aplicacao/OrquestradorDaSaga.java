@@ -1,13 +1,17 @@
 package io.github.alanjoffre.ledgerly.pix.aplicacao;
 
+import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.Antifraude;
+import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.Contas;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.Razao;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.TransferenciaRepository;
 import io.github.alanjoffre.ledgerly.pix.dominio.Passo;
+import io.github.alanjoffre.ledgerly.pix.dominio.ResultadoDaAvaliacao;
 import io.github.alanjoffre.ledgerly.pix.dominio.ResultadoDoPasso;
 import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaPix;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.lang.System.Logger.Level;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -17,6 +21,9 @@ import java.util.UUID;
  * <p><b>Saga orquestrada</b> (e não coreografada): um ponto só — este — sabe a ordem dos passos e
  * decide a compensação. Na coreografia, cada serviço reagiria a eventos do outro, e a regra
  * "se o crédito falhar, estorne" ficaria espalhada entre eles.
+ *
+ * <p>Antes do primeiro passo, o antifraude (ADR-0033): aprovado, segue; retido ou recusado, para
+ * aqui, sem nenhum dinheiro ter saído.
  *
  * <p>Reservar (transação curta), e para cada passo: chamar o razão (sem transação aberta) →
  * registrar o resultado e renovar a reserva (transação curta). Quem reservou fica com a
@@ -38,13 +45,22 @@ public class OrquestradorDaSaga {
     private final RegistroDaSaga registro;
     private final TransferenciaRepository transferencias;
     private final Razao razao;
+    private final Antifraude antifraude;
+    private final Contas contas;
     private final Clock relogio;
 
     public OrquestradorDaSaga(
-            RegistroDaSaga registro, TransferenciaRepository transferencias, Razao razao, Clock relogio) {
+            RegistroDaSaga registro,
+            TransferenciaRepository transferencias,
+            Razao razao,
+            Antifraude antifraude,
+            Contas contas,
+            Clock relogio) {
         this.registro = registro;
         this.transferencias = transferencias;
         this.razao = razao;
+        this.antifraude = antifraude;
+        this.contas = contas;
         this.relogio = relogio;
     }
 
@@ -62,6 +78,9 @@ public class OrquestradorDaSaga {
      * ela volta mais tarde, pela {@link #retomarPendentes()}).
      */
     public void continuar(TransferenciaPix transferencia) {
+        if (transferencia.precisaDeAvaliacao() && !registro.registrarAvaliacao(transferencia, avaliar(transferencia))) {
+            return; // retida ou recusada: nenhum dinheiro saiu, e a reserva já foi solta
+        }
         // No máximo três passos: debitar, creditar e (se o crédito for recusado) estornar.
         for (int i = 0; i < Passo.values().length; i++) {
             Passo passo = transferencia.proximoPasso().orElseThrow();
@@ -96,6 +115,28 @@ public class OrquestradorDaSaga {
         List<UUID> prontas = transferencias.prontasParaRetomar(relogio.instant(), 50);
         prontas.forEach(this::avancar);
         return prontas.size();
+    }
+
+    /**
+     * Pergunta ao antifraude. A abertura da conta recebedora vem do serviço de contas; sem ela (contas
+     * fora do ar), também vale a falha segura — fica registrada como "sem resposta".
+     */
+    private ResultadoDaAvaliacao avaliar(TransferenciaPix t) {
+        Instant abertaEm;
+        try {
+            abertaEm = contas.buscar(t.recebedor().contaId()).map(Contas.ContaResumo::abertaEm).orElse(null);
+        } catch (ServicoIndisponivelException e) {
+            abertaEm = null;
+        }
+        ResultadoDaAvaliacao resultado = abertaEm == null
+                ? new ResultadoDaAvaliacao.SemResposta("sem a abertura da conta recebedora")
+                : antifraude.avaliar(new Antifraude.Pedido(
+                        t.id(), t.pagador().contaId(), t.recebedor().contaId(), t.valor(), t.criadaEm(), abertaEm));
+        if (resultado instanceof ResultadoDaAvaliacao.SemResposta semResposta) {
+            LOG.log(Level.WARNING, "Pix {0}: antifraude sem resposta ({1}); vale a falha segura por valor",
+                    t.id(), semResposta.erro());
+        }
+        return resultado;
     }
 
     /**

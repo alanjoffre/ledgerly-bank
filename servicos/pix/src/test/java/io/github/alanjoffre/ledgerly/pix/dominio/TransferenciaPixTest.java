@@ -21,8 +21,15 @@ class TransferenciaPixTest {
     private static final Participante MARIA = new Participante(UUID.randomUUID(), "Maria");
     private static final ChavePix CHAVE = new ChavePix(TipoChave.EMAIL, "maria@exemplo.com");
 
+    /** Uma transferência já aprovada pelo antifraude: o próximo passo é o débito. */
     private static TransferenciaPix nova() {
-        return TransferenciaPix.criar("chave-1", JOAO, MARIA, CHAVE, reais("100.00"), "Aluguel", AGORA);
+        TransferenciaPix t = criada("100.00");
+        t.aplicarAvaliacao(new ResultadoDaAvaliacao.Aprovar(12), AGORA);
+        return t;
+    }
+
+    private static TransferenciaPix criada(String valor) {
+        return TransferenciaPix.criar("chave-1", JOAO, MARIA, CHAVE, reais(valor), "Aluguel", AGORA);
     }
 
     private static ResultadoDoPasso feito() {
@@ -34,7 +41,7 @@ class TransferenciaPixTest {
     class Caminhos {
 
         @Test
-        @DisplayName("feliz: CRIADA → DEBITADA → CONCLUIDA")
+        @DisplayName("feliz: (APROVADA) → DEBITADA → CONCLUIDA")
         void feliz() {
             TransferenciaPix t = nova();
             assertThat(t.proximoPasso()).contains(Passo.DEBITAR);
@@ -325,6 +332,159 @@ class TransferenciaPixTest {
             assertThatThrownBy(() -> decisao("x".repeat(501))).isInstanceOf(TransferenciaInvalidaException.class);
             assertThat(decisao("x".repeat(500)).justificativa()).hasSize(500);
             assertThat(new ContaDeOutroTitularException("x").codigo()).isEqualTo("conta-de-outro-titular");
+        }
+
+        @Test
+        @DisplayName("só a devolução tem conta de destino; liberar e recusar, não")
+        void contaDeDestinoSoNaDevolucao() {
+            assertThatThrownBy(() -> new DecisaoDeAnalise(UUID.randomUUID(), UUID.randomUUID(), "sub-1", "carla",
+                    DecisaoDeAnalise.Decisao.LIBERAR, UUID.randomUUID(), "Cliente confirmou por telefone.", AGORA))
+                    .isInstanceOf(TransferenciaInvalidaException.class);
+            assertThatThrownBy(() -> new DecisaoDeAnalise(UUID.randomUUID(), UUID.randomUUID(), "sub-1", "carla",
+                    DecisaoDeAnalise.Decisao.DEVOLVER, null, "Cliente pediu a devolução.", AGORA))
+                    .isInstanceOf(TransferenciaInvalidaException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("antifraude: antes de qualquer dinheiro sair (ADR-0033)")
+    class Antifraude {
+
+        @Test
+        @DisplayName("criada: precisa de avaliação, e não há passo no razão antes dela")
+        void criadaEsperaAAvaliacao() {
+            TransferenciaPix t = criada("100.00");
+            assertThat(t.precisaDeAvaliacao()).isTrue();
+            assertThat(t.proximoPasso()).isEmpty();
+            assertThatThrownBy(() -> t.aplicar(Passo.DEBITAR, feito(), AGORA)).isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("aprovar: APROVADA, com a nota; o próximo passo é o débito")
+        void aprovar() {
+            TransferenciaPix t = criada("100.00");
+            t.aplicarAvaliacao(new ResultadoDaAvaliacao.Aprovar(37), AGORA);
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.APROVADA);
+            assertThat(t.notaDeRisco()).isEqualTo(37);
+            assertThat(t.proximoPasso()).contains(Passo.DEBITAR);
+            assertThat(t.finalizadaEm()).isNull();
+            assertThatThrownBy(() -> t.aplicarAvaliacao(new ResultadoDaAvaliacao.Aprovar(1), AGORA))
+                    .isInstanceOf(IllegalStateException.class);
+        }
+
+        @Test
+        @DisplayName("segurar: RETIDA, sem passo automático, com a nota e os motivos")
+        void segurar() {
+            TransferenciaPix t = criada("4800.00");
+            t.aplicarAvaliacao(new ResultadoDaAvaliacao.Segurar(770, "valor de R$ 4.800,00"), AGORA);
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.RETIDA);
+            assertThat(t.situacao().ehFinal()).isTrue();
+            assertThat(t.situacao().respostaDefinitiva()).isFalse();
+            assertThat(t.proximoPasso()).isEmpty();
+            assertThat(t.motivo()).isEqualTo("Retido pelo antifraude (nota 770): valor de R$ 4.800,00");
+            assertThat(t.lancamentoEnvioId()).isNull();
+        }
+
+        @Test
+        @DisplayName("recusar: REJEITADA, sem dinheiro movido")
+        void recusar() {
+            TransferenciaPix t = criada("9000.00");
+            t.aplicarAvaliacao(new ResultadoDaAvaliacao.Recusar(990, "8 Pix do pagador na última hora"), AGORA);
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.REJEITADA);
+            assertThat(t.motivo()).startsWith("Recusado pelo antifraude (nota 990)");
+            assertThat(t.finalizadaEm()).isEqualTo(AGORA);
+        }
+
+        @Test
+        @DisplayName("sem resposta: até R$ 500,00 segue sem nota; acima, fica retida (falha segura)")
+        void falhaSegura() {
+            TransferenciaPix ate = criada("500.00");
+            ate.aplicarAvaliacao(new ResultadoDaAvaliacao.SemResposta("HTTP 503"), AGORA);
+            assertThat(ate.situacao()).isEqualTo(SituacaoTransferencia.APROVADA);
+            assertThat(ate.notaDeRisco()).isNull();
+
+            TransferenciaPix acima = criada("500.01");
+            acima.aplicarAvaliacao(new ResultadoDaAvaliacao.SemResposta("HTTP 503"), AGORA);
+            assertThat(acima.situacao()).isEqualTo(SituacaoTransferencia.RETIDA);
+            assertThat(acima.motivo()).isEqualTo(
+                    "Retido sem avaliação: o valor passa de R$\u00a0500,00 e o antifraude não respondeu (HTTP 503)");
+        }
+
+        @Test
+        @DisplayName("motivo longo é cortado no tamanho da coluna")
+        void motivoLongo() {
+            TransferenciaPix t = criada("4800.00");
+            t.aplicarAvaliacao(new ResultadoDaAvaliacao.Segurar(770, "x".repeat(1000)), AGORA);
+            assertThat(t.motivo()).hasSize(TransferenciaPix.TAMANHO_MAXIMO_MOTIVO).endsWith("…");
+        }
+
+        @Test
+        @DisplayName("liberar: RETIDA → APROVADA; o débito sai na hora")
+        void liberar() {
+            TransferenciaPix t = criada("4800.00");
+            t.aplicarAvaliacao(new ResultadoDaAvaliacao.Segurar(770, "valor alto"), AGORA);
+            t.liberar(AGORA.plusSeconds(60));
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.APROVADA);
+            assertThat(t.proximoPasso()).contains(Passo.DEBITAR);
+            assertThat(t.proximaTentativaEm()).isEqualTo(AGORA.plusSeconds(60));
+            assertThat(t.finalizadaEm()).isNull();
+            t.aplicar(Passo.DEBITAR, feito(), AGORA.plusSeconds(61));
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.DEBITADA);
+        }
+
+        @Test
+        @DisplayName("recusar na análise: RETIDA → REJEITADA, e o motivo diz quem recusou")
+        void recusarNaAnalise() {
+            TransferenciaPix t = criada("4800.00");
+            t.aplicarAvaliacao(new ResultadoDaAvaliacao.Segurar(770, "valor alto"), AGORA);
+            t.recusarNaAnalise(AGORA.plusSeconds(60));
+            assertThat(t.situacao()).isEqualTo(SituacaoTransferencia.REJEITADA);
+            assertThat(t.motivo()).isEqualTo("Recusado na análise. Retido pelo antifraude (nota 770): valor alto");
+            assertThat(t.finalizadaEm()).isEqualTo(AGORA.plusSeconds(60));
+        }
+
+        @Test
+        @DisplayName("liberar ou recusar o que não está retido: recusado")
+        void soORetido() {
+            TransferenciaPix t = nova();
+            assertThatThrownBy(() -> t.liberar(AGORA)).isInstanceOf(TransferenciaForaDeAnaliseException.class);
+            assertThatThrownBy(() -> t.recusarNaAnalise(AGORA)).isInstanceOf(TransferenciaForaDeAnaliseException.class);
+        }
+
+        @Test
+        @DisplayName("barrado na análise de risco: retido, recusado pelo antifraude ou na análise, e pela falha segura; recusa do razão não")
+        void barradoNaAnaliseDeRisco() {
+            TransferenciaPix retida = criada("4800.00");
+            retida.aplicarAvaliacao(new ResultadoDaAvaliacao.Segurar(770, "valor alto"), AGORA);
+            assertThat(retida.barradoNaAnaliseDeRisco()).isTrue();
+            retida.recusarNaAnalise(AGORA);
+            assertThat(retida.barradoNaAnaliseDeRisco()).isTrue();
+
+            TransferenciaPix recusada = criada("9000.00");
+            recusada.aplicarAvaliacao(new ResultadoDaAvaliacao.Recusar(990, "rajada"), AGORA);
+            assertThat(recusada.barradoNaAnaliseDeRisco()).isTrue();
+
+            TransferenciaPix semResposta = criada("500.01");
+            semResposta.aplicarAvaliacao(new ResultadoDaAvaliacao.SemResposta("HTTP 503"), AGORA);
+            assertThat(semResposta.barradoNaAnaliseDeRisco()).isTrue();
+
+            TransferenciaPix semSaldo = nova();
+            assertThat(semSaldo.barradoNaAnaliseDeRisco()).isFalse();
+            semSaldo.aplicar(Passo.DEBITAR, new ResultadoDoPasso.Recusado("saldo-insuficiente", "Saldo insuficiente"), AGORA);
+            assertThat(semSaldo.situacao()).isEqualTo(SituacaoTransferencia.REJEITADA);
+            assertThat(semSaldo.barradoNaAnaliseDeRisco()).isFalse();
+
+            TransferenciaPix liberada = criada("4800.00");
+            liberada.aplicarAvaliacao(new ResultadoDaAvaliacao.Segurar(770, "valor alto"), AGORA);
+            liberada.liberar(AGORA);
+            assertThat(liberada.barradoNaAnaliseDeRisco()).isFalse();
+        }
+
+        @Test
+        @DisplayName("a nota sobrevive à ida e volta do banco")
+        void reconstituir() {
+            TransferenciaPix t = nova();
+            assertThat(TransferenciaPix.reconstituir(t.estado()).notaDeRisco()).isEqualTo(12);
         }
     }
 }

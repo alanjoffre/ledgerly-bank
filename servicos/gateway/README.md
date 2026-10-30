@@ -56,9 +56,15 @@ em toda chamada, é o serviço.
 | `/api/v1/contas/{id}/extrato`, `/api/v1/contas/{id}/saldo` | extrato (`:8084`) |
 | `/api/v1/transferencias/**`, `/api/v1/chaves/**`, `/api/v1/contas/{id}/chaves`, `/api/v1/qrcodes/**` | pix (`:8083`) |
 | `/api/v1/clientes/**`, `/api/v1/contas/**` | contas (`:8081`) |
+| `GET /api/v1/avaliacoes/{id}` e `GET /api/v1/avaliacoes/{id}/explicacao` | antifraude (`:8085`): a analista lê por que o Pix foi retido |
+| `POST /api/v1/assistente/perguntas` | assistente (`:8086`): só o cliente pergunta, e quem confere é o próprio serviço |
 
 O **razão não tem rota**: só outro serviço, com token de serviço, fala com ele
-([ADR-0027](../../docs/adr/0027-token-de-servico-e-razao-sem-rota.md)). O cookie de sessão e o
+([ADR-0027](../../docs/adr/0027-token-de-servico-e-razao-sem-rota.md)). Do antifraude, só a leitura passa: pedir
+uma avaliação é coisa do Pix, e o `POST /api/v1/avaliacoes` nem chega ao serviço
+([ADR-0032](../../docs/adr/0032-antifraude-regras-e-modelo-onnx.md)). O assistente responde em
+segundos, e o gateway não põe tempo limite de leitura
+([ADR-0036](../../docs/adr/0036-assistente-rag-ferramentas-e-travas.md)). O cookie de sessão e o
 cabeçalho de CSRF não seguem para os serviços: lá eles não significam nada. O corpo do pedido vai
 inteiro, com `Content-Length`, e nunca "em partes": contorna uma corrida no cliente HTTP do JDK 25
 ([ClienteHttp](src/main/java/io/github/alanjoffre/ledgerly/gateway/ClienteHttp.java),
@@ -113,7 +119,7 @@ caminho da tela (`web/<tela>/dist`) é relativo a ela.
 Variáveis: `GATEWAY_PORTA`, `GATEWAY_PAGINA` (a pasta da tela, como `file:...`),
 `GATEWAY_CLIENTE_SEGREDO` (o segredo do cliente no Keycloak; o padrão só vale no ambiente local),
 `LEDGERLY_EMISSOR` (padrão `http://localhost:18081/realms/ledgerly`), `GATEWAY_CONTAS_URL`,
-`GATEWAY_EXTRATO_URL`, `GATEWAY_PIX_URL`.
+`GATEWAY_EXTRATO_URL`, `GATEWAY_PIX_URL`, `GATEWAY_ANTIFRAUDE_URL`, `GATEWAY_ASSISTENTE_URL`.
 
 O cookie sai sem `Secure` só porque o ambiente local é `http`. Em nuvem, com `https`, ele liga.
 

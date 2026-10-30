@@ -12,6 +12,7 @@ type Etapa =
 const RESULTADO: Record<string, { classe: string; texto: string }> = {
   CONCLUIDA: { classe: "ok", texto: "Pix enviado." },
   REJEITADA: { classe: "erro", texto: "Pix recusado." },
+  RETIDA: { classe: "aviso", texto: "Pix retido para análise de segurança." },
   ESTORNADA: { classe: "aviso", texto: "Pix não concluído: o valor voltou para a sua conta." },
   EM_ANALISE: { classe: "aviso", texto: "Pix em análise pela equipe de segurança. Você será avisado." },
 };

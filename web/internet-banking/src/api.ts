@@ -37,8 +37,10 @@ export type TipoChave = "CPF" | "EMAIL" | "TELEFONE" | "ALEATORIA";
 export type Chave = { chave: string; tipo: TipoChave; contaId: string; titular: string; registradaEm: string };
 export type ConsultaDeChave = { chave: string; tipo: TipoChave; titular: string; instituicao: string };
 
-export type Situacao = "CRIADA" | "DEBITADA" | "CONCLUIDA" | "REJEITADA" | "ESTORNANDO" | "ESTORNADA" | "EM_ANALISE";
-export const FINAIS: ReadonlySet<Situacao> = new Set(["CONCLUIDA", "REJEITADA", "ESTORNADA", "EM_ANALISE"]);
+export type Situacao =
+  | "CRIADA" | "APROVADA" | "RETIDA" | "DEBITADA" | "CONCLUIDA" | "REJEITADA" | "ESTORNANDO" | "ESTORNADA" | "EM_ANALISE";
+/** Onde a tela para de acompanhar. RETIDA não é o fim do Pix, mas depende de uma pessoa: pode levar horas. */
+export const FINAIS: ReadonlySet<Situacao> = new Set(["RETIDA", "CONCLUIDA", "REJEITADA", "ESTORNADA", "EM_ANALISE"]);
 
 export type Transferencia = {
   id: string;
@@ -47,6 +49,14 @@ export type Transferencia = {
   descricao: string | null;
   recebedor: { nome: string; chave: string; tipoChave: TipoChave };
   motivo: string | null;
+};
+
+/** A resposta do assistente (ADR-0036): escrita pelo modelo de linguagem, uma recusa ou o texto de reserva. */
+export type RespostaDoAssistente = {
+  texto: string;
+  origem: "MODELO_DE_LINGUAGEM" | "RECUSA" | "RESERVA";
+  /** Os artigos de ajuda que embasaram a resposta. */
+  fontes: string[];
 };
 
 const caminho = (texto: string) => encodeURIComponent(texto);
@@ -68,4 +78,6 @@ export const api = {
       corpo: { pagadorContaId, chave, valor, descricao: descricao || null },
     }),
   transferencia: (id: string) => chamar<Transferencia>(`/api/v1/transferencias/${id}`),
+  perguntar: (pergunta: string) =>
+    chamar<RespostaDoAssistente>("/api/v1/assistente/perguntas", { metodo: "POST", corpo: { pergunta } }),
 };

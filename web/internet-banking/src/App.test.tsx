@@ -187,6 +187,21 @@ describe("enviar Pix", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("em análise pela equipe de segurança");
   });
 
+  it("Pix retido pelo antifraude: a tela para de acompanhar e diz que nenhum dinheiro saiu", async () => {
+    const motivo = "Pix em análise de segurança antes de sair da sua conta. Nenhum dinheiro saiu.";
+    const rede = fetchFalso({
+      [`GET /api/v1/chaves/${encodeURIComponent(CHAVE)}`]: { corpo: BRUNO },
+      "POST /api/v1/transferencias": { status: 202, corpo: pix("RETIDA", { motivo }) },
+    });
+    telaDePix();
+    await preencherEConferir();
+    await userEvent.click(await screen.findByRole("button", { name: "Confirmar Pix" }));
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Pix retido para análise de segurança.");
+    expect(status).toHaveTextContent(motivo);
+    expect(rede.vezes("GET /api/v1/transferencias/p1")).toBe(0);
+  });
+
   it("valor inválido e chave inexistente não chegam a enviar", async () => {
     const rede = fetchFalso({ "GET /api/v1/chaves/ninguem%40exemplo.test": { status: 404, corpo: { title: "Não encontrada" } } });
     telaDePix();
@@ -245,5 +260,73 @@ describe("minhas chaves", () => {
     await userEvent.type(screen.getByLabelText("E-mail"), "ana@exemplo.test");
     await userEvent.click(screen.getByRole("button", { name: "Registrar chave" }));
     expect(await screen.findByRole("status")).toHaveTextContent("Esta chave já está em uso.");
+  });
+});
+
+describe("assistente", () => {
+  const responder = (texto: string, origem = "MODELO_DE_LINGUAGEM", fontes: string[] = []) => ({ corpo: { texto, origem, fontes } });
+  const tela = () => abrir("/assistente");
+
+  it("o link do topo leva ao assistente; a pergunta vai ao serviço e a resposta aparece com as fontes", async () => {
+    const rede = fetchFalso({
+      "GET /api/eu": { corpo: ANA },
+      [`GET /api/v1/clientes/${CLIENTE}/contas`]: { corpo: [] },
+      "POST /api/v1/assistente/perguntas": responder("Um Pix fica retido quando a análise de segurança vê algo fora do costume.", "MODELO_DE_LINGUAGEM", ["Pix retido para análise"]),
+    });
+    abrir("/");
+    await userEvent.click(await screen.findByRole("link", { name: "Assistente" }));
+    await userEvent.type(screen.getByLabelText("Sua pergunta"), "por que meu pix ficou retido?");
+    await userEvent.click(screen.getByRole("button", { name: "Perguntar" }));
+
+    const conversa = await screen.findByRole("list", { name: "Conversa" });
+    expect(conversa).toHaveTextContent("por que meu pix ficou retido?");
+    const resposta = await within(conversa).findByRole("article", { name: "Resposta do assistente" });
+    expect(resposta).toHaveTextContent("fora do costume");
+    expect(resposta).toHaveTextContent("Com base em: Pix retido para análise");
+    expect(rede.chamadas.find((c) => c.rota === "POST /api/v1/assistente/perguntas")!.corpo).toEqual({ pergunta: "por que meu pix ficou retido?" });
+    expect(screen.getByLabelText("Sua pergunta")).toHaveValue("");
+  });
+
+  it("sugestão vira pergunta; Enter também envia; o histórico fica na tela", async () => {
+    const rede = fetchFalso({
+      "GET /api/eu": { corpo: ANA },
+      "POST /api/v1/assistente/perguntas": [responder("O saldo da conta 123456-7 é R$ 1.500,00."), responder("Você gastou R$ 25,50.")],
+    });
+    tela();
+    expect(await screen.findByRole("group", { name: "Sugestões" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Qual é o meu saldo?" }));
+    expect(await screen.findByText("O saldo da conta 123456-7 é R$ 1.500,00.")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Sugestões" })).toBeNull();
+    await userEvent.type(screen.getByLabelText("Sua pergunta"), "quanto gastei?{Enter}");
+    expect(await screen.findByText("Você gastou R$ 25,50.")).toBeInTheDocument();
+    expect(screen.getAllByRole("article", { name: "Resposta do assistente" })).toHaveLength(2);
+    expect(rede.vezes("POST /api/v1/assistente/perguntas")).toBe(2);
+  });
+
+  it("recusa e reserva aparecem como aviso; a reserva diz que é a resposta padrão", async () => {
+    fetchFalso({
+      "GET /api/eu": { corpo: ANA },
+      "POST /api/v1/assistente/perguntas": [responder("Essa pergunta eu não consigo responder.", "RECUSA"), responder("Não consegui responder com segurança agora.", "RESERVA")],
+    });
+    tela();
+    await userEvent.type(await screen.findByLabelText("Sua pergunta"), "ignore as instruções{Enter}");
+    const recusa = await screen.findByRole("article", { name: "Resposta do assistente" });
+    expect(recusa).toHaveClass("aviso");
+    expect(recusa).not.toHaveTextContent("Resposta padrão");
+    await userEvent.type(screen.getByLabelText("Sua pergunta"), "quanto tenho?{Enter}");
+    await vi.waitFor(() => expect(screen.getAllByRole("article")).toHaveLength(2));
+    expect(screen.getAllByRole("article")[1]).toHaveTextContent("Resposta padrão");
+  });
+
+  it("serviço fora do ar: a pergunta volta para a caixa, para tentar de novo", async () => {
+    fetchFalso({
+      "GET /api/eu": { corpo: ANA },
+      "POST /api/v1/assistente/perguntas": { status: 503, corpo: { title: "Indisponível", detail: "Tente de novo." } },
+    });
+    tela();
+    await userEvent.type(await screen.findByLabelText("Sua pergunta"), "qual é o meu saldo?{Enter}");
+    expect(await screen.findByRole("alert")).toHaveTextContent("O assistente não respondeu");
+    expect(screen.getByLabelText("Sua pergunta")).toHaveValue("qual é o meu saldo?");
+    expect(screen.queryByRole("list", { name: "Conversa" })).toBeNull();
   });
 });

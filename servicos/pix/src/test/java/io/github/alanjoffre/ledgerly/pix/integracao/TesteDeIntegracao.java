@@ -51,6 +51,7 @@ abstract class TesteDeIntegracao {
     void zerar() throws SQLException {
         ServicosFalsos.RAZAO.zerar();
         ServicosFalsos.CONTAS.zerar();
+        ServicosFalsos.ANTIFRAUDE.zerar();
         try (Connection c = banco.getConnection(); var sql = c.createStatement()) {
             sql.execute(LIMPAR_TABELAS);
         }

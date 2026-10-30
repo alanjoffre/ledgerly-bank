@@ -24,5 +24,5 @@ public record PropriedadesDoBff(String papel, String emissor, String clienteId, 
         Objects.requireNonNull(servicos, "ledgerly.bff.servicos é obrigatório");
     }
 
-    public record Servicos(URI contas, URI extrato, URI pix) {}
+    public record Servicos(URI contas, URI extrato, URI pix, URI antifraude, URI assistente) {}
 }

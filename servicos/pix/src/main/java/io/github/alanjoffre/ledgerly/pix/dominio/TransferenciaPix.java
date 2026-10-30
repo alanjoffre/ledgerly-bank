@@ -4,6 +4,7 @@ import io.github.alanjoffre.ledgerly.nucleo.Dinheiro;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,6 +24,8 @@ public final class TransferenciaPix {
 
     public static final int TAMANHO_MAXIMO_DESCRICAO = 140;
     public static final int TAMANHO_MAXIMO_CHAVE_IDEMPOTENCIA = 100;
+    /** O tamanho da coluna {@code motivo}: os motivos do antifraude podem ser mais longos. */
+    static final int TAMANHO_MAXIMO_MOTIVO = 400;
 
     /**
      * Quanto tempo um "conta não encontrada" no crédito vale como "ainda não sei" (ADR-0015).
@@ -34,6 +37,21 @@ public final class TransferenciaPix {
      */
     public static final Duration JANELA_CONTA_NOVA = Duration.ofMinutes(5);
     static final String CONTA_NAO_ENCONTRADA = "conta-nao-encontrada";
+    private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
+
+    /**
+     * A falha segura (ADR-0033): com o antifraude fora do ar ou lento, o Pix até este valor segue sem
+     * avaliação; acima dele, fica retido para uma pessoa. Parar todo Pix porque um serviço caiu
+     * seria tirar o banco do ar; deixar passar tudo seria abrir a porta justamente quando ninguém
+     * está olhando.
+     */
+    public static final Dinheiro LIMITE_SEM_ANTIFRAUDE = Dinheiro.reais("500.00");
+
+    /** O começo dos motivos que vêm da análise de risco: é por eles que {@link #barradoNaAnaliseDeRisco()} os reconhece. */
+    private static final String RETIDO_PELO_ANTIFRAUDE = "Retido pelo antifraude";
+    private static final String RECUSADO_PELO_ANTIFRAUDE = "Recusado pelo antifraude";
+    private static final String RETIDO_SEM_AVALIACAO = "Retido sem avaliação";
+    private static final String RECUSADO_NA_ANALISE = "Recusado na análise. ";
 
     private final UUID id;
     private final String chaveIdempotencia;
@@ -45,6 +63,7 @@ public final class TransferenciaPix {
     private final Instant criadaEm;
     private SituacaoTransferencia situacao;
     private String motivo;
+    private Integer notaDeRisco;
     private UUID lancamentoEnvioId;
     private UUID lancamentoRecebimentoId;
     private UUID lancamentoEstornoId;
@@ -126,6 +145,7 @@ public final class TransferenciaPix {
             String descricao,
             SituacaoTransferencia situacao,
             String motivo,
+            Integer notaDeRisco,
             UUID lancamentoEnvioId,
             UUID lancamentoRecebimentoId,
             UUID lancamentoEstornoId,
@@ -148,6 +168,7 @@ public final class TransferenciaPix {
                 e.criadaEm(),
                 e.situacao());
         t.motivo = e.motivo();
+        t.notaDeRisco = e.notaDeRisco();
         t.lancamentoEnvioId = e.lancamentoEnvioId();
         t.lancamentoRecebimentoId = e.lancamentoRecebimentoId();
         t.lancamentoEstornoId = e.lancamentoEstornoId();
@@ -169,6 +190,7 @@ public final class TransferenciaPix {
                 descricao,
                 situacao,
                 motivo,
+                notaDeRisco,
                 lancamentoEnvioId,
                 lancamentoRecebimentoId,
                 lancamentoEstornoId,
@@ -179,14 +201,97 @@ public final class TransferenciaPix {
                 finalizadaEm);
     }
 
-    /** O próximo passo da Saga, ou vazio se ela já terminou. */
+    /** Ainda não passou pelo antifraude: a avaliação vem antes de qualquer passo no razão. */
+    public boolean precisaDeAvaliacao() {
+        return situacao == SituacaoTransferencia.CRIADA;
+    }
+
+    /**
+     * O próximo passo da Saga no razão, ou vazio se ela já terminou, está retida ou ainda precisa da
+     * avaliação ({@link #precisaDeAvaliacao()}).
+     */
     public Optional<Passo> proximoPasso() {
         return switch (situacao) {
-            case CRIADA -> Optional.of(Passo.DEBITAR);
+            case APROVADA -> Optional.of(Passo.DEBITAR);
             case DEBITADA -> Optional.of(Passo.CREDITAR);
             case ESTORNANDO -> Optional.of(Passo.ESTORNAR);
-            case CONCLUIDA, REJEITADA, ESTORNADA, EM_ANALISE -> Optional.empty();
+            case CRIADA, RETIDA, CONCLUIDA, REJEITADA, ESTORNADA, EM_ANALISE -> Optional.empty();
         };
+    }
+
+    /**
+     * Aplica a resposta do antifraude (ADR-0033). Sem resposta, decide a regra de valor: até
+     * {@link #LIMITE_SEM_ANTIFRAUDE} segue sem nota; acima, retém.
+     *
+     * @throws IllegalStateException se a transferência já foi avaliada
+     */
+    public void aplicarAvaliacao(ResultadoDaAvaliacao resultado, Instant agora) {
+        Objects.requireNonNull(resultado, "resultado é obrigatório");
+        if (!precisaDeAvaliacao()) {
+            throw new IllegalStateException(
+                    "A transferência %s já foi avaliada (situação %s)".formatted(id, situacao));
+        }
+        Instant instante = micros(agora);
+        switch (resultado) {
+            case ResultadoDaAvaliacao.Aprovar aprovar -> {
+                notaDeRisco = aprovar.nota();
+                situacao = SituacaoTransferencia.APROVADA;
+            }
+            case ResultadoDaAvaliacao.Segurar segurar -> {
+                notaDeRisco = segurar.nota();
+                situacao = SituacaoTransferencia.RETIDA;
+                motivo = limitar((RETIDO_PELO_ANTIFRAUDE + " (nota %d): %s").formatted(segurar.nota(), segurar.motivo()));
+            }
+            case ResultadoDaAvaliacao.Recusar recusar -> {
+                notaDeRisco = recusar.nota();
+                situacao = SituacaoTransferencia.REJEITADA;
+                motivo = limitar((RECUSADO_PELO_ANTIFRAUDE + " (nota %d): %s").formatted(recusar.nota(), recusar.motivo()));
+            }
+            case ResultadoDaAvaliacao.SemResposta semResposta -> {
+                if (valor.ehMaiorQue(LIMITE_SEM_ANTIFRAUDE)) {
+                    situacao = SituacaoTransferencia.RETIDA;
+                    motivo = limitar((RETIDO_SEM_AVALIACAO + ": o valor passa de %s e o antifraude não respondeu (%s)")
+                            .formatted(LIMITE_SEM_ANTIFRAUDE.formatar(PT_BR), semResposta.erro()));
+                } else {
+                    situacao = SituacaoTransferencia.APROVADA;
+                }
+            }
+        }
+        proximaTentativaEm = instante;
+        if (situacao.ehFinal()) {
+            finalizadaEm = instante;
+        }
+    }
+
+    /**
+     * A analista liberou o Pix retido: a Saga volta a andar, e o próximo passo é o débito.
+     *
+     * @throws TransferenciaForaDeAnaliseException se a transferência não está retida
+     */
+    public void liberar(Instant agora) {
+        exigirRetida();
+        situacao = SituacaoTransferencia.APROVADA;
+        proximaTentativaEm = micros(agora);
+        finalizadaEm = null;
+    }
+
+    /**
+     * A analista recusou o Pix retido: fim, sem dinheiro movido.
+     *
+     * @throws TransferenciaForaDeAnaliseException se a transferência não está retida
+     */
+    public void recusarNaAnalise(Instant agora) {
+        exigirRetida();
+        situacao = SituacaoTransferencia.REJEITADA;
+        motivo = limitar(RECUSADO_NA_ANALISE + motivo);
+        finalizadaEm = micros(agora);
+    }
+
+    private void exigirRetida() {
+        if (situacao != SituacaoTransferencia.RETIDA) {
+            throw new TransferenciaForaDeAnaliseException(
+                    "A transferência %s não está retida (situação %s)".formatted(id, situacao));
+        }
     }
 
     /**
@@ -323,6 +428,10 @@ public final class TransferenciaPix {
         return chave;
     }
 
+    private static String limitar(String texto) {
+        return texto.length() <= TAMANHO_MAXIMO_MOTIVO ? texto : texto.substring(0, TAMANHO_MAXIMO_MOTIVO - 1) + "…";
+    }
+
     // O PostgreSQL guarda microssegundos; sem cortar aqui, a transferência na memória e a mesma
     // lida do banco teriam horários diferentes (o mesmo achado da Fase 1).
     private static Instant micros(Instant instante) {
@@ -363,6 +472,23 @@ public final class TransferenciaPix {
 
     public String motivo() {
         return motivo;
+    }
+
+    /**
+     * O Pix parou na análise de risco: retido (pelo antifraude ou pela falha segura), recusado pelo
+     * antifraude, ou recusado pela analista depois de retido. O motivo, nesses casos, conta a nota e
+     * as regras: é da analista, não do cliente (ADR-0033).
+     */
+    public boolean barradoNaAnaliseDeRisco() {
+        return motivo != null
+                && (situacao == SituacaoTransferencia.RETIDA || situacao == SituacaoTransferencia.REJEITADA)
+                && (motivo.startsWith(RETIDO_PELO_ANTIFRAUDE) || motivo.startsWith(RECUSADO_PELO_ANTIFRAUDE)
+                        || motivo.startsWith(RETIDO_SEM_AVALIACAO) || motivo.startsWith(RECUSADO_NA_ANALISE));
+    }
+
+    /** A nota do antifraude (0 a 1000); {@code null} se ainda não avaliada ou se ele não respondeu. */
+    public Integer notaDeRisco() {
+        return notaDeRisco;
     }
 
     public UUID lancamentoEnvioId() {

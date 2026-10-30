@@ -6,8 +6,8 @@ com **Vitest** (unidade) e **Playwright** (ponta a ponta). O porquê de cada esc
 
 | Pacote | O que é | Quem usa | Endereço |
 |---|---|---|---|
-| [internet-banking](internet-banking/) | O banco do cliente: contas e saldo, extrato, Pix (com "confira quem recebe"), chaves Pix | cliente | http://localhost:8080 |
-| [backoffice](backoffice/) | O backoffice de fraude: a fila de Pix em análise, a devolução com justificativa, a consulta e o bloqueio de contas | analista | http://localhost:8090 |
+| [internet-banking](internet-banking/) | O banco do cliente: contas e saldo, extrato, Pix (com "confira quem recebe"), chaves Pix e, desde a Fase 5, o assistente "pergunte ao seu extrato" | cliente | http://localhost:8080 |
+| [backoffice](backoffice/) | O backoffice de fraude: a fila de Pix em análise, a devolução com justificativa, a consulta e o bloqueio de contas e, desde a Fase 5, a fila de Pix retidos pelo antifraude, com a explicação, para liberar ou recusar | analista | http://localhost:8090 |
 | [comum](comum/) | O que as duas usam: as chamadas à API (com o CSRF), quem está logado, sair, dinheiro em reais | — | — |
 | [e2e](e2e/) | Os testes de ponta a ponta, num navegador de verdade | — | — |
 
@@ -29,6 +29,9 @@ a API, e chama `/api/v1/...` com o cookie de sessão, que o JavaScript nem conse
   `404` de conta de outro cliente aparece como "não encontrada", igual a uma conta que não existe.
 - **Pix**: a chave de idempotência nasce no primeiro envio, e tentar de novo depois de uma falha
   reusa a **mesma** chave. Assim um clique repetido não vira dois Pix.
+- **Pix retido** (Fase 5): o envio responde `202` com a situação `RETIDA`. A tela para de
+  acompanhar e diz que o Pix ficou retido para análise de segurança e que nenhum dinheiro saiu. A
+  nota e os motivos não chegam ao cliente ([ADR-0033](../docs/adr/0033-pix-retido-antes-do-debito.md)).
 - **Sair**: `POST /logout`, e a tela vai ao endereço de saída do Keycloak que o gateway devolve; a
   sessão acaba nos dois.
 
@@ -67,8 +70,8 @@ npm run verificar   # tipos, testes e construção: o que o CI roda
 | Pacote | Testes | O que prova |
 |---|---|---|
 | comum | 27 | As chamadas à API: CSRF no POST, Problem Details, 401, sair; dinheiro em reais, sem perder centavo |
-| internet-banking | 16 | Entrar, quem não é cliente, banco fora do ar; contas com o saldo de cada uma; extrato com "carregar mais"; o Pix confere quem recebe, envia e acompanha até concluir, **repete com a mesma chave de idempotência**, diz quando fica em análise; chaves |
-| backoffice | 14 | Cliente não entra; a fila; a devolução com justificativa, outra analista decidiu antes (409), titular sem conta ativa; consulta, bloqueio e desbloqueio |
+| internet-banking | 21 | Entrar, quem não é cliente, banco fora do ar; contas com o saldo de cada uma; extrato com "carregar mais"; o Pix confere quem recebe, envia e acompanha até concluir, **repete com a mesma chave de idempotência**, diz quando fica em análise ou retido; chaves; o assistente: a pergunta e a resposta com as fontes, a recusa e a reserva como aviso, serviço fora do ar devolve a pergunta para a caixa |
+| backoffice | 23 | Cliente não entra; a fila; a devolução com justificativa, outra analista decidiu antes (409), titular sem conta ativa; consulta, bloqueio e desbloqueio; os retidos: a nota (ou "sem nota"), os motivos e os fatos, a explicação em texto fixo dita como fixa, liberar e recusar, outra analista decidiu antes (409) |
 
 Os testes de unidade trocam o `fetch` por um falso. É rápido, mas prova a tela contra o falso, e
 não contra a API. Dois defeitos da Fase 4 passaram por aí: o falso trazia o saldo na lista de
@@ -76,14 +79,15 @@ contas, e a API real não traz.
 
 ### Testes de ponta a ponta (Playwright)
 
-Um Chromium de verdade contra o sistema de verdade: Keycloak, os dois gateways e os quatro
-serviços. Ele digita o usuário e a senha na página do Keycloak, clica e confere o que a pessoa vê.
+Um Chromium de verdade contra o sistema de verdade: Keycloak, os dois gateways e os seis
+serviços. Os dois testes do Pix retido criam o caso com `scripts/pix-retido.sh`, pela API, e quem
+retém é o antifraude de verdade. Ele digita o usuário e a senha na página do Keycloak, clica e confere o que a pessoa vê.
 
 ```bash
 # na raiz, com tudo no ar e semeado (ver a demonstração da Fase 4):
 cd web/e2e
 npx playwright install chromium   # na primeira vez: baixa o navegador
-npm run e2e                       # cerca de 5 s
+npm run e2e                       # 7 testes, cerca de 12 s
 ```
 
 | Teste | O que prova |
@@ -92,6 +96,8 @@ npm run e2e                       # cerca de 5 s
 | internet banking | **BOLA**: a Ana pede a conta do Bruno direto na API e recebe 404, como se ela não existisse |
 | internet banking | Sem sessão, a API responde 401; Sair encerra a sessão também no Keycloak |
 | backoffice | A Carla vê o Pix em análise na fila, devolve ao titular, e ele sai da fila |
+| backoffice | A Carla vê por que o antifraude reteve o Pix (a nota e o motivo: conta aberta há menos de 1 dia), libera, e o Pix segue até `CONCLUIDA`. A nota não é fixa: de madrugada o modelo soma o horário (500 de dia, 882 medido às 04:32) |
+| backoffice | A Carla recusa um Pix retido: `REJEITADA`, sem dinheiro movido |
 | backoffice | Uma cliente não entra no backoffice |
 
 Os testes rodam um por vez (`workers: 1`): mexem no saldo das mesmas contas. Num erro, o
@@ -101,5 +107,5 @@ Git.
 Os testes de ponta a ponta acharam **cinco defeitos** que todos os outros testes deixaram passar.
 A lista e a lição estão na [ADR-0029](../docs/adr/0029-react-vite-vitest-playwright.md).
 
-**Ainda fora do CI**: eles precisam do sistema inteiro no ar (Keycloak, Kafka, três bancos e seis
+**Ainda fora do CI**: eles precisam do sistema inteiro no ar (Keycloak, Kafka, os bancos e oito
 processos Java). O CI roda os tipos, os testes de unidade e a construção.

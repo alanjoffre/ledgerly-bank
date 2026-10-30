@@ -24,8 +24,8 @@ import javax.sql.DataSource;
 @ApplicationScoped
 class JdbcTransferenciaRepository implements TransferenciaRepository {
 
-    /** As situações em que ainda há passo a dar. */
-    private static final String EM_ANDAMENTO = "('CRIADA', 'DEBITADA', 'ESTORNANDO')";
+    /** As situações em que ainda há passo a dar (a avaliação, na CRIADA; um passo no razão, nas outras). */
+    private static final String EM_ANDAMENTO = "('CRIADA', 'APROVADA', 'DEBITADA', 'ESTORNANDO')";
 
     private final DataSource banco;
 
@@ -112,7 +112,7 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
                         UPDATE transferencia_pix
                            SET situacao = ?, motivo = ?, lancamento_envio_id = ?, lancamento_recebimento_id = ?,
                                lancamento_estorno_id = ?, conta_devolucao_id = ?, tentativas = ?,
-                               proxima_tentativa_em = ?, finalizada_em = ?, reservada_ate = ?
+                               proxima_tentativa_em = ?, finalizada_em = ?, reservada_ate = ?, nota_de_risco = ?
                          WHERE id = ?
                         """)) {
             sql.setString(1, e.situacao().name());
@@ -125,7 +125,8 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
             Jdbc.instante(sql, 8, e.proximaTentativaEm());
             Jdbc.instante(sql, 9, e.finalizadaEm());
             Jdbc.instante(sql, 10, reservadaAte);
-            sql.setObject(11, e.id());
+            sql.setObject(11, e.notaDeRisco(), java.sql.Types.INTEGER);
+            sql.setObject(12, e.id());
             if (sql.executeUpdate() != 1) {
                 throw new IllegalStateException("Transferência %s não encontrada para salvar".formatted(e.id()));
             }
@@ -209,6 +210,7 @@ class JdbcTransferenciaRepository implements TransferenciaRepository {
                 rs.getString("descricao"),
                 SituacaoTransferencia.valueOf(rs.getString("situacao")),
                 rs.getString("motivo"),
+                rs.getObject("nota_de_risco", Integer.class),
                 Jdbc.uuid(rs, "lancamento_envio_id"),
                 Jdbc.uuid(rs, "lancamento_recebimento_id"),
                 Jdbc.uuid(rs, "lancamento_estorno_id"),

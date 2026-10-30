@@ -80,6 +80,52 @@ jobs:
       - name: Build (Vite)
         run: npm run construir
 
+  ml:
+    name: Treino do modelo de risco (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # O Python 3.12 do próprio runner basta; as versões das bibliotecas estão fixas no requisitos.txt.
+      - name: Instalar
+        run: python3 -m venv ml/.venv && ml/.venv/bin/pip install --quiet -r ml/requisitos.txt
+
+      # Com a semente fixa, treinar de novo tem de dar o mesmo modelo (ADR-0032). Se não der, alguém
+      # mudou o treino e não copiou o modelo, ou uma biblioteca mudou o resultado: o teste de
+      # paridade do Java estaria conferindo outro modelo. A comparação tem tolerância, não é byte a
+      # byte: outro processador pode mudar o último dígito de um número de ponto flutuante.
+      - name: Treinar e conferir que o modelo é o mesmo
+        run: |
+          mkdir -p "$RUNNER_TEMP/versionado"
+          cp ml/metricas.json servicos/antifraude/src/main/resources/modelo/pesos.json \
+             servicos/antifraude/src/test/resources/modelo/referencia.csv "$RUNNER_TEMP/versionado/"
+          ml/.venv/bin/python ml/treinar.py
+          ml/.venv/bin/python - "$RUNNER_TEMP/versionado" <<'EOF'
+          import csv, json, sys
+          antes = sys.argv[1]
+          def lista(caminho):
+              with open(caminho) as f:
+                  return [float(v) for linha in csv.DictReader(f) for v in linha.values()]
+          def pesos(caminho):
+              with open(caminho) as f:
+                  p = json.load(f)
+              return p["media"] + p["escala"] + p["pesos"]
+          erros = []
+          if json.load(open(f"{antes}/metricas.json")) != json.load(open("ml/metricas.json")):
+              erros.append("ml/metricas.json mudou")
+          for nome, ler, novo in [
+              ("pesos.json", pesos, "servicos/antifraude/src/main/resources/modelo/pesos.json"),
+              ("referencia.csv", lista, "servicos/antifraude/src/test/resources/modelo/referencia.csv"),
+          ]:
+              a, b = ler(f"{antes}/{nome}"), ler(novo)
+              if len(a) != len(b) or max(abs(x - y) for x, y in zip(a, b)) > 1e-6:
+                  erros.append(f"{nome} mudou")
+          for e in erros:
+              print(f"::error::O treino gerou um modelo diferente do versionado: {e}")
+          sys.exit(1 if erros else 0)
+          EOF
+
   infra:
     name: Validar infraestrutura local
     runs-on: ubuntu-latest
@@ -90,7 +136,8 @@ jobs:
       - name: Validar o compose.yaml
         run: docker compose -f infra/docker/compose.yaml config --quiet
 
-      # Sobe tudo e espera cada contêiner ficar saudável (healthcheck).
+      # Sobe tudo e espera cada contêiner ficar saudável (healthcheck). O Ollama tem o perfil "ia"
+      # (precisa de placa de vídeo) e fica de fora: nenhum teste depende dele.
       - name: Subir a infraestrutura
         run: docker compose -f infra/docker/compose.yaml up -d --wait --wait-timeout 300
 
@@ -102,7 +149,22 @@ jobs:
             echo "::error::O usuário pix conseguiu entrar no banco razao"
             exit 1
           fi
+          # O antifraude (Fase 5) também não entra no banco de outro serviço.
+          if docker compose -f infra/docker/compose.yaml exec -T -e PGPASSWORD=antifraude_local \
+               postgres psql -h localhost -U antifraude -d pix -c "select 1" </dev/null; then
+            echo "::error::O usuário antifraude conseguiu entrar no banco pix"
+            exit 1
+          fi
           echo "Isolamento confirmado."
+
+      - name: Conferir o pgvector do assistente
+        run: |
+          # Fase 5: o init do contêiner cria o banco do assistente com a extensão vector.
+          docker compose -f infra/docker/compose.yaml exec -T -e PGPASSWORD=assistente_local \
+            pgvector psql -h localhost -U assistente -d assistente -tAc \
+            "select extname from pg_extension where extname = 'vector'" </dev/null | grep -qx vector \
+            || { echo "::error::O banco assistente não tem a extensão vector"; exit 1; }
+          echo "pgvector confirmado."
 
       - name: Conferir os tópicos do Kafka
         run: |

@@ -1,5 +1,6 @@
 package io.github.alanjoffre.ledgerly.pix.aplicacao.porta;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -10,8 +11,11 @@ import java.util.UUID;
  */
 public interface Contas {
 
-    /** O resumo da conta: de qual cliente é, o nome do titular e se está ativa. */
-    record ContaResumo(UUID contaId, UUID clienteId, String titularNome, boolean ativa) {}
+    /**
+     * O resumo da conta: de qual cliente é, o nome do titular, se está ativa e quando foi aberta (o
+     * antifraude desconfia de conta recém-aberta recebendo valor alto).
+     */
+    record ContaResumo(UUID contaId, UUID clienteId, String titularNome, boolean ativa, Instant abertaEm) {}
 
     Optional<ContaResumo> buscar(UUID contaId);
 

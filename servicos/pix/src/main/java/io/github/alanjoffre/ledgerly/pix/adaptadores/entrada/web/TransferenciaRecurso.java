@@ -21,6 +21,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
+import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaPix;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,15 +31,16 @@ import java.util.UUID;
  * <p>{@code POST /v1/transferencias} exige {@code Idempotency-Key}. Respostas:
  * <ul>
  *   <li>{@code 201 Created} — a Saga terminou na hora (concluída, rejeitada ou estornada);</li>
- *   <li>{@code 202 Accepted} — o pedido foi aceito, mas um passo ficou sem resposta do razão; a
- *       Saga continua sozinha, e {@code GET /v1/transferencias/{id}} mostra o andamento;</li>
+ *   <li>{@code 202 Accepted} — o pedido foi aceito, mas um passo ficou sem resposta do razão (a
+ *       Saga continua sozinha) ou o antifraude reteve o Pix (a analista decide);
+ *       {@code GET /v1/transferencias/{id}} mostra o andamento;</li>
  *   <li>{@code 200 OK} + {@code Idempotent-Replayed: true} — pedido repetido: a mesma transferência;</li>
  *   <li>{@code 409} — o mesmo pedido ainda está em andamento (segundo clique).</li>
  * </ul>
  *
  * <p>Quem pode (ADR-0026): o Pix sai da conta do cliente que pede (ou de um serviço, como o teste
- * de carga); a consulta é do dono, do analista ou de um serviço. A fila de análise e a devolução
- * são do analista do backoffice (ADR-0030).
+ * de carga); a consulta é do dono, do analista ou de um serviço. As filas (em análise e retidos), a
+ * devolução, a liberação e a recusa são do analista do backoffice (ADR-0030, ADR-0033).
  */
 @Path("/v1/transferencias")
 @Produces(MediaType.APPLICATION_JSON)
@@ -70,11 +72,11 @@ public class TransferenciaRecurso {
                 Dtos.dinheiro(requisicao.valor()),
                 requisicao.descricao()),
                 quem.acesso());
-        var corpo = TransferenciaResposta.de(resultado.transferencia());
+        var corpo = resposta(resultado.transferencia());
         if (resultado.repetido()) {
             return Response.ok(corpo).header(CABECALHO_REPETIDO, "true").build();
         }
-        Response.ResponseBuilder resposta = corpo.situacao().ehFinal()
+        Response.ResponseBuilder resposta = corpo.situacao().respostaDefinitiva()
                 ? Response.created(URI.create("/v1/transferencias/" + corpo.id()))
                 : Response.accepted().location(URI.create("/v1/transferencias/" + corpo.id()));
         return resposta.entity(corpo).build();
@@ -84,19 +86,49 @@ public class TransferenciaRecurso {
     @Path("/{id}")
     @RolesAllowed({Quem.CLIENTE, Quem.ANALISTA, Quem.SERVICO})
     public TransferenciaResposta consultar(@PathParam("id") UUID id) {
-        return TransferenciaResposta.de(transferencias.consultar(id, quem.acesso()));
+        return resposta(transferencias.consultar(id, quem.acesso()));
     }
 
-    /** A fila do backoffice. Por enquanto, só a situação {@code EM_ANALISE} é listável. */
+    /** O cliente não vê a nota nem os motivos do antifraude; analista e serviço veem tudo. */
+    private TransferenciaResposta resposta(TransferenciaPix t) {
+        return quem.veAAnaliseDeRisco() ? TransferenciaResposta.de(t) : TransferenciaResposta.paraOCliente(t);
+    }
+
+    /** As filas do backoffice: {@code EM_ANALISE} (estorno recusado) e {@code RETIDA} (o antifraude segurou). */
     @GET
     @RolesAllowed(Quem.ANALISTA)
     public List<TransferenciaResposta> listar(
             @QueryParam("situacao") String situacao,
             @QueryParam("limite") @DefaultValue("50") @Min(1) @Max(200) int limite) {
-        if (!"EM_ANALISE".equals(situacao)) {
-            throw new FiltroInvalidoException();
-        }
-        return transferencias.emAnalise(limite).stream().map(TransferenciaResposta::de).toList();
+        List<TransferenciaPix> fila = switch (situacao == null ? "" : situacao) {
+            case "EM_ANALISE" -> transferencias.emAnalise(limite);
+            case "RETIDA" -> transferencias.retidas(limite);
+            default -> throw new FiltroInvalidoException();
+        };
+        return fila.stream().map(TransferenciaResposta::de).toList();
+    }
+
+    /** A analista liberou o Pix retido: a Saga segue na hora (débito e crédito). */
+    @POST
+    @Path("/{id}/liberacao")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed(Quem.ANALISTA)
+    public TransferenciaResposta liberar(@PathParam("id") UUID id, @NotNull @Valid Dtos.DecisaoRequisicao requisicao) {
+        return decidir(id, true, requisicao);
+    }
+
+    /** A analista recusou o Pix retido: fim, sem dinheiro movido. */
+    @POST
+    @Path("/{id}/recusa")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed(Quem.ANALISTA)
+    public TransferenciaResposta recusar(@PathParam("id") UUID id, @NotNull @Valid Dtos.DecisaoRequisicao requisicao) {
+        return decidir(id, false, requisicao);
+    }
+
+    private TransferenciaResposta decidir(UUID id, boolean liberar, Dtos.DecisaoRequisicao requisicao) {
+        return TransferenciaResposta.de(transferencias.decidirRetida(new TransferenciaService.PedidoDeDecisao(
+                id, liberar, requisicao.justificativa(), quem.id(), quem.nome())));
     }
 
     /** A decisão do analista: devolver o Pix em análise para outra conta do mesmo titular. */
@@ -109,14 +141,14 @@ public class TransferenciaRecurso {
                 id, requisicao.contaDestinoId(), requisicao.justificativa(), quem.id(), quem.nome())));
     }
 
-    /** O filtro {@code situacao} é obrigatório e, hoje, só aceita {@code EM_ANALISE}. */
+    /** O filtro {@code situacao} é obrigatório e só aceita as filas do backoffice. */
     static final class FiltroInvalidoException extends TransferenciaInvalidaException {
 
         @java.io.Serial
         private static final long serialVersionUID = 1L;
 
         FiltroInvalidoException() {
-            super("Informe situacao=EM_ANALISE (a única fila disponível)");
+            super("Informe situacao=EM_ANALISE ou situacao=RETIDA (as filas do backoffice)");
         }
 
         @Override

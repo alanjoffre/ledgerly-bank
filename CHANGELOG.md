@@ -5,8 +5,67 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [0.5.0] — 2026-10-30
+
+### Adicionado — Fase 5 (IA aplicada)
+
+- **Serviço antifraude** (`servicos/antifraude`, Quarkus 3.40, porta 8085): dá a cada Pix, **antes
+  do débito**, uma nota de 0 a 1000, a decisão (aprovar, segurar ou recusar) e os motivos em
+  português. A nota vem de um **modelo de regressão logística treinado em Python e executado na JVM
+  em ONNX** (ONNX Runtime 1.31), mais duas regras: a rajada (5 Pix ou mais na hora) e a conta
+  "laranja" (R$ 1.000,00 ou mais para conta aberta há menos de 2 dias, que nunca recebeu do
+  pagador). Teste de paridade Python × Java com 50 casos; o modelo leva p50 ≈ 6,5 µs por Pix na JVM
+  ([ADR-0032](docs/adr/0032-antifraude-regras-e-modelo-onnx.md)).
+- **Treino do modelo** (`ml/`, fora do build Maven): 60 mil Pix sintéticos com 2% de fraude, semente
+  fixa (treinar de novo dá o mesmo arquivo, byte a byte). A regressão logística ganhou das árvores
+  com gradiente na precisão média (0,553 × 0,517); os limites de segurar (200) e recusar (900)
+  saíram da tabela de limiares medida.
+- **Pix retido antes do débito:** a situação `RETIDA`, a fila "Pix retidos" do backoffice e as
+  decisões `POST /v1/transferencias/{id}/liberacao` e `/recusa`, só para analista e auditadas em
+  `decisao_de_analise`. Antifraude fora do ar ou lento (800 ms): o Pix até R$ 500,00 segue, o maior
+  fica retido (falha segura). **O cliente não vê a nota nem os motivos**: veria onde fica a linha
+  ([ADR-0033](docs/adr/0033-pix-retido-antes-do-debito.md)).
+- **Modelo de linguagem local, custo zero:** Ollama no Docker Compose (perfil `ia`, com a placa de
+  vídeo), LangChain4j 1.23 sem extensão de framework, e `scripts/modelos.sh` para baixar os
+  modelos. Nenhum teste do build precisa do Ollama: o modelo é falso e roteirizado
+  ([ADR-0034](docs/adr/0034-modelo-de-linguagem-local-ollama.md)).
+- **A explicação do Pix retido para a analista**, escrita pelo `gemma3:4b`
+  (`GET /v1/avaliacoes/{id}/explicacao`). Uma trava confere que todo número do texto existe na
+  avaliação; número inventado derruba o texto, e vale um texto fixo montado com os motivos
+  ([ADR-0035](docs/adr/0035-explicacao-com-trava-de-numeros.md)).
+- **Serviço assistente, "pergunte ao seu extrato"** (`servicos/assistente`, Spring Boot 4.1, porta
+  8086): o cliente pergunta em português no internet banking, e o `qwen3:4b-instruct-2507` responde com três
+  ferramentas **só de leitura** (contas, saldo e lançamentos, com o token do próprio cliente) e com
+  os artigos de ajuda achados por busca em vetores (RAG, `bge-m3` no **pgvector**). Trava de entrada
+  contra quem tenta trocar as instruções; trava de saída: valor em reais que não veio da ferramenta
+  ou do artigo vira o texto de reserva ([ADR-0036](docs/adr/0036-assistente-rag-ferramentas-e-travas.md)).
+- **Avaliação do assistente** (`avaliacao/`): 30 perguntas, cada uma com o fato que a resposta tem de
+  trazer, rodadas contra o modelo de verdade, fora do CI; a régua e o conjunto têm teste no build
+  ([ADR-0037](docs/adr/0037-avaliacao-do-assistente-fora-do-ci.md)). Primeira rodada (30/10):
+  **27 de 30**, p50 de 1,35 s por pergunta, nenhum valor errado ou de outra conta. Antes dela, a
+  avaliação achou dois defeitos que os testes do build não pegavam (eles usam um modelo falso):
+  - o `qwen3:4b` "pensa" antes de responder e gastava os 300 *tokens* no raciocínio: resposta vazia.
+    O assistente passou a usar o `qwen3:4b-instruct-2507-q4_K_M`, que responde direto;
+  - o Ollama recusava toda pergunta ("properties must be an object"): o LangChain4j 1.23 manda a
+    ferramenta sem parâmetro sem `properties`. O `ModeloComEsquemaCompleto` completa o esquema
+    antes de o pedido sair (4 de 30 → 27 de 30).
+- `web/e2e/capturas.mjs`: as capturas de tela dos posts, tiradas do sistema no ar pelo Playwright.
+- Guia da [demonstração da Fase 5](docs/guias/demo-fase-5.md).
+- Telas: "Pergunte ao seu extrato" no internet banking (e o aviso do Pix retido no envio); a fila e
+  a tela do Pix retido no backoffice, com a explicação. Gateway: rotas do assistente (internet
+  banking) e dos dois `GET` do antifraude (backoffice).
+- `scripts/pix-retido.sh` cria um Pix retido de verdade, pela API, e dois testes de ponta a ponta
+  do backoffice liberam e recusam um.
+- Contas: o titular (`GET /v1/contas/{id}/titular`) traz `abertaEm`, a data de abertura da conta.
+- CI: job `ml`, que treina o modelo de novo e confere que é o mesmo do repositório; o job de
+  infraestrutura confere o banco isolado do antifraude e a extensão do pgvector. Dependabot também
+  para as bibliotecas Python do treino.
+
 ### Corrigido
 
+- **Os testes de ponta a ponta do Pix retido dependiam da hora:** de madrugada o modelo soma o sinal
+  do horário e a nota sobe (500 → 882 com R$ 1.500,00; com R$ 2.000,00 passa de 900 e o antifraude
+  recusa sozinho). O teste confere a nota por expressão, e a recusa usa R$ 1.500,00.
 - **Os dois testes instáveis do CI da Fase 4**, cada um uma corrida de verdade, reproduzida antes do
   conserto ([ADR-0031](docs/adr/0031-as-duas-corridas-dos-testes-instaveis.md)):
   - **gateway:** o cliente HTTP do JDK 25 falhava com `NullPointerException` num corpo vazio
@@ -192,7 +251,8 @@ falhava, e coberto agora também por teste do gateway, do pix ou da tela, que ro
 - CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot.
 - Documentação: arquitetura C4, ADRs 0001–0007, roteiro de fases, glossário, guia de ambiente.
 
-[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.4.0...HEAD
+[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.5.0
 [0.4.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.4.0
 [0.3.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.3.0
 [0.2.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.2.0

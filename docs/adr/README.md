@@ -48,3 +48,9 @@ sem que se saiba o que se perde. O formato segue o modelo de Michael Nygard, o m
 | [0029](0029-react-vite-vitest-playwright.md) | Telas em React + TypeScript + Vite, testadas com Vitest e Playwright | Aceita |
 | [0030](0030-devolucao-de-pix-em-analise.md) | Devolução de Pix em análise pelo backoffice, com trilha de auditoria | Aceita |
 | [0031](0031-as-duas-corridas-dos-testes-instaveis.md) | As duas corridas por trás dos testes instáveis da Fase 4 | Aceita |
+| [0032](0032-antifraude-regras-e-modelo-onnx.md) | Antifraude com regras explícitas e um modelo treinado em Python, executado na JVM (ONNX) | Aceita |
+| [0033](0033-pix-retido-antes-do-debito.md) | O antifraude decide antes do débito; Pix retido espera a analista; falha segura por valor | Aceita |
+| [0034](0034-modelo-de-linguagem-local-ollama.md) | Modelo de linguagem local (Ollama), com o LangChain4j puro nos dois serviços | Aceita |
+| [0035](0035-explicacao-com-trava-de-numeros.md) | A explicação do Pix retido: o modelo escreve, uma trava confere os números, e há um texto fixo de reserva | Aceita |
+| [0036](0036-assistente-rag-ferramentas-e-travas.md) | O assistente do internet banking: busca na ajuda (RAG), ferramentas só de leitura e duas travas | Aceita |
+| [0037](0037-avaliacao-do-assistente-fora-do-ci.md) | A qualidade do assistente se mede com uma avaliação (eval) fora do CI; o CI testa o código | Aceita |

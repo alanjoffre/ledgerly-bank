@@ -91,6 +91,19 @@ th { color: var(--texto-suave); font-weight: 600; font-size: 0.9rem; }
   border: 1px solid var(--borda); color: var(--texto-suave);
 }
 
+.conversa { list-style: none; padding: 0; margin: 0 0 var(--espaco); display: flex; flex-direction: column; gap: 12px; }
+.conversa > li { display: flex; flex-direction: column; gap: 8px; }
+.fala { margin: 0; max-width: 85%; padding: 10px 14px; border-radius: var(--raio); border: 1px solid var(--borda); background: var(--superficie); }
+.fala.pergunta { align-self: flex-end; border-color: var(--marca); }
+.fala.resposta { align-self: flex-start; white-space: pre-line; }
+.fala .suave { font-size: 0.85rem; margin: 6px 0 0; white-space: normal; }
+
+/* Lido pelo leitor de tela, fora da vista. */
+.visualmente-oculto {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
 @media (max-width: 600px) {
   .esconder-no-celular { display: none; }
 }

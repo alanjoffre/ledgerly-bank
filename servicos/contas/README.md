@@ -104,7 +104,7 @@ fora do ar) e o renova antes de vencer.
 | `GET /v1/clientes/{id}/contas` | Contas do cliente (sem o saldo: `saldo` e `moeda` vêm `null`) | cliente (só o dono), analista, serviço | 200 |
 | `POST /v1/contas` | `{"clienteId"}` — abre a conta; o razão recebe o `ContaAberta` | serviço | 201 |
 | `GET /v1/contas/{id}` | Conta com o saldo (vindo do razão; `0.00` se o razão ainda não a conhece) | cliente (só o dono), analista, serviço | 200 |
-| `GET /v1/contas/{id}/titular` | Titular e situação, sem o saldo (`contaId`, `clienteId`, `nome`, `situacao`): responde mesmo com o razão fora do ar. Usado pelo Pix e pelo extrato | serviço | 200 |
+| `GET /v1/contas/{id}/titular` | Titular e situação, sem o saldo (`contaId`, `clienteId`, `nome`, `situacao` e, desde a Fase 5, `abertaEm`: o antifraude desconfia de conta recém-aberta recebendo valor alto): responde mesmo com o razão fora do ar. Usado pelo Pix e pelo extrato | serviço | 200 |
 | `POST /v1/contas/{id}/bloqueio` | Bloqueia | analista, serviço | 200 |
 | `DELETE /v1/contas/{id}/bloqueio` | Desbloqueia | analista, serviço | 200 |
 | `POST /v1/contas/{id}/encerramento` | Encerra (o razão exige saldo zero) | serviço | 200 |

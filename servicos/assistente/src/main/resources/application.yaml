@@ -1,0 +1,52 @@
+# Configuração do serviço assistente. Valores entre ${...:padrão} podem ser trocados por variável
+# de ambiente (por exemplo ASSISTENTE_OLLAMA_URL) sem recompilar.
+
+server:
+  port: ${ASSISTENTE_PORTA:8086}
+
+spring:
+  application:
+    name: assistente
+  threads:
+    virtual:
+      enabled: true
+  # O pgvector: o PostgreSQL com a extensão de vetores, só com os artigos de ajuda (nenhum dado de cliente).
+  datasource:
+    url: ${ASSISTENTE_BANCO_URL:jdbc:postgresql://localhost:15433/assistente}
+    username: ${ASSISTENTE_BANCO_USUARIO:assistente}
+    password: ${ASSISTENTE_BANCO_SENHA:assistente_local}
+  mvc:
+    problemdetails:
+      enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+assistente:
+  # O modelo de linguagem local, no Ollama (ADR-0034). Custo zero: nenhuma API paga.
+  linguagem:
+    url: ${ASSISTENTE_OLLAMA_URL:http://localhost:11434}
+    modelo: ${ASSISTENTE_MODELO_DE_LINGUAGEM:qwen3:4b-instruct-2507-q4_K_M}
+    tempo-limite: ${ASSISTENTE_LINGUAGEM_TEMPO_LIMITE:60s}
+  ajuda:
+    # bge-m3: modelo de vetores multilíngue (o português vai bem), 1024 dimensões.
+    modelo-de-vetores: ${ASSISTENTE_MODELO_DE_VETORES:bge-m3}
+    dimensao: 1024
+    # Abaixo disso, o trecho não tem a ver com a pergunta e não vai junto.
+    semelhanca-minima: 0.55
+
+ledgerly:
+  seguranca:
+    emissor: ${LEDGERLY_EMISSOR:http://localhost:18081/realms/ledgerly}
+    audiencia: ledgerly-api
+  # As ferramentas leem com o token da pessoa: o contas e o extrato conferem o dono (ADR-0026).
+  contas:
+    url: ${ASSISTENTE_CONTAS_URL:http://localhost:8081}
+  extrato:
+    url: ${ASSISTENTE_EXTRATO_URL:http://localhost:8084}
+  bancario:
+    tempo-conexao: 2s
+    tempo-resposta: 3s

@@ -175,7 +175,7 @@ envio ainda não teve saída; senão, `422 envio-pix-invalido`.
 
 | Método e caminho | O que faz | Resposta |
 |---|---|---|
-| `GET /v1/contas/{id}/titular` | Nome do titular e situação da conta, **sem o saldo** | `200 {"contaId","clienteId","nome","situacao"}` · `404` |
+| `GET /v1/contas/{id}/titular` | Nome do titular e situação da conta, **sem o saldo** | `200 {"contaId","clienteId","nome","situacao","abertaEm"}` · `404` |
 | `POST /v1/contas/{id}/titularidade` | `{"cpf"}` — o CPF é o do titular da conta? | `200 {"confere": true\|false}` · `404` conta inexistente |
 
 O `titular` existe porque o `GET /v1/contas/{id}` pergunta o saldo ao razão: com o razão fora do ar,
@@ -183,6 +183,26 @@ ele responde 503 — e o Pix não poderia nem criar uma transferência para espe
 
 O Pix precisa saber se a chave CPF pertence ao dono da conta, mas o CPF completo não sai do serviço
 de contas: o Pix pergunta "é este?", e a resposta é sim ou não.
+
+O `abertaEm` (instante ISO-8601) entrou na Fase 5: o Pix o repassa ao antifraude, que desconfia de
+conta recém-aberta recebendo valor alto. Campo novo numa resposta não quebra quem já lia o
+`titular`.
+
+### antifraude — avaliação do Pix (Fase 5)
+
+O Pix pergunta **antes do débito**, com o próprio token de serviço
+([ADR-0033](../adr/0033-pix-retido-antes-do-debito.md)):
+
+| Método e caminho | O que faz | Resposta |
+|---|---|---|
+| `POST /v1/avaliacoes` | `{"transferenciaId","pagadorContaId","recebedorContaId","valor","instante","contaRecebedoraAbertaEm"}` | `200 {"nota", "decisao", "motivos": [{"codigo","texto"}], …}` |
+
+- `decisao` é `APROVAR`, `SEGURAR` ou `RECUSAR`; `nota`, de 0 a 1000. Repetir a mesma
+  `transferenciaId` devolve a mesma avaliação (a retomada da Saga pode perguntar de novo).
+- Para o Pix, **só um 200 com nota de 0 a 1000 e decisão conhecida vale**. Tempo esgotado (300 ms
+  para conectar, 800 ms para responder), conexão recusada, 4xx, 5xx ou corpo ilegível viram "sem
+  resposta", e vale a falha segura: até R$ 500,00 segue, acima fica retido.
+- Os motivos ficam no Pix para a analista; o cliente não os vê.
 
 ## Portas
 
@@ -192,3 +212,5 @@ de contas: o Pix pergunta "é este?", e a resposta é sim ou não.
 | razao | 8082 |
 | pix | 8083 |
 | extrato | 8084 |
+| antifraude | 8085 |
+| assistente | 8086 |

@@ -32,6 +32,8 @@ ledgerly:
       contas: ${GATEWAY_CONTAS_URL:http://localhost:8081}
       extrato: ${GATEWAY_EXTRATO_URL:http://localhost:8084}
       pix: ${GATEWAY_PIX_URL:http://localhost:8083}
+      antifraude: ${GATEWAY_ANTIFRAUDE_URL:http://localhost:8085}
+      assistente: ${GATEWAY_ASSISTENTE_URL:http://localhost:8086}
 
 management:
   endpoints:

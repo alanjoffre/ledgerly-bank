@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Serviço antifraude: a nota de risco de cada Pix, antes de o dinheiro sair (Quarkus).
+
+  A nota junta regras explícitas e um modelo de ML treinado em Python (ml/treinar.py) e executado
+  aqui dentro, na JVM, pelo ONNX Runtime (ADR-0032). Só o pix chama, com token de serviço.
+  A explicação para a analista vem de um modelo de linguagem local, o Ollama (ADR-0034 e 0035).
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.alanjoffre.ledgerly</groupId>
+        <artifactId>ledgerly-bank</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>antifraude</artifactId>
+    <name>Ledgerly Bank :: Serviço antifraude</name>
+
+    <properties>
+        <quarkus.version>3.40.1</quarkus.version>
+        <onnxruntime.version>1.31.1</onnxruntime.version>
+        <langchain4j.version>1.23.0</langchain4j.version>
+        <osgi-annotation.version>8.1.0</osgi-annotation.version>
+    </properties>
+
+    <!-- O Quarkus entra como BOM importado, do mesmo jeito que o Spring Boot nos outros serviços. -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.quarkus.platform</groupId>
+                <artifactId>quarkus-bom</artifactId>
+                <version>${quarkus.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.alanjoffre.ledgerly</groupId>
+            <artifactId>nucleo-compartilhado</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- API REST (JAX-RS / Jakarta REST) com JSON, e validação dos dados de entrada. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-rest-jackson</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-hibernate-validator</artifactId>
+        </dependency>
+
+        <!-- Banco: SQL explícito sobre JDBC (pool Agroal + transações JTA), como o razão (ADR-0008). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-agroal</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-flyway-postgresql</artifactId>
+        </dependency>
+
+        <!-- Segurança (ADR-0025): confere o token de quem chama — aqui, só o pix (papel servico). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc</artifactId>
+        </dependency>
+
+        <!--
+          ONNX Runtime: executa o modelo de risco (o arquivo .onnx que o Python exportou) dentro da
+          JVM, sem um serviço de Python ao lado (ADR-0032). Traz a biblioteca nativa para Linux,
+          macOS e Windows no próprio jar.
+        -->
+        <dependency>
+            <groupId>com.microsoft.onnxruntime</groupId>
+            <artifactId>onnxruntime</artifactId>
+            <version>${onnxruntime.version}</version>
+        </dependency>
+
+        <!--
+          LangChain4j puro (sem a extensão do Quarkus, que ainda não tem versão estável para o
+          Quarkus 3.40): só o cliente do Ollama, o modelo de linguagem que roda na máquina — nenhuma
+          API paga, nenhum dado sai daqui (ADR-0034). Escreve a explicação para a analista; a nota
+          nunca passa por ele.
+        -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-ollama</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+
+        <!--
+          Só para compilar: o LangChain4j usa anotações OSGi, e sem elas no classpath o compilador
+          avisa — e aqui todo aviso vira erro (-Werror). Não vai para o pacote final (como no pix).
+        -->
+        <dependency>
+            <groupId>org.osgi</groupId>
+            <artifactId>osgi.annotation</artifactId>
+            <version>${osgi-annotation.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- /q/health: o Kubernetes pergunta aqui se o serviço está vivo (Fase 6). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
+
+
+
+
+        <!-- Testes -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+          Cobertura dos testes @QuarkusTest. O Quarkus transforma as classes ao carregar, e o agente
+          do JaCoCo do jeito comum não as enxerga; esta extensão mede por dentro e grava em
+          target/jacoco-quarkus.exec, que entra na soma da cobertura (ver o JaCoCo abaixo).
+        -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jacoco</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- @TestSecurity: o teste diz com que papel o pedido chega, sem Keycloak. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-test-security</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- O plugin do Quarkus faz, no build, o trabalho que outros frameworks fazem ao subir. -->
+            <plugin>
+                <groupId>io.quarkus.platform</groupId>
+                <artifactId>quarkus-maven-plugin</artifactId>
+                <version>${quarkus.version}</version>
+                <extensions>true</extensions>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>build</goal>
+                            <goal>generate-code</goal>
+                            <goal>generate-code-tests</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <!-- Soma as três medições: unidade, integração e a dos testes @QuarkusTest. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>somar-medicoes</id>
+                        <configuration>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.build.directory}</directory>
+                                    <includes>
+                                        <include>jacoco.exec</include>
+                                        <include>jacoco-it.exec</include>
+                                        <include>jacoco-quarkus.exec</include>
+                                    </includes>
+                                </fileSet>
+                            </fileSets>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Os testes @QuarkusTest são de integração (sobem um PostgreSQL): nome *IT. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

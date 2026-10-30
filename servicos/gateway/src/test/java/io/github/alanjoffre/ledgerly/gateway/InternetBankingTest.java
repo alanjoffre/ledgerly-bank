@@ -36,7 +36,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @ActiveProfiles("internet-banking")
 class InternetBankingTest {
 
-    private static final Map<String, ServicoFalso> SERVICOS = ServicoFalso.tres();
+    private static final Map<String, ServicoFalso> SERVICOS = ServicoFalso.todos();
     private static final UUID CLIENTE = UUID.randomUUID();
     private static final String CONTA = UUID.randomUUID().toString();
 
@@ -106,6 +106,7 @@ class InternetBankingTest {
             "POST, /api/v1/qrcodes/leitura, pix, /v1/qrcodes/leitura",
             "GET, /api/v1/contas/{conta}, contas, /v1/contas/{conta}",
             "GET, /api/v1/clientes/{conta}/contas, contas, /v1/clientes/{conta}/contas",
+            "POST, /api/v1/assistente/perguntas, assistente, /v1/assistente/perguntas",
         })
         @DisplayName("cada caminho vai ao serviço dono, sem o /api e com o token da sessão")
         void encaminha(String metodo, String caminho, String servico, String esperado) {

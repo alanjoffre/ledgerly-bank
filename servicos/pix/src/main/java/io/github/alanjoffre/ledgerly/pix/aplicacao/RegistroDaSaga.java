@@ -5,6 +5,7 @@ import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.CaixaDeSaida;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.TransferenciaRepository;
 import io.github.alanjoffre.ledgerly.pix.dominio.DecisaoDeAnalise;
 import io.github.alanjoffre.ledgerly.pix.dominio.Passo;
+import io.github.alanjoffre.ledgerly.pix.dominio.ResultadoDaAvaliacao;
 import io.github.alanjoffre.ledgerly.pix.dominio.ResultadoDoPasso;
 import io.github.alanjoffre.ledgerly.pix.dominio.SituacaoTransferencia;
 import io.github.alanjoffre.ledgerly.pix.dominio.TransferenciaNaoEncontradaException;
@@ -63,6 +64,44 @@ public class RegistroDaSaga {
         Instant agora = relogio.instant();
         transferencia.decidirDevolucao(decisao.contaDestinoId(), agora);
         transferencias.salvar(transferencia, agora.plus(RESERVA));
+        auditoria.registrar(decisao);
+        return transferencia;
+    }
+
+    /**
+     * Aplica a resposta do antifraude e grava (ADR-0033).
+     *
+     * @return {@code true} se o próximo passo é o débito, para agora: a reserva foi renovada e quem
+     *     executa segue; {@code false} se ficou retida ou recusada (a reserva foi solta)
+     */
+    @Transactional
+    public boolean registrarAvaliacao(TransferenciaPix transferencia, ResultadoDaAvaliacao resultado) {
+        Instant agora = relogio.instant();
+        transferencia.aplicarAvaliacao(resultado, agora);
+        boolean segue = transferencia.proximoPasso().isPresent();
+        transferencias.salvar(transferencia, segue ? agora.plus(RESERVA) : null);
+        return segue;
+    }
+
+    /**
+     * A decisão da analista sobre um Pix retido (liberar ou recusar), com a auditoria na mesma
+     * transação — como na devolução. A linha fica travada: duas analistas decidindo ao mesmo tempo,
+     * a segunda encontra o Pix já fora da fila.
+     *
+     * @return a transferência; se liberada, já reservada para quem decidiu executar o débito
+     */
+    @Transactional
+    public TransferenciaPix decidirRetida(DecisaoDeAnalise decisao) {
+        TransferenciaPix transferencia = transferencias.buscarTravando(decisao.transferenciaId())
+                .orElseThrow(() -> new TransferenciaNaoEncontradaException(
+                        "Transferência %s não encontrada".formatted(decisao.transferenciaId())));
+        Instant agora = relogio.instant();
+        switch (decisao.decisao()) {
+            case LIBERAR -> transferencia.liberar(agora);
+            case RECUSAR -> transferencia.recusarNaAnalise(agora);
+            case DEVOLVER -> throw new IllegalArgumentException("devolução não é decisão de Pix retido");
+        }
+        transferencias.salvar(transferencia, transferencia.proximoPasso().isPresent() ? agora.plus(RESERVA) : null);
         auditoria.registrar(decisao);
         return transferencia;
     }

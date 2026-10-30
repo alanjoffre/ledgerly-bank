@@ -28,7 +28,10 @@ O Ledgerly Bank simula o núcleo de um banco digital brasileiro:
 - **Contas** de clientes, com abertura, bloqueio e encerramento;
 - **Razão contábil** em partidas dobradas — o saldo é a soma dos lançamentos, e nada é apagado;
 - **Pix** com chaves, QR Code, transferência instantânea e estorno automático quando algo falha;
-- **Antifraude com IA**, que dá nota de risco em milissegundos e explica o alerta ao analista;
+- **Antifraude com IA**, que dá nota de risco antes do débito, segura o Pix suspeito para uma
+  analista e explica o alerta a ela;
+- **Assistente "pergunte ao seu extrato"**, com um modelo de linguagem que roda na própria máquina
+  e só lê;
 - **Extrato em tempo real**, montado a partir de eventos;
 - **Duas telas**: o internet banking do cliente e o backoffice de fraude da analista, com login no
   Keycloak.
@@ -40,14 +43,14 @@ está registrada numa [ADR](docs/adr/README.md), com as alternativas descartadas
 
 | Competência | Onde aparece |
 | --- | --- |
-| **Back-end com Spring e Quarkus + IA aplicada** | Contas e razão em Spring Boot; Pix em Quarkus (imagem nativa compilada e medida); antifraude com LangChain4j e ONNX (planejado: Fase 5) |
+| **Back-end com Spring e Quarkus + IA aplicada** | Contas e razão em Spring Boot; Pix em Quarkus (imagem nativa compilada e medida); antifraude com modelo [ONNX treinado em Python](docs/adr/0032-antifraude-regras-e-modelo-onnx.md) e regras; modelo de linguagem local (Ollama) com LangChain4j: [RAG, *tool calling* só de leitura e *guardrails*](docs/adr/0036-assistente-rag-ferramentas-e-travas.md), e a [avaliação das respostas](docs/adr/0037-avaliacao-do-assistente-fora-do-ci.md) |
 | **Front-end com React** | [Internet banking e backoffice de fraude](web/README.md) em React 19 + TypeScript (Vite, Vitest), com testes de ponta a ponta no Playwright |
 | **Segurança de aplicação** | Keycloak (OAuth2/OIDC, PKCE), [BFF com o token fora do navegador](docs/adr/0025-bff-um-por-front-end.md), [BOLA respondida com 404](docs/adr/0026-bola-com-404.md), [token de serviço](docs/adr/0027-token-de-servico-e-razao-sem-rota.md), CSRF e CSP |
 | **Arquitetura de sistemas** | Microsserviços orientados a eventos, [Saga](docs/adr/0015-saga-orquestrada-no-pix.md), [Outbox](docs/adr/0013-outbox-para-publicar-eventos.md), [CQRS](docs/adr/0016-extrato-em-cqrs-no-mongodb.md) — [visão geral](docs/arquitetura/visao-geral.md) |
 | **Software design e system design** | DDD, arquitetura hexagonal, *value objects*, diagramas C4, [ADRs](docs/adr/README.md) |
 | **Concorrência e multithreading em Java** | Prova de saldo sem gasto duplo sob 1.500 saques simultâneos; [contas quentes em sub-contas](docs/adr/0019-contas-quentes-em-subcontas.md), medidas com Gatling; [*virtual threads* medidas](docs/adr/0020-virtual-threads-medidas-no-razao.md); conciliação em lote com [*Structured Concurrency* e *Scoped Values*](docs/adr/0022-conciliacao-em-lote-com-structured-concurrency.md); [JMH](docs/adr/0023-micro-benchmarks-com-jmh.md) |
 | **Infra e nuvem: Docker, Kubernetes e AWS** | Docker Compose; Kubernetes com Helm e Terraform da AWS validado no CI (planejado: Fase 6) |
-| **Bancos relacionais e NoSQL** | PostgreSQL (um banco por serviço), MongoDB, Redis; pgvector (planejado: Fase 5) |
+| **Bancos relacionais e NoSQL** | PostgreSQL (um banco por serviço), MongoDB, Redis; pgvector (a busca por vetores do assistente) |
 | **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, cobertura mínima no build; Vitest e Testing Library nas telas; Playwright de ponta a ponta; contrato (Pact) e *mutation testing* (PIT) (planejado: Fase 7) |
 
 ## Arquitetura
@@ -57,19 +60,25 @@ flowchart LR
     web["React<br/><small>internet banking<br/>+ backoffice</small>"] -- cookie --> gw["2 BFFs<br/><small>Spring Cloud Gateway</small>"]
     web -- login --> kc["Keycloak<br/><small>OAuth2 · OIDC</small>"]
     gw -- "Bearer (token)" --> contas["contas<br/><small>Spring</small>"] & pix["pix<br/><small>Quarkus · Saga</small>"] & extrato["extrato<br/><small>Spring · CQRS</small>"]
-    pix -.-> antifraude["antifraude<br/><small>Quarkus + IA</small>"]
+    gw -- "Bearer (token)" --> assistente["assistente<br/><small>Spring · RAG</small>"]
+    pix -- "antes do débito" --> antifraude["antifraude<br/><small>Quarkus · ONNX</small>"]
+    gw -- "analista" --> antifraude
+    assistente -- "só leitura, token do cliente" --> contas & extrato
+    antifraude & assistente -.-> ollama["Ollama<br/><small>modelo de linguagem local</small>"]
     pix -- "débito, crédito, estorno" --> razao["razao<br/><small>Spring</small>"]
     pix -- titular --> contas
     contas & razao & pix -- "eventos (Outbox)" --> kafka{{Kafka}}
     kafka --> razao & extrato
-    kafka -.-> antifraude
     contas --- pg1[(Postgres)]
     razao --- pg2[(Postgres)]
     pix --- pg3[(Postgres)] & redis[(Redis)]
     extrato --- mongo[(MongoDB)]
+    antifraude --- pg4[(Postgres)]
+    assistente --- pgvector[(pgvector)]
 ```
 
-Linha tracejada: ainda não existe (antifraude, Fase 5). O razão não tem rota no BFF: só outro
+O modelo de linguagem roda na própria máquina, no Ollama (linha tracejada: sem ele, o antifraude
+decide igual e o assistente responde a mensagem de reserva). O razão não tem rota no BFF: só outro
 serviço fala com ele, com o próprio token. Detalhes, o fluxo completo de um Pix e os
 princípios estão na [visão geral da arquitetura](docs/arquitetura/visao-geral.md); o formato de cada
 evento, no [contrato dos eventos](docs/arquitetura/eventos.md).
@@ -83,7 +92,7 @@ evento, no [contrato dos eventos](docs/arquitetura/eventos.md).
 | 2 | Pix em Quarkus, Saga com estorno, Outbox + Kafka, extrato em CQRS (MongoDB) | ✅ |
 | 3 | Concorrência e desempenho: contas quentes em sub-contas, teste de carga, conciliação em lote, JMH | ✅ |
 | 4 | Segurança (Keycloak, BFF, BOLA) e front-end React, com testes de ponta a ponta | ✅ |
-| 5 | IA aplicada: antifraude e assistente do extrato | ⬜ |
+| 5 | IA aplicada: antifraude (ONNX + regras), Pix retido, assistente do extrato (RAG) e *evals* | ✅ |
 | 6 | Kubernetes, Terraform da AWS e observabilidade | ⬜ |
 | 7 | Qualidade (PIT, Pact, SonarCloud) e lançamento | ⬜ |
 
@@ -101,10 +110,14 @@ cd ledgerly-bank
 # Compilar e rodar todos os testes (precisa do Docker: os testes sobem bancos e Kafka de verdade)
 ./mvnw verify
 
-# Subir PostgreSQL, MongoDB, Redis, Kafka (com os tópicos) e Keycloak (com o realm)
+# Subir PostgreSQL, pgvector, MongoDB, Redis, Kafka (com os tópicos) e Keycloak (com o realm)
 docker compose -f infra/docker/compose.yaml up -d --wait
 
-# Gerar os pacotes e as telas, e subir os quatro serviços e os dois gateways
+# Opcional, com placa de vídeo: o modelo de linguagem local (Ollama) e os modelos (uma vez)
+docker compose -f infra/docker/compose.yaml --profile ia up -d --wait ollama
+./scripts/modelos.sh
+
+# Gerar os pacotes e as telas, e subir os seis serviços e os dois gateways
 ./mvnw package -DskipTests
 (cd web && npm ci && npm run construir)
 ./scripts/servicos.sh subir
@@ -121,10 +134,50 @@ docker compose -f infra/docker/compose.yaml up -d --wait
 
 # As contas quentes medidas antes e depois, e a conciliação em lote
 ./scripts/demo-fase-3.sh
+
+# Um Pix retido pelo antifraude, para a analista ver a nota e a explicação no backoffice
+./scripts/pix-retido.sh
+
+# A avaliação do assistente: 30 perguntas contra o modelo de verdade (precisa do Ollama)
+./mvnw -pl servicos/assistente test -Dtest=AvaliacaoDoAssistente -Dsurefire.failIfNoSpecifiedTests=false
 ```
 
 O que cada passo mostra está nas demonstrações da [Fase 2](docs/guias/demo-fase-2.md), da
-[Fase 3](docs/guias/demo-fase-3.md) e da [Fase 4](docs/guias/demo-fase-4.md).
+[Fase 3](docs/guias/demo-fase-3.md), da [Fase 4](docs/guias/demo-fase-4.md) e da
+[Fase 5](docs/guias/demo-fase-5.md).
+
+## Destaque: IA que desconfia, explica e é medida
+
+Antes de debitar, o Pix pergunta ao **antifraude**. A nota vem de regras (rajada de Pix, conta
+"laranja" aberta ontem) e de uma regressão logística treinada em Python e executada **dentro da JVM,
+em ONNX**: cerca de **6,5 µs por Pix** ([ADR-0032](docs/adr/0032-antifraude-regras-e-modelo-onnx.md)).
+Nota alta, o Pix fica **retido antes do débito**: nenhum dinheiro se move até a analista liberar ou
+recusar ([ADR-0033](docs/adr/0033-pix-retido-antes-do-debito.md)). Se o antifraude cair, Pix de até
+R$ 500 segue, e acima disso fica para a analista.
+
+A IA generativa roda **na própria máquina** (Ollama, sem API paga, nenhum dado sai), e sempre com
+uma regra conferindo:
+
+| Onde | O que o modelo faz | A regra que confere |
+| --- | --- | --- |
+| Backoffice | O `gemma3:4b` explica à analista por que o Pix foi retido | todo número do texto tem de existir na avaliação; número inventado derruba o texto, e vale um texto fixo ([ADR-0035](docs/adr/0035-explicacao-com-trava-de-numeros.md)) |
+| Internet banking | O assistente responde sobre o extrato com a busca na ajuda (RAG, pgvector) e três ferramentas **só de leitura**, com o token do próprio cliente | trava de entrada contra quem tenta trocar as instruções; valor em reais que não veio da ferramenta nem do artigo vira a mensagem de reserva ([ADR-0036](docs/adr/0036-assistente-rag-ferramentas-e-travas.md)) |
+
+**O cliente não vê a nota nem os motivos.** Na revisão, a tela do cliente mostrava "15 vezes a
+média": se o cliente lê, o golpista lê, e aprende a ficar logo abaixo do limite. Agora ele vê "Pix
+retido para análise de segurança". O mesmo vazamento estava num artigo de ajuda do assistente, que
+citava os limites do antifraude.
+
+**A avaliação achou o que os testes não viam.** Os testes do build usam um modelo falso, que aceita
+qualquer coisa. A [avaliação](avaliacao/README.md) faz 30 perguntas fixas ao modelo de verdade e
+confere cada resposta por regra ([ADR-0037](docs/adr/0037-avaliacao-do-assistente-fora-do-ci.md)):
+
+1. a primeira rodada não teve número: o `qwen3:4b` "pensa" antes de responder, e o raciocínio gastava
+   o limite de *tokens*; a resposta saía vazia. Troca: a versão *instruct*, que responde direto;
+2. a segunda deu **4 de 30**: o Ollama recusava toda pergunta, porque o LangChain4j mandava a
+   ferramenta sem parâmetro sem o esquema completo. Correção: um *decorator* que completa o esquema, com teste;
+3. a terceira: **27 de 30**, p50 de 1,35 s por pergunta, sem nenhum valor errado ou de outra conta
+   ([resultado](avaliacao/assistente/resultados/2026-10-30-qwen3-4b-instruct-2507-q4-K-M.md)).
 
 ## Destaque: o navegador achou o que os testes não viam
 
@@ -285,7 +338,11 @@ ledgerly-bank/
 │   ├── razao/                  # razão contábil (Spring Boot + JDBC)
 │   ├── pix/                    # chaves, QR Code e a Saga (Quarkus)
 │   ├── extrato/                # extrato em CQRS (Spring Boot + MongoDB)
+│   ├── antifraude/             # nota de risco do Pix: modelo ONNX + regras (Quarkus)
+│   ├── assistente/             # "pergunte ao seu extrato": RAG + ferramentas (Spring Boot)
 │   └── gateway/                # os dois BFFs (Spring Cloud Gateway)
+├── ml/                         # o treino do modelo de risco (Python, fora do build)
+├── avaliacao/                  # a avaliação do assistente contra o modelo de verdade
 ├── web/                        # as telas (React + TypeScript) e os testes de ponta a ponta
 ├── lotes/
 │   └── conciliacao/            # conciliação em lote Pix × razão (Structured Concurrency)
@@ -314,10 +371,13 @@ ledgerly-bank/
 - [Guia de ambiente local](docs/guias/ambiente-local.md)
 - [Contrato dos eventos](docs/arquitetura/eventos.md) — tópicos do Kafka e formato de cada evento
 - Demonstrações: [Fase 1](docs/guias/demo-fase-1.md) · [Fase 2](docs/guias/demo-fase-2.md) ·
-  [Fase 3](docs/guias/demo-fase-3.md) · [Fase 4](docs/guias/demo-fase-4.md)
+  [Fase 3](docs/guias/demo-fase-3.md) · [Fase 4](docs/guias/demo-fase-4.md) ·
+  [Fase 5](docs/guias/demo-fase-5.md)
 - Serviços: [razão](servicos/razao/README.md) · [contas](servicos/contas/README.md) ·
   [pix](servicos/pix/README.md) · [extrato](servicos/extrato/README.md) ·
+  [antifraude](servicos/antifraude/README.md) · [assistente](servicos/assistente/README.md) ·
   [gateway (BFF)](servicos/gateway/README.md) · [segurança](bibliotecas/seguranca-spring/README.md)
+- [Treino do modelo de risco](ml/README.md) · [Avaliação do assistente](avaliacao/README.md)
 - [As telas](web/README.md) — internet banking, backoffice e os testes de ponta a ponta
 - [Conciliação em lote](lotes/conciliacao/README.md) · [Medições de desempenho](desempenho/README.md)
   (carga e micro-benchmarks)

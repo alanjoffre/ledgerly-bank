@@ -10,6 +10,8 @@ Passo a passo para rodar o Ledgerly Bank na sua máquina. Testado em Linux (WSL2
 | **Docker** + Docker Compose | 24+ / v2+ | Rodar bancos de dados, Kafka e Keycloak. |
 | **Node.js** | 22+ | Construir e testar as telas (`web/`). Só para elas: o build Java não precisa. |
 | **Git** | qualquer recente | Clonar o repositório. |
+| Placa de vídeo NVIDIA (opcional) | 6 GB de memória | O modelo de linguagem local da Fase 5 (Ollama). Sem ela, o antifraude decide igual e o assistente responde a mensagem de reserva. Só ele: o build e os testes não precisam. |
+| **Python** (opcional) | 3.12 (testado) | Treinar de novo o modelo de risco (`ml/`). O modelo treinado já vem no repositório. |
 
 O **Maven não precisa ser instalado**: o projeto traz o Maven Wrapper (`./mvnw`), que baixa a
 versão certa sozinho na primeira execução.
@@ -57,12 +59,14 @@ docker compose -f infra/docker/compose.yaml ps
 
 | Serviço | Endereço na sua máquina | Usuário / senha (só local) |
 | --- | --- | --- |
-| PostgreSQL | `localhost:15432` | bancos `contas`, `razao`, `pix` — usuário = nome do banco, senha = `<banco>_local` |
+| PostgreSQL | `localhost:15432` | bancos `contas`, `razao`, `pix`, `antifraude` — usuário = nome do banco, senha = `<banco>_local` |
+| PostgreSQL com pgvector | `localhost:15433` | banco `assistente`, usuário `assistente` / `assistente_local` (os vetores da ajuda) |
 | MongoDB | `localhost:17017` | `ledgerly_admin` / `ledgerly_local`; o extrato usa `extrato` / `extrato_local`, só no banco `extrato` |
 | Redis | `localhost:16379` | sem senha |
 | Kafka | `localhost:19092` | sem autenticação; os tópicos são criados na subida ([criar-topicos.sh](../../infra/docker/kafka/criar-topicos.sh)) |
 | Keycloak | http://localhost:18081 | console: `admin` / `admin`; o realm `ledgerly` (papéis, pessoas e clientes) é importado na primeira subida de [ledgerly-realm.json](../../infra/docker/keycloak/ledgerly-realm.json) |
 | Kafka UI (opcional) | http://localhost:18080 | sobe com `--profile ferramentas` |
+| Ollama (opcional) | http://localhost:11434 | sobe com `--profile ia`; os modelos, uma vez, com `./scripts/modelos.sh` (cerca de 7 GB) |
 
 As portas começam com `1` para não colidir com um Postgres, Mongo ou Redis que já exista na máquina.
 
@@ -79,7 +83,7 @@ depois que ele acaba.
 ```bash
 ./mvnw package -DskipTests                 # gera os pacotes (sem rodar os testes)
 (cd web && npm ci && npm run construir)    # as telas, que os gateways servem
-./scripts/servicos.sh subir                # sobe os quatro serviços e os dois gateways, e espera cada um ficar saudável
+./scripts/servicos.sh subir                # sobe os seis serviços e os dois gateways, e espera cada um ficar saudável
 ./scripts/servicos.sh situacao             # quem está no ar
 ./scripts/servicos.sh parar                # derruba todos
 ```
@@ -90,6 +94,8 @@ depois que ele acaba.
 | razao | http://localhost:8082 | `/actuator/health` |
 | pix | http://localhost:8083 | `/q/health` |
 | extrato | http://localhost:8084 | `/actuator/health` |
+| antifraude | http://localhost:8085 | `/q/health/ready` |
+| assistente | http://localhost:8086 | `/actuator/health` |
 | gateway-ib (internet banking) | http://localhost:8080 | `/actuator/health` |
 | gateway-bo (backoffice) | http://localhost:8090 | `/actuator/health` |
 

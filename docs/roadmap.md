@@ -112,12 +112,31 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 - [Demonstração](guias/demo-fase-4.md): as duas telas, a devolução e os testes de ponta a ponta
 - ADRs 0024–0030
 
-## ⬜ Fase 5 — IA aplicada
+## ✅ Fase 5 — IA aplicada
 
-- Nota de risco de fraude: regras + modelo de ML (ONNX)
-- LangChain4j: explicação do alerta para o analista
-- Assistente "pergunte ao seu extrato": RAG com pgvector, *tool calling* só de leitura,
-  *guardrails* e avaliação das respostas (*evals*)
+- **Antifraude antes do débito** ([ADR-0032](adr/0032-antifraude-regras-e-modelo-onnx.md),
+  [ADR-0033](adr/0033-pix-retido-antes-do-debito.md)): nota de 0 a 1000 por um modelo de regressão
+  logística treinado em Python e executado na JVM em **ONNX** (p50 ≈ 6,5 µs por Pix), mais as regras
+  da rajada e da conta "laranja". Nota a partir de 200, o Pix fica **retido** sem débito, para a
+  analista liberar ou recusar; a partir de 900, recusado. Antifraude fora do ar: até R$ 500,00
+  segue, acima fica retido. O cliente não vê a nota nem os motivos
+- **Modelo escolhido pela métrica certa**: com 2% de fraude, a acurácia engana; a regressão
+  logística ganhou das árvores com gradiente na precisão média (0,553 × 0,517), e os limites saíram
+  da tabela de limiares medida em 15 mil Pix sintéticos
+- **Modelo de linguagem local, custo zero** ([ADR-0034](adr/0034-modelo-de-linguagem-local-ollama.md)):
+  Ollama com a placa de vídeo, LangChain4j 1.23; nenhum dado sai da máquina
+- **Explicação do Pix retido para a analista** ([ADR-0035](adr/0035-explicacao-com-trava-de-numeros.md)):
+  o modelo escreve, e uma trava derruba o texto que traz um número que não está na avaliação
+- **Assistente "pergunte ao seu extrato"** ([ADR-0036](adr/0036-assistente-rag-ferramentas-e-travas.md)):
+  RAG com pgvector sobre os artigos de ajuda, *tool calling* só de leitura com o token do cliente,
+  *guardrails* na entrada e na saída (valor que não veio do extrato não chega ao cliente)
+- **Avaliação das respostas** (*evals*, [ADR-0037](adr/0037-avaliacao-do-assistente-fora-do-ci.md)):
+  30 perguntas contra o modelo de verdade, fora do CI: **27 de 30** com o `qwen3:4b-instruct-2507`,
+  depois de achar 2 defeitos que os testes do build não pegavam (eram 4 de 30)
+- 1.083 testes: 1.005 no build Java (765 de unidade, 240 de integração), 71 nas telas (Vitest)
+  e 7 de ponta a ponta (Playwright); cobertura de linhas entre 91,1% e 98,2% nos sete serviços e na conciliação
+- [Demonstração](guias/demo-fase-5.md): o Pix retido, a explicação, o assistente e a avaliação
+- ADRs 0032–0037
 
 ## ⬜ Fase 6 — Infraestrutura e nuvem
 

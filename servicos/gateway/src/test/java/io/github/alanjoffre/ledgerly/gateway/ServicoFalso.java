@@ -60,7 +60,8 @@ final class ServicoFalso {
         ultimo.set(null);
     }
 
-    static Map<String, ServicoFalso> tres() {
-        return Map.of("contas", new ServicoFalso("contas"), "extrato", new ServicoFalso("extrato"), "pix", new ServicoFalso("pix"));
+    static Map<String, ServicoFalso> todos() {
+        return Map.of("contas", new ServicoFalso("contas"), "extrato", new ServicoFalso("extrato"), "pix", new ServicoFalso("pix"),
+                "antifraude", new ServicoFalso("antifraude"), "assistente", new ServicoFalso("assistente"));
     }
 }
