@@ -1,0 +1,40 @@
+{{- /*
+HorizontalPodAutoscaler (HPA): aumenta e diminui o número de cópias de um serviço sozinho.
+
+Como decide: a cada 15 s lê a CPU de cada pod no metrics-server (que o k3s já traz) e compara com o
+"request" de CPU do contêiner. Média acima do alvo (ex.: 60% de 250m = 150m) → mais cópias, na
+proporção: réplicas desejadas = ceil(réplicas atuais × uso atual / alvo).
+Sem "resources.requests.cpu" não há base para a %, e o HPA fica em <unknown> sem escalar.
+*/ -}}
+{{- range $nome, $svc := .Values.servicos }}
+{{- with $svc.hpa }}
+{{- $ctx := dict "nome" $nome "svc" $svc "raiz" $ }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $nome }}
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $nome }}
+  minReplicas: {{ .minimo }}
+  maxReplicas: {{ .maximo }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .cpu }}
+  behavior:
+    # Subir: na hora (pico não espera). Descer: só depois de a carga ficar baixa por tantos segundos.
+    scaleUp:
+      stabilizationWindowSeconds: 0
+    scaleDown:
+      stabilizationWindowSeconds: {{ $.Values.hpaDescerDepoisDe }}
+{{- end }}
+{{- end }}

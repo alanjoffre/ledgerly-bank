@@ -15,11 +15,18 @@
 #   gateway-ib → internet banking, http://localhost:8080      gateway-bo → backoffice, http://localhost:8090
 #
 # Os logs ficam em .servicos/<serviço>.log (a pasta não vai para o Git).
+#
+# Com LEDGERLY_OTEL=1, os serviços enviam rastros e métricas ao otel-lgtm do perfil "observabilidade"
+# do compose (ADR-0042): LEDGERLY_OTEL=1 ./scripts/servicos.sh subir
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PASTA=.servicos
+# Spring Boot liga com "true", Quarkus com "desligado = false": cada um com a sua propriedade.
+if [[ ${LEDGERLY_OTEL:-} == 1 ]]; then
+  export OTEL_LIGADO=true OTEL_SDK_DESLIGADO=false
+fi
 mkdir -p "$PASTA"
 # O antifraude sobe antes do Pix: sem ele, todo Pix acima de R$ 500,00 ficaria retido (ADR-0033).
 # O assistente usa o pgvector e, para responder de verdade, o Ollama (perfil "ia" do compose);

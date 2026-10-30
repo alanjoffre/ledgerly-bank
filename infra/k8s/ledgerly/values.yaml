@@ -1,0 +1,295 @@
+# Valores do chart do Ledgerly Bank. Os modelos em templates/ leem daqui; nada de endereço, porta ou
+# senha escrito direto num modelo.
+#
+# Este arquivo descreve um cluster GENÉRICO. O ambiente local (k3d ligado ao Docker Compose) muda o
+# que precisa em values-k3d.yaml:
+#   helm upgrade --install ledgerly infra/k8s/ledgerly -f infra/k8s/ledgerly/values-k3d.yaml
+#
+# Os serviços ficam num MAPA (nome → configuração), e não numa lista com "- nome: ...", de propósito:
+# o Helm junta mapas de vários arquivos campo a campo, mas troca uma lista INTEIRA. Com o mapa, o
+# values-k3d.yaml muda só a imagem do pix sem precisar repetir os outros sete serviços.
+
+# ---- Imagens --------------------------------------------------------------------------------------
+imagem:
+  # ledgerly/<serviço>:<tag>, construídas por scripts/imagens.sh.
+  repositorio: ledgerly
+  tag: "0.6.0"
+  # IfNotPresent: usa a imagem que já está no nó (o k3d importa as nossas; não há registro para baixar).
+  politica: IfNotPresent
+
+# ---- Identidade (Keycloak) -----------------------------------------------------------------------
+keycloak:
+  # O EMISSOR (iss) que vem escrito dentro do token. É o endereço que o NAVEGADOR usa para fazer login,
+  # e por isso não muda dentro do cluster: os serviços conferem o "iss" do token contra este texto.
+  emissor: http://localhost:18081/realms/ledgerly
+  # Por onde os PODS falam com o Keycloak (pedir token de serviço, baixar as chaves públicas). É outro
+  # endereço porque, dentro de um pod, "localhost" é o próprio pod. O Keycloak precisa aceitar isso:
+  # KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true no compose (o *back-channel*, a conversa servidor-servidor,
+  # segue o endereço de quem pediu).
+  interno: http://keycloak:8080/realms/ledgerly
+  # O gateway (BFF) monta os endereços do Keycloak a partir do emissor, em código
+  # (ConfiguracaoDeLogin), e não aceita um endereço interno separado. Para ele achar o Keycloak em
+  # "localhost:18081" dentro do pod, um *sidecar* (um contêiner auxiliar no mesmo pod, que divide a
+  # rede com o principal) repassa a porta 18081 do pod para o Keycloak. Ver o README.
+  proxyDoGateway:
+    imagem: alpine/socat:1.8.0.3
+    porta: 18081
+    destino: keycloak:8080
+
+# ---- Segurança comum a todos os pods -------------------------------------------------------------
+seguranca:
+  # O usuário das imagens (ver o Dockerfile): não root, por número.
+  usuario: 10001
+  # Tamanho máximo do /tmp de cada pod (um emptyDir: disco temporário, apagado com o pod). O sistema
+  # de arquivos da imagem é só de leitura; o Tomcat, o Vert.x e o ONNX Runtime precisam escrever em /tmp.
+  tmp: 128Mi
+
+# ---- Infraestrutura fora do cluster --------------------------------------------------------------
+# Bancos, Kafka, Keycloak e Ollama NÃO rodam no Kubernetes deste projeto (rodam no Docker Compose,
+# e numa nuvem seriam serviços gerenciados: RDS, MSK, ElastiCache — ADR-0006). O chart cria, para
+# cada um, um Service SEM seletor e um EndpointSlice com o IP de verdade: assim os pods chamam
+# "postgres:5432" ou "kafka:9092" como se estivessem dentro do cluster.
+# O IP muda quando o contêiner é recriado; quem preenche é o scripts/k8s.sh (lê do "docker inspect").
+# Sem IP, o serviço fica de fora.
+infraExterna:
+  postgres: { porta: 5432, ip: "" }
+  pgvector: { porta: 5432, ip: "" }
+  mongo: { porta: 27017, ip: "" }
+  redis: { porta: 6379, ip: "" }
+  # O Kafka se anuncia como "kafka:9092" (KAFKA_ADVERTISED_LISTENERS do compose): depois do primeiro
+  # contato, o cliente volta a chamar por ESSE nome. Por isso o Service tem de se chamar "kafka".
+  kafka: { porta: 9092, ip: "" }
+  keycloak: { porta: 8080, ip: "" }
+  ollama: { porta: 11434, ip: "" }
+  # Só existe com o perfil "observabilidade" do compose: sem ele, o IP fica vazio e o nome não é criado.
+  lgtm: { porta: 4318, ip: "" }
+
+# ---- Telemetria (ADR-0042) -------------------------------------------------------------
+# Desligada por padrão: o Grafana + Tempo + Prometheus é um contêiner de 3,7 GB, e sem ele o exportador só
+# gastaria tentativas. Para ligar: suba o perfil "observabilidade" e rode LEDGERLY_OTEL=1 ./scripts/k8s.sh.
+telemetria:
+  ligada: false
+  endpoint: http://lgtm:4318
+  amostragem: "0.1"
+
+# ---- Variáveis comuns ----------------------------------------------------------------------------
+# Entram em todos os serviços do mesmo "tipo". Montadas a partir de keycloak.* nos modelos:
+#   spring:  LEDGERLY_EMISSOR, LEDGERLY_SEGURANCA_JWKS (as chaves pelo endereço interno),
+#            SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_TOKENURI (token de serviço pelo interno)
+#            e MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED (liga /actuator/health/readiness e /liveness).
+#   quarkus: QUARKUS_OIDC_AUTH_SERVER_URL (interno) e QUARKUS_OIDC_TOKEN_ISSUER (o emissor).
+#   gateway: LEDGERLY_EMISSOR (o proxy acima resolve o resto).
+
+# ---- Os serviços ---------------------------------------------------------------------------------
+# Para cada um:
+#   imagem       ledgerly/<imagem>:<tag>
+#   tipo         spring | quarkus | gateway — decide as probes e as variáveis comuns
+#   porta        a porta HTTP do serviço (a mesma do ambiente local, para não confundir)
+#   replicas     quantas cópias (se houver hpa, é o hpa quem manda, e este valor é ignorado)
+#   recursos     requests = o que o agendador RESERVA no nó (e a base da % do HPA);
+#                limits   = o teto; passou da memória, o kernel mata o contêiner (OOMKilled).
+#                Medidos com "kubectl top" no k3d (números no infra/k8s/README.md), com folga.
+#                CPU sem limite? Tem limite de 2: na máquina de estudo, um serviço não pode comer o
+#                processador dos outros. A JVM lê esse limite e se ajusta a 2 processadores.
+#   variaveis    vão para um ConfigMap (texto aberto)
+#   segredos     vão para um Secret (no k3d, as senhas LOCAIS do compose — as mesmas, públicas;
+#                numa nuvem, viriam de um cofre pelo External Secrets, nunca do Git)
+#   hpa          o HorizontalPodAutoscaler: mínimo, máximo e a % de CPU (sobre o request) que dispara
+#   pdb          o PodDisruptionBudget: quantas cópias podem cair de uma vez numa manutenção
+#   exposto      porta do nó (NodePort) para quem está fora do cluster — só os dois BFFs
+#
+# Os "requests" de memória vêm do maior uso medido em `kubectl top` (*working set*), com folga de ~20%:
+#   razao 278 | contas 325 | extrato 249 | assistente 191 | antifraude 180 | gateways 199 | pix JVM 235 MiB.
+# O "request" é o que o agendador reserva; o "limit" é onde o pod é morto. O limit fica maior porque a
+# JVM ocupa o heap aos poucos. O assistente foi medido sem o Ollama: com perguntas de verdade, reavalie.
+#
+# A conta das conexões com o banco (medida do jeito difícil: ver infra/k8s/README.md). O HPA multiplica
+# as cópias, e cada cópia abre o próprio *pool* (grupo de conexões prontas). O Postgres do compose aceita
+# 100 conexões, 3 reservadas ao administrador. Com o padrão de 20 por cópia, as 5 do pix sozinhas pediam
+# 100, e o Pix respondia HTTP 500 no pico: "remaining connection slots are reserved".
+# A regra: soma de (máximo de cópias x pool) < 97. Hoje:
+#   razao 3 x 8 = 24  |  pix 5 x 6 = 30  |  antifraude 1 x 8 = 8  |  contas 1 x 10 = 10  →  72
+# Mudou o máximo de um HPA? Refaça esta conta.
+servicos:
+  razao:
+    imagem: razao
+    tipo: spring
+    porta: 8082
+    replicas: 1
+    recursos:
+      requests: { cpu: 250m, memory: 340Mi }
+      limits: { cpu: "2", memory: 768Mi }
+    variaveis:
+      RAZAO_DB_URL: jdbc:postgresql://postgres:5432/razao
+      RAZAO_DB_POOL: "8"
+      RAZAO_KAFKA: kafka:9092
+    segredos:
+      RAZAO_DB_SENHA: razao_local
+    hpa: { minimo: 1, maximo: 3, cpu: 60 }
+    pdb: { maxIndisponivel: 1 }
+
+  contas:
+    imagem: contas
+    tipo: spring
+    porta: 8081
+    replicas: 1
+    recursos:
+      requests: { cpu: 250m, memory: 400Mi }
+      limits: { cpu: "2", memory: 768Mi }
+    variaveis:
+      CONTAS_DB_URL: jdbc:postgresql://postgres:5432/contas
+      CONTAS_KAFKA: kafka:9092
+      CONTAS_RAZAO_URL: http://razao:8082
+    segredos:
+      CONTAS_DB_SENHA: contas_local
+      CONTAS_CLIENTE_SEGREDO: contas-segredo-local
+    pdb: { maxIndisponivel: 1 }
+
+  extrato:
+    imagem: extrato
+    tipo: spring
+    porta: 8084
+    replicas: 1
+    recursos:
+      requests: { cpu: 250m, memory: 320Mi }
+      limits: { cpu: "2", memory: 768Mi }
+    variaveis:
+      EXTRATO_KAFKA: kafka:9092
+      EXTRATO_CONTAS_URL: http://contas:8081
+    segredos:
+      # A senha está dentro do endereço do Mongo: o endereço inteiro é segredo.
+      EXTRATO_MONGO_URI: mongodb://extrato:extrato_local@mongo:27017/extrato?authSource=extrato
+      EXTRATO_CLIENTE_SEGREDO: extrato-segredo-local
+    pdb: { maxIndisponivel: 1 }
+
+  assistente:
+    imagem: assistente
+    tipo: spring
+    porta: 8086
+    replicas: 1
+    recursos:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: "2", memory: 768Mi }
+    variaveis:
+      ASSISTENTE_BANCO_URL: jdbc:postgresql://pgvector:5432/assistente
+      ASSISTENTE_OLLAMA_URL: http://ollama:11434
+      ASSISTENTE_CONTAS_URL: http://contas:8081
+      ASSISTENTE_EXTRATO_URL: http://extrato:8084
+    segredos:
+      ASSISTENTE_BANCO_SENHA: assistente_local
+    pdb: { maxIndisponivel: 1 }
+
+  antifraude:
+    imagem: antifraude
+    tipo: quarkus
+    porta: 8085
+    replicas: 1
+    recursos:
+      requests: { cpu: 250m, memory: 256Mi }
+      limits: { cpu: "2", memory: 640Mi }
+    variaveis:
+      ANTIFRAUDE_DB_URL: jdbc:postgresql://postgres:5432/antifraude
+      ANTIFRAUDE_DB_POOL: "8"
+      ANTIFRAUDE_OLLAMA_URL: http://ollama:11434
+    segredos:
+      ANTIFRAUDE_DB_SENHA: antifraude_local
+    pdb: { maxIndisponivel: 1 }
+
+  pix:
+    # "pix" (JVM) ou "pix-nativo" (GraalVM). Os dois leem as mesmas variáveis.
+    imagem: pix
+    tipo: quarkus
+    porta: 8083
+    # Pelo menos duas cópias (o mínimo do HPA abaixo): o Pix é o serviço de pico (ADR-0004), e com duas o
+    # PDB tem o que proteger. Com HPA, o chart não emite "replicas": o pod nasce sozinho e o HPA sobe para 2.
+    replicas: 2
+    recursos:
+      requests: { cpu: 250m, memory: 320Mi }
+      limits: { cpu: "2", memory: 640Mi }
+    variaveis:
+      PIX_DB_URL: jdbc:postgresql://postgres:5432/pix
+      PIX_DB_POOL: "6"
+      PIX_REDIS: redis://redis:6379
+      PIX_KAFKA: kafka:9092
+      PIX_RAZAO_URL: http://razao:8082
+      PIX_CONTAS_URL: http://contas:8081
+      PIX_ANTIFRAUDE_URL: http://antifraude:8085
+    segredos:
+      PIX_DB_SENHA: pix_local
+      PIX_CLIENTE_SEGREDO: pix-segredo-local
+    hpa: { minimo: 2, maximo: 5, cpu: 60 }
+    pdb: { minDisponivel: 1 }
+
+  gateway-ib:
+    imagem: gateway-ib
+    tipo: gateway
+    porta: 8080
+    replicas: 1
+    recursos:
+      requests: { cpu: 200m, memory: 256Mi }
+      limits: { cpu: "2", memory: 640Mi }
+    variaveis:
+      GATEWAY_CONTAS_URL: http://contas:8081
+      GATEWAY_EXTRATO_URL: http://extrato:8084
+      GATEWAY_PIX_URL: http://pix:8083
+      GATEWAY_ANTIFRAUDE_URL: http://antifraude:8085
+      GATEWAY_ASSISTENTE_URL: http://assistente:8086
+    segredos:
+      GATEWAY_CLIENTE_SEGREDO: ib-segredo-local
+    pdb: { maxIndisponivel: 1 }
+    # A porta do nó por onde o navegador chega. O k3d liga localhost:8080 da sua máquina a ela.
+    exposto: { portaDoNo: 30080 }
+
+  gateway-bo:
+    imagem: gateway-bo
+    tipo: gateway
+    porta: 8090
+    replicas: 1
+    recursos:
+      requests: { cpu: 200m, memory: 256Mi }
+      limits: { cpu: "2", memory: 640Mi }
+    variaveis:
+      GATEWAY_CONTAS_URL: http://contas:8081
+      GATEWAY_EXTRATO_URL: http://extrato:8084
+      GATEWAY_PIX_URL: http://pix:8083
+      GATEWAY_ANTIFRAUDE_URL: http://antifraude:8085
+      GATEWAY_ASSISTENTE_URL: http://assistente:8086
+    segredos:
+      GATEWAY_CLIENTE_SEGREDO: bo-segredo-local
+    pdb: { maxIndisponivel: 1 }
+    exposto: { portaDoNo: 30090 }
+
+# ---- Probes (as perguntas que o Kubernetes faz ao serviço) ---------------------------------------
+# startup    "já terminou de subir?" — enquanto não, as outras duas nem são feitas. Dá à JVM o tempo
+#            de subir sem que a liveness a mate no meio (o erro clássico: liveness curta + subida
+#            lenta = o pod reinicia para sempre).
+# readiness  "pode receber tráfego?" — não: o pod sai do Service (o tráfego vai para os outros), mas
+#            NÃO é reiniciado. Responde não enquanto sobe, e quando uma dependência obrigatória cai.
+# liveness   "está vivo?" — não, por vezes seguidas: o Kubernetes reinicia o contêiner. Só para
+#            travamento; não olha banco nem Kafka (um banco fora do ar não se resolve reiniciando o
+#            serviço, e reiniciar todos ao mesmo tempo só piora).
+probes:
+  spring:
+    startup: /actuator/health/liveness
+    readiness: /actuator/health/readiness
+    liveness: /actuator/health/liveness
+  gateway:
+    startup: /actuator/health/liveness
+    readiness: /actuator/health/readiness
+    liveness: /actuator/health/liveness
+  quarkus:
+    startup: /q/health/started
+    readiness: /q/health/ready
+    liveness: /q/health/live
+  # Tempos (segundos). startup: até periodo × falhas = 2 × 60 = 120 s para subir (o Spring sobe em
+  # ~6 s na máquina livre, mas na subida de 8 serviços juntos, com CPU disputada, passa de 30 s).
+  tempos:
+    esperaAoEncerrar: 5   # segundos antes do SIGTERM: ver o preStop em templates/servicos.yaml
+    startup: { periodo: 2, falhas: 60 }
+    readiness: { periodo: 5, falhas: 3 }
+    liveness: { periodo: 10, falhas: 3 }
+
+# ---- HPA -----------------------------------------------------------------------------------------
+# Quanto esperar antes de DIMINUIR: a carga oscila, e subir e descer a cada minuto desperdiça
+# subidas. O padrão do Kubernetes é 300 s; aqui, 60 s, para a demonstração caber num café.
+hpaDescerDepoisDe: 60

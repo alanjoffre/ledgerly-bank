@@ -1,0 +1,198 @@
+{{- /*
+UM modelo para os oito serviços: para cada entrada de .Values.servicos, gera
+  ConfigMap  (variáveis abertas)   Secret  (senhas)   ServiceAccount  (a identidade)
+  Deployment  (os pods)   Service  (o endereço estável)
+*/ -}}
+{{- range $nome, $svc := .Values.servicos }}
+{{- $ctx := dict "nome" $nome "svc" $svc "raiz" $ }}
+{{- $probes := index $.Values.probes $svc.tipo }}
+{{- $tempos := $.Values.probes.tempos }}
+{{- $configuracao := include "ledgerly.variaveisComuns" $ctx | fromYaml }}
+{{- $configuracao = merge (dict) ($svc.variaveis | default dict) $configuracao }}
+---
+# ConfigMap: as variáveis de ambiente sem segredo (endereços, portas).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $nome }}
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+data:
+  {{- range $chave, $valor := $configuracao }}
+  {{ $chave }}: {{ $valor | toString | quote }}
+  {{- end }}
+---
+# Secret: as senhas. No Kubernetes, um Secret é só base64 (não é cifra!); o que o protege é quem pode
+# lê-lo (RBAC) e, numa nuvem, a cifra do etcd e um cofre de verdade por trás.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $nome }}
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+type: Opaque
+stringData:
+  {{- range $chave, $valor := $svc.segredos }}
+  {{ $chave }}: {{ $valor | toString | quote }}
+  {{- end }}
+---
+# ServiceAccount própria de cada serviço. Aqui ela não dá permissão nenhuma; na AWS, é o nome que o Pod
+# Identity liga ao papel IAM do serviço (infra/terraform/aws/modulos/identidades).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $nome }}
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $nome }}
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+spec:
+  {{- if not $svc.hpa }}
+  replicas: {{ $svc.replicas | default 1 }}
+  {{- else }}
+  # Com HPA, quem decide o número de cópias é ele; o Deployment não fixa "replicas" (senão cada
+  # "helm upgrade" voltaria ao número escrito aqui, brigando com o HPA).
+  {{- end }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "ledgerly.seletor" $ctx | nindent 6 }}
+  # Atualização gradual (*rolling update*): sobe uma cópia nova, espera ela ficar PRONTA (readiness),
+  # e só então derruba uma antiga. maxUnavailable 0 = nunca fica com menos cópias prontas que o pedido.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        {{- include "ledgerly.rotulos" $ctx | nindent 8 }}
+      annotations:
+        # Mudou uma variável ou senha? O "checksum" muda, o pod muda, e o Deployment troca os pods.
+        # Sem isso, o ConfigMap novo só valeria no próximo reinício.
+        ledgerly/configuracao: {{ toJson $configuracao | sha256sum | trunc 16 }}
+        ledgerly/segredos: {{ toJson $svc.segredos | sha256sum | trunc 16 }}
+    spec:
+      # O serviço não fala com a API do Kubernetes: sem a credencial montada, um invasor também não.
+      serviceAccountName: {{ $nome }}
+      automountServiceAccountToken: false
+      # Sem as variáveis automáticas de cada Service (RAZAO_PORT=tcp://10.43..., KAFKA_PORT=...): elas
+      # podem colidir com a configuração do serviço (PIX_PORT, por exemplo) e não servem para nada
+      # aqui — o DNS do cluster já resolve os nomes.
+      enableServiceLinks: false
+      # Tempo para terminar o que está fazendo ao receber o SIGTERM (o Spring e o Quarkus terminam os
+      # pedidos em andamento) antes do SIGKILL.
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ $.Values.seguranca.usuario }}
+        runAsGroup: {{ $.Values.seguranca.usuario }}
+        fsGroup: {{ $.Values.seguranca.usuario }}
+        # O filtro de chamadas de sistema padrão do contêiner (seccomp): corta as que um serviço
+        # Java nunca usa.
+        seccompProfile:
+          type: RuntimeDefault
+      {{- if eq $svc.tipo "gateway" }}
+      initContainers:
+        # O proxy do Keycloak (ver values.yaml, keycloak.proxyDoGateway). "restartPolicy: Always" num
+        # initContainer = *sidecar nativo*: sobe ANTES do gateway e fica rodando ao lado dele.
+        - name: proxy-keycloak
+          image: {{ $.Values.keycloak.proxyDoGateway.imagem }}
+          imagePullPolicy: IfNotPresent
+          restartPolicy: Always
+          args:
+            - TCP-LISTEN:{{ $.Values.keycloak.proxyDoGateway.porta }},fork,reuseaddr,bind=127.0.0.1
+            - TCP:{{ $.Values.keycloak.proxyDoGateway.destino }}
+          resources:
+            requests: { cpu: 10m, memory: 8Mi }
+            limits: { cpu: 200m, memory: 32Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      {{- end }}
+      containers:
+        - name: {{ $nome }}
+          image: {{ printf "%s/%s:%s" $.Values.imagem.repositorio $svc.imagem $.Values.imagem.tag }}
+          imagePullPolicy: {{ $.Values.imagem.politica }}
+          ports:
+            - name: http
+              containerPort: {{ $svc.porta }}
+          envFrom:
+            - configMapRef:
+                name: {{ $nome }}
+            - secretRef:
+                name: {{ $nome }}
+          {{- with $svc.argumentos }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml $svc.recursos | nindent 12 }}
+          startupProbe:
+            httpGet: { path: {{ $probes.startup }}, port: http }
+            periodSeconds: {{ $tempos.startup.periodo }}
+            failureThreshold: {{ $tempos.startup.falhas }}
+          readinessProbe:
+            httpGet: { path: {{ $probes.readiness }}, port: http }
+            periodSeconds: {{ $tempos.readiness.periodo }}
+            failureThreshold: {{ $tempos.readiness.falhas }}
+          livenessProbe:
+            httpGet: { path: {{ $probes.liveness }}, port: http }
+            periodSeconds: {{ $tempos.liveness.periodo }}
+            failureThreshold: {{ $tempos.liveness.falhas }}
+          # Ao apagar um pod, duas coisas correm ao mesmo tempo: o SIGTERM chega ao processo e o pod sai
+          # da lista do Service. Quem pegou a lista antiga ainda manda pedido para um pod já fechado (medido:
+          # 13 erros em 7.000 numa troca do razão). Esperar uns segundos antes do SIGTERM dá tempo de a
+          # lista atualizar. "sleep" nativo do Kubernetes: não precisa de shell na imagem.
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ $.Values.probes.tempos.esperaAoEncerrar }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            # A imagem não muda depois de pronta: nada grava fora do /tmp.
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: {{ $.Values.seguranca.tmp }}
+---
+# Service: um nome e um IP estáveis na frente dos pods (que nascem e morrem com IPs novos). Divide o
+# tráfego só entre os pods PRONTOS (readiness). Os serviços se chamam pelo nome: http://razao:8082.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nome }}
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+spec:
+  {{- if $svc.exposto }}
+  # NodePort: além do IP interno, abre uma porta no nó. O k3d liga essa porta do nó à sua máquina.
+  type: NodePort
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
+  selector:
+    {{- include "ledgerly.seletor" $ctx | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ $svc.porta }}
+      targetPort: http
+      {{- with $svc.exposto }}
+      nodePort: {{ .portaDoNo }}
+      {{- end }}
+{{- end }}

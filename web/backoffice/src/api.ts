@@ -53,9 +53,12 @@ export type Conta = {
   saldo: string | null;
 };
 
+/** Quantos Pix cada fila traz por vez: os mais antigos primeiro. */
+export const LIMITE_DA_FILA = 50;
+
 export const api = {
-  emAnalise: () => chamar<Transferencia[]>("/api/v1/transferencias?situacao=EM_ANALISE&limite=50"),
-  retidas: () => chamar<Transferencia[]>("/api/v1/transferencias?situacao=RETIDA&limite=50"),
+  emAnalise: () => chamar<Transferencia[]>(`/api/v1/transferencias?situacao=EM_ANALISE&limite=${LIMITE_DA_FILA}`),
+  retidas: () => chamar<Transferencia[]>(`/api/v1/transferencias?situacao=RETIDA&limite=${LIMITE_DA_FILA}`),
   avaliacao: (id: string) => chamar<Avaliacao>(`/api/v1/avaliacoes/${id}`),
   explicacao: (id: string) => chamar<Explicacao>(`/api/v1/avaliacoes/${id}/explicacao`),
   liberar: (id: string, justificativa: string) =>

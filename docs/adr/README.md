@@ -54,3 +54,8 @@ sem que se saiba o que se perde. O formato segue o modelo de Michael Nygard, o m
 | [0035](0035-explicacao-com-trava-de-numeros.md) | A explicação do Pix retido: o modelo escreve, uma trava confere os números, e há um texto fixo de reserva | Aceita |
 | [0036](0036-assistente-rag-ferramentas-e-travas.md) | O assistente do internet banking: busca na ajuda (RAG), ferramentas só de leitura e duas travas | Aceita |
 | [0037](0037-avaliacao-do-assistente-fora-do-ci.md) | A qualidade do assistente se mede com uma avaliação (eval) fora do CI; o CI testa o código | Aceita |
+| [0038](0038-imagens-multi-stage-e-nativa.md) | Imagens Docker em vários estágios, com camadas separadas e o Pix nativo | Aceita |
+| [0039](0039-kubernetes-local-com-k3d-e-helm.md) | Kubernetes local com k3d e um Helm chart, usando a infraestrutura do Compose | Aceita |
+| [0040](0040-terraform-validado-e-simulador-local.md) | Validar o Terraform sem conta e simular com o Moto, no lugar do LocalStack | Aceita |
+| [0041](0041-circuit-breaker-no-antifraude.md) | *Circuit breaker* do Pix para o antifraude | Aceita |
+| [0042](0042-opentelemetry-e-otel-lgtm.md) | OpenTelemetry nos serviços, com o otel-lgtm só quando pedido | Aceita |

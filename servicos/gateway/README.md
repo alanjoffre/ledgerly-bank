@@ -106,6 +106,8 @@ e 9% menos vazão, com zero erros nos dois. Os números estão na
 
 ## Rodar
 
+Para enviar rastros e métricas ao Grafana local: `LEDGERLY_OTEL=1` ([ADR-0042](../../docs/adr/0042-opentelemetry-e-otel-lgtm.md)).
+
 ```bash
 docker compose -f infra/docker/compose.yaml up -d --wait     # na raiz: com o Keycloak
 (cd web && npm ci && npm run construir)                      # as telas

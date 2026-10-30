@@ -138,13 +138,26 @@ Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 - [Demonstração](guias/demo-fase-5.md): o Pix retido, a explicação, o assistente e a avaliação
 - ADRs 0032–0037
 
-## ⬜ Fase 6 — Infraestrutura e nuvem
+## ✅ Fase 6 — Infraestrutura e nuvem
 
-- Imagens Docker *multi-stage* e imagem nativa (GraalVM)
-- Kubernetes (k3d) com Helm, HPA e *probes*
-- Terraform da AWS validado no CI; LocalStack
-- Observabilidade: OpenTelemetry, Prometheus, Grafana, Tempo
-- Resiliência: *circuit breaker*, *retry*, *timeout*
+- **Imagens** ([ADR-0038](adr/0038-imagens-multi-stage-e-nativa.md)): um `Dockerfile` *multi-stage*; mudar uma linha
+  de código troca uma camada de 594 kB. Pix nativo de 219 MB, que sobe em ~0,1 s (~2,5 s na JVM)
+- **Kubernetes local** ([ADR-0039](adr/0039-kubernetes-local-com-k3d-e-helm.md)): k3d e Helm; `./scripts/k8s.sh subir`
+  leva 62 s do zero. HPA no pix (2→5) e no razao (1→3), com 180.000 pedidos sem erro; pod morto no meio
+  de 320 Pix sem perda; troca de versão sob carga de 586 erros (sem sondas) para 0
+- **Terraform da AWS** ([ADR-0040](adr/0040-terraform-validado-e-simulador-local.md)): 12 módulos e 230 recursos no plano,
+  validados sem conta e com custo zero, com o simulador Moto no lugar do LocalStack. Nunca aplicado numa
+  conta real
+- **Circuit breaker** ([ADR-0041](adr/0041-circuit-breaker-no-antifraude.md)): com o antifraude travado, de 18–19 para
+  121–130 Pix/s, e p50 de ~830 para ~105 ms. Sem *retry*, de propósito. O limite por pagador durante a
+  queda ficou de fora, e a ADR registra
+- **OpenTelemetry** ([ADR-0042](adr/0042-opentelemetry-e-otel-lgtm.md)): um rastro único por Pix e o circuito num painel do
+  Grafana, ligados só quando pedidos. O custo ficou dentro do ruído da medição
+- 1.091 testes: 1.011 no build Java (765 de unidade, 246 de integração), 73 nas telas (Vitest) e 7 de ponta a
+  ponta (Playwright), estes também contra o cluster, com o Pix nativo
+- 2 novos workflows: `Imagens e chart` e `Nuvem`
+- [Demonstração](guias/demo-fase-6.md): imagens, cluster, Terraform, circuito e painel
+- ADRs 0038–0042
 
 ## ⬜ Fase 7 — Qualidade e lançamento
 

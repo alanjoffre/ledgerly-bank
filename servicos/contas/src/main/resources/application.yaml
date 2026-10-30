@@ -78,6 +78,39 @@ ledgerly:
     retencao: 7d
 
 management:
+  # OpenTelemetry (ADR-0042). Desligado por padrão: ./scripts/servicos.sh com LEDGERLY_OTEL=1 envia
+  # rastros e métricas ao otel-lgtm, sem recompilar. Sem coletor, nada fica tentando enviar.
+  tracing:
+    sampling:
+      probability: ${OTEL_AMOSTRAGEM:1.0}
+    export:
+      otlp:
+        enabled: ${OTEL_LIGADO:false}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTEL_ENDPOINT:http://localhost:14318}/v1/traces
+  otlp:
+    metrics:
+      export:
+        enabled: ${OTEL_LIGADO:false}
+        url: ${OTEL_ENDPOINT:http://localhost:14318}/v1/metrics
+        step: 10s
+  logging:
+    export:
+      otlp:
+        enabled: false
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  # Um rastro por rodada de agendador só enterraria os do Pix, e os passos do filtro de segurança
+  # só alongariam cada rastro.
+  observations:
+    enable:
+      tasks.scheduled: false
+      spring.security: false
   endpoints:
     web:
       exposure:

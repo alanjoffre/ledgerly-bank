@@ -163,6 +163,20 @@ describe("Pix retidos", () => {
     expect(within(tabela).getByRole("link", { name: "Analisar o Pix retido de Ana" })).toHaveAttribute("href", `/retidos/${PIX}`);
   });
 
+  it("fila cheia: avisa que pode haver mais", async () => {
+    const cheia = Array.from({ length: 50 }, (_, i) => retido({ id: `pix-${i}` }));
+    fetchFalso(rotas({ "GET /api/v1/transferencias?situacao=RETIDA&limite=50": { corpo: cheia } }));
+    abrir("/retidos");
+    expect(await screen.findByRole("note")).toHaveTextContent("Mostrando os 50 mais antigos");
+  });
+
+  it("fila menor que o limite não avisa", async () => {
+    fetchFalso(rotas({ "GET /api/v1/transferencias?situacao=RETIDA&limite=50": { corpo: [retido()] } }));
+    abrir("/retidos");
+    await screen.findByRole("table", { name: "Pix retidos" });
+    expect(screen.queryByRole("note")).toBeNull();
+  });
+
   it("fila vazia", async () => {
     fetchFalso({ "GET /api/eu": { corpo: CARLA }, "GET /api/v1/transferencias?situacao=RETIDA&limite=50": { corpo: [] } });
     abrir("/retidos");

@@ -35,3 +35,23 @@ updates:
     groups:
       python:
         patterns: ["*"]
+
+  # Fase 6: os provedores do Terraform. O plano e o simulador do workflow "Nuvem" acusam o que quebrar.
+  - package-ecosystem: terraform
+    directories:
+      - /infra/terraform/aws
+      - /infra/terraform/local
+    schedule:
+      interval: weekly
+    groups:
+      terraform:
+        patterns: ["*"]
+
+  # Fase 6: as imagens de base do Dockerfile da raiz (fixadas por tag; o Dependabot abre a troca de versão).
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      imagens-base:
+        patterns: ["*"]

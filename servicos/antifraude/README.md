@@ -120,6 +120,8 @@ aceita texto sem origem nem origem "modelo" sem o nome do modelo.
 
 ## Rodar
 
+Para enviar rastros e métricas ao Grafana local: `LEDGERLY_OTEL=1` ([ADR-0042](../../docs/adr/0042-opentelemetry-e-otel-lgtm.md)).
+
 ```bash
 docker compose -f infra/docker/compose.yaml up -d --wait                  # na raiz do projeto
 docker compose -f infra/docker/compose.yaml --profile ia up -d --wait ollama   # opcional: a explicação

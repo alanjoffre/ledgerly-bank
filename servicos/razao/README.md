@@ -160,6 +160,8 @@ Formato Problem Details (RFC 9457). Decida pelo `type`, nunca pelo texto.
 
 ## Rodar
 
+Para enviar rastros e métricas ao Grafana local: `LEDGERLY_OTEL=1` ([ADR-0042](../../docs/adr/0042-opentelemetry-e-otel-lgtm.md)).
+
 ```bash
 docker compose -f infra/docker/compose.yaml up -d --wait     # na raiz do projeto
 ./mvnw -pl servicos/razao -am package -DskipTests

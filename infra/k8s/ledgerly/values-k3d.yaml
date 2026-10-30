@@ -1,0 +1,22 @@
+# O ambiente LOCAL: o k3d (Kubernetes dentro do Docker) ligado à rede do Docker Compose.
+# Usado pelo scripts/k8s.sh, por cima do values.yaml:
+#   helm upgrade --install ledgerly infra/k8s/ledgerly -f infra/k8s/ledgerly/values-k3d.yaml \
+#        --set infraExterna.postgres.ip=172.18.0.5 ...      (os IPs, o script lê do docker inspect)
+#
+# Só o que difere do values.yaml fica aqui.
+
+imagem:
+  # As imagens são importadas no nó pelo "k3d image import"; não há registro de onde baixar.
+  # Never: se a imagem não estiver no nó, o pod fica em ErrImageNeverPull — o erro diz na hora que
+  # faltou importar, em vez de tentar o Docker Hub e falhar com um "não encontrado" confuso.
+  politica: Never
+
+servicos:
+  pix:
+    # No k3d, o pix roda NATIVO: sobe em ~0,1 s e com ~1/4 da memória em uso (ADR-0038). É ele que o HPA
+    # multiplica no pico, e cópia nova que sobe na hora é o motivo de ser nativo.
+    # Memória: pico medido de 60 MiB em `kubectl top` a 100 pedidos/s; request de 96 MiB com folga.
+    imagem: pix-nativo
+    recursos:
+      requests: { cpu: 250m, memory: 96Mi }
+      limits: { cpu: "2", memory: 256Mi }

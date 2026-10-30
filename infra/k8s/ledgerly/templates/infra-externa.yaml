@@ -1,0 +1,46 @@
+{{- /*
+A infraestrutura que roda FORA do cluster (no Docker Compose), com nome de dentro do cluster.
+
+Um Service sem "selector" não procura pods: os endereços vêm de um EndpointSlice escrito à mão, com o
+IP do contêiner na rede Docker "ledgerly_default" (o nó do k3d está ligado a ela). O DNS do cluster
+responde "postgres" → IP do Service → IP do contêiner. Para o pod, é igual a um serviço do cluster.
+*/ -}}
+{{- range $nome, $infra := .Values.infraExterna }}
+{{- if $infra.ip }}
+{{- $ctx := dict "nome" $nome "raiz" $ }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $nome }}
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+    ledgerly/infra-externa: "true"
+spec:
+  type: ClusterIP
+  ports:
+    - name: tcp
+      port: {{ $infra.porta }}
+      targetPort: {{ $infra.porta }}
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: {{ $nome }}-compose
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+    # É este rótulo que liga o EndpointSlice ao Service de mesmo nome.
+    kubernetes.io/service-name: {{ $nome }}
+    # E este diz ao Kubernetes que quem cuida dele é o Helm (o controlador do cluster não mexe).
+    endpointslice.kubernetes.io/managed-by: helm
+addressType: IPv4
+ports:
+  - name: tcp
+    port: {{ $infra.porta }}
+    protocol: TCP
+endpoints:
+  - addresses: [{{ $infra.ip | quote }}]
+    conditions:
+      ready: true
+{{- end }}
+{{- end }}

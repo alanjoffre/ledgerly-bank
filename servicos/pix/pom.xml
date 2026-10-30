@@ -97,6 +97,22 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-scheduler</artifactId>
         </dependency>
+        <!-- Circuit breaker na chamada ao antifraude (ADR-0041). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
+        </dependency>
+
+        <!-- Rastros e métricas por OTLP; as métricas do Micrometer vão pelo mesmo caminho (ADR-0042). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-opentelemetry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-micrometer-opentelemetry</artifactId>
+        </dependency>
+
         <!-- /q/health: o Kubernetes pergunta aqui se o serviço está vivo (Fase 6). -->
         <dependency>
             <groupId>io.quarkus</groupId>

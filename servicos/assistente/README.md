@@ -100,6 +100,8 @@ de ajuda usados. Sem token, 401; analista, serviço ou cliente sem `cliente_id`,
 
 ## Rodar
 
+Para enviar rastros e métricas ao Grafana local: `LEDGERLY_OTEL=1` ([ADR-0042](../../docs/adr/0042-opentelemetry-e-otel-lgtm.md)).
+
 ```bash
 docker compose -f infra/docker/compose.yaml up -d --wait                       # na raiz: inclui o pgvector
 docker compose -f infra/docker/compose.yaml --profile ia up -d --wait ollama   # o Ollama, com a placa de vídeo

@@ -1,0 +1,30 @@
+{{- /*
+PodDisruptionBudget (PDB): o limite de cópias que podem cair de uma vez numa interrupção VOLUNTÁRIA —
+esvaziar um nó para manutenção (kubectl drain), atualizar o cluster. Não protege contra o pod que
+morre sozinho (queda do nó, falta de memória): isso é com o Deployment, que sobe outro.
+
+  minDisponivel: 1   pelo menos uma cópia pronta sempre (só faz sentido com 2 ou mais — o pix)
+  maxIndisponivel: 1 no máximo uma cópia fora por vez (com 1 cópia, o drain passa, e o serviço fica
+                     fora até o pod subir no outro nó: o preço de rodar com uma cópia só)
+*/ -}}
+{{- range $nome, $svc := .Values.servicos }}
+{{- with $svc.pdb }}
+{{- $ctx := dict "nome" $nome "svc" $svc "raiz" $ }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $nome }}
+  labels:
+    {{- include "ledgerly.rotulos" $ctx | nindent 4 }}
+spec:
+  {{- if hasKey . "minDisponivel" }}
+  minAvailable: {{ .minDisponivel }}
+  {{- else }}
+  maxUnavailable: {{ .maxIndisponivel | default 1 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ledgerly.seletor" $ctx | nindent 6 }}
+{{- end }}
+{{- end }}

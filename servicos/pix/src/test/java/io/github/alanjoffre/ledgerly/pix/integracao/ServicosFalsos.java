@@ -63,7 +63,10 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
                 "quarkus.rest-client.antifraude.url", url,
                 "quarkus.oidc.auth-server-url", TokensPix.emissor(),
                 // Tempo-limite curto nos testes: o caso "razão lento" não precisa esperar 3 s.
-                "quarkus.rest-client.razao.read-timeout", "800");
+                "quarkus.rest-client.razao.read-timeout", "800",
+                // Idem: o circuito do antifraude tenta de novo em 2 s, e não em 10 s.
+                "io.github.alanjoffre.ledgerly.pix.adaptadores.saida.antifraude.ChamadaAoAntifraude/chamar/CircuitBreaker/delay",
+                "2000");
     }
 
     @Override
@@ -394,6 +397,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
         private volatile int nota;
         private volatile java.util.List<String> motivos;
         private volatile boolean foraDoAr;
+        private volatile int status;
         private volatile long demoraMs;
         private final java.util.List<JsonNode> pedidos = new java.util.concurrent.CopyOnWriteArrayList<>();
 
@@ -406,6 +410,7 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             nota = 12;
             motivos = java.util.List.of();
             foraDoAr = false;
+            status = 200;
             demoraMs = 0;
             pedidos.clear();
         }
@@ -419,6 +424,11 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
 
         public void foraDoAr(boolean valor) {
             foraDoAr = valor;
+        }
+
+        /** Responde este status, com um corpo que não é a avaliação (4xx: atende, mas recusa). */
+        public void responderStatus(int valor) {
+            status = valor;
         }
 
         /** Responde depois deste tempo (para passar do limite do Pix). */
@@ -435,6 +445,10 @@ public class ServicosFalsos implements QuarkusTestResourceLifecycleManager {
             pedidos.add(pedido);
             if (foraDoAr) {
                 responder(troca, 503, problema(503, "indisponivel", "fora do ar"));
+                return;
+            }
+            if (status != 200) {
+                responder(troca, status, problema(status, "recusado", "recusado"));
                 return;
             }
             if (demoraMs > 0) {

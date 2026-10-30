@@ -1,14 +1,15 @@
 # Desempenho
 
-As medições da Fase 3. Dois módulos e uma pasta de números:
+As medições de desempenho, em módulos e scripts, e uma pasta de números:
 
 | Pasta | O que mede | Decisão |
 | --- | --- | --- |
 | [`carga/`](carga/) | o sistema inteiro sob carga, com o **Gatling** | [ADR-0021](../docs/adr/0021-teste-de-carga-com-gatling.md) |
 | [`jmh/`](jmh/) | trechos pequenos de código, com o **JMH** | [ADR-0023](../docs/adr/0023-micro-benchmarks-com-jmh.md) |
+| [`circuito/`](circuito/) | o Pix com o antifraude travado, com e sem o *circuit breaker* (Fase 6) | [ADR-0041](../docs/adr/0041-circuit-breaker-no-antifraude.md) |
 | [`resultados/`](resultados/) | o resumo de cada medição, que vai para o Git | — |
 
-Os dois compilam no `./mvnw verify`, mas **não rodam nele**: rodam quando alguém pede. Número de
+O Gatling e o JMH compilam no `./mvnw verify`, mas **não rodam nele**: rodam quando alguém pede. Número de
 desempenho em máquina compartilhada (o CI) oscila demais para valer alguma coisa.
 
 ## Teste de carga (Gatling)
@@ -62,3 +63,18 @@ java -jar desempenho/jmh/target/benchmarks.jar Contador    # só os que têm "Co
 
 A saída completa e o JSON da última rodada estão em `resultados/jmh/`. A leitura dos números, e o
 erro que o próprio JMH ajudou a achar num benchmark deste projeto, estão na ADR-0023.
+
+## O circuito do antifraude (Fase 6)
+
+```bash
+desempenho/circuito/medir.sh com-circuito
+desempenho/circuito/medir.sh sem-circuito   # o mesmo pacote, com o circuito desligado
+```
+
+**Rode uma vez antes e descarte:** a primeira rodada depois de ligar os serviços sai perto de 220 Pix/s na
+fase normal, contra mais de 330 com razao, contas e antifraude aquecidos (o pix é religado a cada rodada). Comparar uma rodada fria com uma quente engana, e já enganou
+([ADR-0042](../docs/adr/0042-opentelemetry-e-otel-lgtm.md)).
+
+**A medição deixa Pix retidos:** com o antifraude travado, o que passa de R$ 500,00 fica `RETIDA`. Foram 5.305
+na máquina, e a fila do backoffice mostra os 50 mais antigos. Para os testes de ponta a ponta, que procuram um
+Pix novo nessa fila, comece de um banco limpo ou recuse os retidos da medição.

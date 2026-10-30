@@ -88,4 +88,5 @@ memória (`-Xmx`) — a JVM escolheu o tamanho do *heap* sozinha, pela mesma reg
     Docker da Fase 6;
   - a imagem nativa precisa saber de antemão tudo que usa reflexão; uma biblioteca que não declara
     isso funciona na JVM e quebra no nativo. Os testes rodam na JVM — o nativo é conferido pela
-    subida e pela verificação de saúde, e na Fase 6 ganha o próprio teste.
+    subida e pela verificação de saúde. **Na Fase 6 não ganhou teste próprio no build:** a prova são os
+    7 testes de ponta a ponta contra o cluster, que usa a imagem nativa ([ADR-0038](0038-imagens-multi-stage-e-nativa.md)).

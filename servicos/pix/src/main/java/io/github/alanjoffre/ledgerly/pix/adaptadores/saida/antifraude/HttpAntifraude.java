@@ -5,27 +5,26 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.alanjoffre.ledgerly.pix.aplicacao.porta.Antifraude;
 import io.github.alanjoffre.ledgerly.pix.dominio.ResultadoDaAvaliacao;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.ws.rs.ProcessingException;
-import jakarta.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
-import org.eclipse.microprofile.rest.client.inject.RestClient;
+import org.eclipse.microprofile.faulttolerance.exceptions.CircuitBreakerOpenException;
 
 /**
  * Adaptador de saída: traduz a resposta do antifraude para a linguagem do Pix (ADR-0033).
  *
  * <p>Só um {@code 200} com decisão conhecida vale como resposta. Qualquer outra coisa — tempo
  * esgotado (o limite é curto: o cliente está esperando), conexão recusada, 4xx, 5xx, corpo
- * ilegível — vira "sem resposta", e a transferência decide pela falha segura por valor.
+ * ilegível, circuito aberto — vira "sem resposta", e a transferência decide pela falha segura por
+ * valor.
  */
 @ApplicationScoped
 class HttpAntifraude implements Antifraude {
 
-    private final AntifraudeCliente cliente;
+    private final ChamadaAoAntifraude chamada;
     private final ObjectMapper json;
 
-    HttpAntifraude(@RestClient AntifraudeCliente cliente, ObjectMapper json) {
-        this.cliente = cliente;
+    HttpAntifraude(ChamadaAoAntifraude chamada, ObjectMapper json) {
+        this.chamada = chamada;
         this.json = json;
     }
 
@@ -38,13 +37,16 @@ class HttpAntifraude implements Antifraude {
                 p.valor().valor().toPlainString(),
                 p.instante().toString(),
                 p.contaRecebedoraAbertaEm().toString());
-        try (Response resposta = cliente.avaliar(corpo)) {
-            if (resposta.getStatus() != 200) {
-                return new ResultadoDaAvaliacao.SemResposta("HTTP " + resposta.getStatus());
+        try {
+            ChamadaAoAntifraude.Resposta resposta = chamada.chamar(corpo);
+            if (resposta.status() != 200) {
+                return new ResultadoDaAvaliacao.SemResposta("HTTP " + resposta.status());
             }
-            return traduzir(json.readTree(resposta.readEntity(String.class)));
-        } catch (ProcessingException e) {
-            return new ResultadoDaAvaliacao.SemResposta(causaRaiz(e));
+            return traduzir(json.readTree(resposta.corpo()));
+        } catch (CircuitBreakerOpenException e) {
+            return new ResultadoDaAvaliacao.SemResposta("circuito aberto");
+        } catch (ChamadaAoAntifraude.AntifraudeIndisponivel e) {
+            return new ResultadoDaAvaliacao.SemResposta(e.getMessage());
         } catch (Exception e) {
             return new ResultadoDaAvaliacao.SemResposta("resposta ilegível: " + e.getMessage());
         }
@@ -69,13 +71,5 @@ class HttpAntifraude implements Antifraude {
         List<String> textos = new ArrayList<>();
         corpo.path("motivos").forEach(m -> textos.add(m.path("texto").asText()));
         return textos.isEmpty() ? "sem motivo informado" : String.join("; ", textos);
-    }
-
-    private static String causaRaiz(Throwable e) {
-        Throwable causa = e;
-        while (causa.getCause() != null) {
-            causa = causa.getCause();
-        }
-        return causa.getClass().getSimpleName() + (causa.getMessage() == null ? "" : ": " + causa.getMessage());
     }
 }

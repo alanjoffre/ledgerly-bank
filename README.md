@@ -49,7 +49,7 @@ está registrada numa [ADR](docs/adr/README.md), com as alternativas descartadas
 | **Arquitetura de sistemas** | Microsserviços orientados a eventos, [Saga](docs/adr/0015-saga-orquestrada-no-pix.md), [Outbox](docs/adr/0013-outbox-para-publicar-eventos.md), [CQRS](docs/adr/0016-extrato-em-cqrs-no-mongodb.md) — [visão geral](docs/arquitetura/visao-geral.md) |
 | **Software design e system design** | DDD, arquitetura hexagonal, *value objects*, diagramas C4, [ADRs](docs/adr/README.md) |
 | **Concorrência e multithreading em Java** | Prova de saldo sem gasto duplo sob 1.500 saques simultâneos; [contas quentes em sub-contas](docs/adr/0019-contas-quentes-em-subcontas.md), medidas com Gatling; [*virtual threads* medidas](docs/adr/0020-virtual-threads-medidas-no-razao.md); conciliação em lote com [*Structured Concurrency* e *Scoped Values*](docs/adr/0022-conciliacao-em-lote-com-structured-concurrency.md); [JMH](docs/adr/0023-micro-benchmarks-com-jmh.md) |
-| **Infra e nuvem: Docker, Kubernetes e AWS** | Docker Compose; Kubernetes com Helm e Terraform da AWS validado no CI (planejado: Fase 6) |
+| **Infra e nuvem: Docker, Kubernetes e AWS** | Docker *multi-stage* e imagem nativa; Kubernetes (k3d) com Helm, HPA e sondas; Terraform da AWS validado sem conta; OpenTelemetry e Grafana; *circuit breaker* |
 | **Bancos relacionais e NoSQL** | PostgreSQL (um banco por serviço), MongoDB, Redis; pgvector (a busca por vetores do assistente) |
 | **Testes automatizados e qualidade** | JUnit, Testcontainers, ArchUnit, testes de propriedade, cobertura mínima no build; Vitest e Testing Library nas telas; Playwright de ponta a ponta; contrato (Pact) e *mutation testing* (PIT) (planejado: Fase 7) |
 
@@ -93,7 +93,7 @@ evento, no [contrato dos eventos](docs/arquitetura/eventos.md).
 | 3 | Concorrência e desempenho: contas quentes em sub-contas, teste de carga, conciliação em lote, JMH | ✅ |
 | 4 | Segurança (Keycloak, BFF, BOLA) e front-end React, com testes de ponta a ponta | ✅ |
 | 5 | IA aplicada: antifraude (ONNX + regras), Pix retido, assistente do extrato (RAG) e *evals* | ✅ |
-| 6 | Kubernetes, Terraform da AWS e observabilidade | ⬜ |
+| 6 | Imagens e Kubernetes (k3d + Helm), Terraform da AWS, *circuit breaker* e OpenTelemetry | ✅ |
 | 7 | Qualidade (PIT, Pact, SonarCloud) e lançamento | ⬜ |
 
 O detalhe de cada fase está no [roteiro](docs/roadmap.md).
@@ -144,7 +144,34 @@ docker compose -f infra/docker/compose.yaml --profile ia up -d --wait ollama
 
 O que cada passo mostra está nas demonstrações da [Fase 2](docs/guias/demo-fase-2.md), da
 [Fase 3](docs/guias/demo-fase-3.md), da [Fase 4](docs/guias/demo-fase-4.md) e da
-[Fase 5](docs/guias/demo-fase-5.md).
+[Fase 5](docs/guias/demo-fase-5.md) e da [Fase 6](docs/guias/demo-fase-6.md).
+
+## Destaque: operar é medir a falha, não só subir o serviço
+
+O antifraude trava. O limite de 800 ms já protegia o Pix de ficar pendurado, mas cada Pix pagava esses
+800 ms. Com um *circuit breaker* ([ADR-0041](docs/adr/0041-circuit-breaker-no-antifraude.md)), medido com o
+antifraude congelado de verdade (`SIGSTOP`) e duas rodadas de cada lado:
+
+| Com o antifraude travado | Sem circuito | Com circuito |
+| --- | --- | --- |
+| Pix por segundo | 18 a 19 | 121 a 130 |
+| p50 | ~830 ms | 101 a 110 ms |
+| Erros | 0 | 0 |
+| Tempo até a primeira nota depois da volta | 0,2 a 0,3 s | 3,5 a 4,4 s |
+
+O preço está na última linha, e há outro: a espera era um freio acidental. Agora sai bem mais Pix sem
+avaliação durante a queda, e **o limite por pagador que faltaria aí não foi feito**. A ADR conta.
+
+No Kubernetes local ([ADR-0039](docs/adr/0039-kubernetes-local-com-k3d-e-helm.md)), `./scripts/k8s.sh subir`
+leva 62 s do zero. Um pod morto no meio de 320 Pix: os 320 concluídos, R$ 3.200,00 exatos. A troca de versão
+sob carga foi de 586 erros sem sondas para 0 com sondas e `preStop`. E o teste achou o que o ambiente local
+escondia: 5 cópias × 20 conexões estouram o Postgres ([números](infra/k8s/README.md)).
+
+O Pix nativo tem 219 MB e sobe em ~0,1 s, contra ~2,5 s na JVM
+([ADR-0038](docs/adr/0038-imagens-multi-stage-e-nativa.md)). O Terraform descreve 230 recursos na AWS, conferidos
+sem conta e sem custo, e **nunca foi aplicado** ([ADR-0040](docs/adr/0040-terraform-validado-e-simulador-local.md)).
+Com OpenTelemetry, um Pix é seguido por todos os serviços num único rastro; o custo ficou dentro do ruído
+da medição, e a [ADR-0042](docs/adr/0042-opentelemetry-e-otel-lgtm.md) conta como a primeira medição enganou.
 
 ## Destaque: IA que desconfia, explica e é medida
 
@@ -344,6 +371,7 @@ ledgerly-bank/
 ├── ml/                         # o treino do modelo de risco (Python, fora do build)
 ├── avaliacao/                  # a avaliação do assistente contra o modelo de verdade
 ├── web/                        # as telas (React + TypeScript) e os testes de ponta a ponta
+├── Dockerfile                  # todas as imagens, em vários estágios
 ├── lotes/
 │   └── conciliacao/            # conciliação em lote Pix × razão (Structured Concurrency)
 ├── desempenho/                 # medições: carga, micro-benchmarks e os números
@@ -351,7 +379,10 @@ ledgerly-bank/
 │   ├── jmh/                    # micro-benchmarks (JMH)
 │   └── resultados/             # os números de cada medição
 ├── infra/
-│   └── docker/                 # Docker Compose, bancos, tópicos do Kafka e o realm do Keycloak
+│   ├── docker/                 # Docker Compose, bancos, tópicos do Kafka e o realm do Keycloak
+│   ├── k8s/                    # Helm chart do Kubernetes local (k3d)
+│   ├── terraform/              # a AWS como código, validada sem conta (nunca aplicada)
+│   └── observabilidade/        # painéis do Grafana
 ├── scripts/                    # subir os serviços, demonstrações, medições
 ├── docs/
 │   ├── adr/                    # decisões de arquitetura
@@ -372,7 +403,8 @@ ledgerly-bank/
 - [Contrato dos eventos](docs/arquitetura/eventos.md) — tópicos do Kafka e formato de cada evento
 - Demonstrações: [Fase 1](docs/guias/demo-fase-1.md) · [Fase 2](docs/guias/demo-fase-2.md) ·
   [Fase 3](docs/guias/demo-fase-3.md) · [Fase 4](docs/guias/demo-fase-4.md) ·
-  [Fase 5](docs/guias/demo-fase-5.md)
+  [Fase 5](docs/guias/demo-fase-5.md) · [Fase 6](docs/guias/demo-fase-6.md)
+- [Kubernetes local](infra/k8s/README.md) · [Terraform da AWS](infra/terraform/README.md)
 - Serviços: [razão](servicos/razao/README.md) · [contas](servicos/contas/README.md) ·
   [pix](servicos/pix/README.md) · [extrato](servicos/extrato/README.md) ·
   [antifraude](servicos/antifraude/README.md) · [assistente](servicos/assistente/README.md) ·

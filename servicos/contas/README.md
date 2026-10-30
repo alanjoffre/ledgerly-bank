@@ -127,6 +127,8 @@ fora do ar) e o renova antes de vencer.
 
 ## Rodar
 
+Para enviar rastros e métricas ao Grafana local: `LEDGERLY_OTEL=1` ([ADR-0042](../../docs/adr/0042-opentelemetry-e-otel-lgtm.md)).
+
 A infraestrutura local precisa estar de pé (PostgreSQL e Kafka, `docker compose -f
 infra/docker/compose.yaml up -d --wait`). O razão só é preciso para consultar saldo e encerrar
 ([como rodar](../razao/README.md#rodar)). Depois:

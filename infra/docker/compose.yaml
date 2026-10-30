@@ -163,6 +163,10 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       KC_HOSTNAME: http://localhost:18081
+      # Fase 6 (ADR-0039): o emissor continua localhost:18081, mas os endereços de servidor para
+      # servidor (*back-channel*: token, chaves públicas) seguem o endereço de quem pediu — um pod do
+      # k3d chama http://keycloak:8080/... e recebe de volta endereços keycloak:8080 na descoberta.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HEALTH_ENABLED: "true"
       JAVA_OPTS_KC_HEAP: "-Xms256m -Xmx512m"
     ports:
@@ -210,6 +214,24 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  # Observabilidade (perfil "observabilidade", ADR-0042): Grafana, Tempo, Prometheus e o coletor
+  # OpenTelemetry numa imagem só, para a máquina local. Ocupa 3,7 GB, por isso fica de fora do padrão.
+  # Grafana em http://localhost:13000; os serviços enviam com LEDGERLY_OTEL=1 ./scripts/servicos.sh subir
+  lgtm:
+    image: grafana/otel-lgtm:0.36.0@sha256:57c04cbd8e7022f32bb84c4ac005d79baf8b08e2c5be44facf11f5f1f9944ba2
+    profiles: ["observabilidade"]
+    ports:
+      - "127.0.0.1:13000:3000"
+      - "127.0.0.1:14318:4318"
+    volumes:
+      - ../observabilidade/provedor-ledgerly.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/ledgerly.yaml:ro
+      - ../observabilidade/paineis:/otel-lgtm/paineis-ledgerly:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health && curl -sf http://localhost:9090/-/ready && curl -sf http://localhost:3200/ready"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
 
   # Kafka UI — tela web para ver tópicos e mensagens. Opcional: só sobe com
   #   docker compose -f infra/docker/compose.yaml --profile ferramentas up -d

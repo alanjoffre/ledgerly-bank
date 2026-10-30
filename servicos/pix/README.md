@@ -83,6 +83,14 @@ conta. Nenhum dinheiro saiu."): a nota e os motivos ensinariam o golpista onde f
 motivo que não é de risco, como "saldo insuficiente", aparece como sempre. A analista e os serviços
 veem tudo.
 
+### O circuito do antifraude (Fase 6)
+
+Se o antifraude travar, cada Pix pagaria os 800 ms do limite. Por isso a chamada passa por um *circuit
+breaker* ([ADR-0041](../../docs/adr/0041-circuit-breaker-no-antifraude.md)), em `ChamadaAoAntifraude`: com 20 chamadas e
+metade de falhas (tempo esgotado, conexão ou 5xx), ele abre por 10 s, e o Pix vai direto para a falha
+segura. Um 4xx não conta. Aberto, o Pix sai sem nota, o que tem preço; a ADR conta qual. Depois de 3
+chamadas de teste com sucesso, ele fecha.
+
 ### A devolução de um Pix em análise (Fase 4)
 
 Um Pix fica `EM_ANALISE` quando o estorno é recusado: a conta que pagou foi encerrada no meio do
@@ -198,6 +206,8 @@ Formato Problem Details (RFC 9457), o mesmo dos serviços Spring. Decida pelo `t
 [eventos.md](../../docs/arquitetura/eventos.md).
 
 ## Rodar
+
+Para enviar rastros e métricas ao Grafana local: `LEDGERLY_OTEL=1` ([ADR-0042](../../docs/adr/0042-opentelemetry-e-otel-lgtm.md)).
 
 ```bash
 docker compose -f infra/docker/compose.yaml up -d --wait     # na raiz do projeto

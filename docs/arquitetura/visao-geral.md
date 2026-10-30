@@ -235,10 +235,24 @@ Três usos, cada um com a sua defesa contra o erro do modelo:
   ferramentas. A qualidade do modelo de verdade se mede com uma avaliação de 30 perguntas, fora do
   CI ([ADR-0037](../adr/0037-avaliacao-do-assistente-fora-do-ci.md)).
 
-### O que muda nas próximas fases
+### Operação (Fase 6)
 
-- **Fase 6:** imagens Docker e Kubernetes, Terraform da AWS validado no CI, observabilidade
-  (OpenTelemetry, Prometheus, Grafana) e resiliência (*circuit breaker*, *retry*).
+- **Imagens e Kubernetes** ([ADR-0038](../adr/0038-imagens-multi-stage-e-nativa.md),
+  [ADR-0039](../adr/0039-kubernetes-local-com-k3d-e-helm.md)): cada serviço numa imagem própria, num cluster k3d com
+  Helm. O pix e o razao escalam com HPA. Os bancos, o Kafka e o Keycloak continuam no Compose e entram no
+  cluster como Services sem seletor.
+- **Terraform da AWS** ([ADR-0040](../adr/0040-terraform-validado-e-simulador-local.md)): a versão de nuvem está descrita em
+  código e validada sem conta, mas nunca foi aplicada.
+- **Circuit breaker do Pix para o antifraude** ([ADR-0041](../adr/0041-circuit-breaker-no-antifraude.md)): depois de 20
+  chamadas com metade de falhas, o Pix para de chamar por 10 s e vai direto para a falha segura da
+  [ADR-0033](../adr/0033-pix-retido-antes-do-debito.md).
+- **Rastros e métricas** ([ADR-0042](../adr/0042-opentelemetry-e-otel-lgtm.md)): OpenTelemetry em todos os serviços,
+  ligado só quando pedido. O rastro para no Kafka: os eventos do *outbox* não continuam o `traceId`.
+
+### O que muda na próxima fase
+
+- **Fase 7:** *mutation testing* (PIT), testes de contrato (Pact), análise estática (Sonar), *runbooks* de
+  operação e o vídeo de demonstração.
 
 ## Princípios
 

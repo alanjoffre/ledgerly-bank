@@ -64,6 +64,11 @@ O formato do envelope, os tópicos e as chaves estão em [eventos.md](../arquite
   publicar a mesma linha, mas aí dois lotes podem sair fora de ordem entre si — com várias réplicas
   (Fase 6) será preciso um publicador só (eleição de líder) ou os consumidores tolerarem a ordem
   trocada, como o extrato já tolera.
+  - **Resolvido na Fase 6 pela segunda opção, sem eleição de líder:** o pix (2 a 5 cópias) e o razao (1 a
+    3) publicam em paralelo, e quem os consome é o extrato, feito para chegar fora de ordem
+    ([ADR-0016](0016-extrato-em-cqrs-no-mongodb.md)). O razao consome eventos de conta na ordem, então o
+    contas fica com uma cópia, sem HPA ([ADR-0039](0039-kubernetes-local-com-k3d-e-helm.md)). Na troca de
+    versão, as duas cópias do contas convivem por instantes; esse caso não foi testado.
 
 ## Alternativas consideradas
 

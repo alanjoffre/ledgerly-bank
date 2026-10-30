@@ -5,6 +5,42 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [0.6.0] — 2026-10-30
+
+### Adicionado — Fase 6 (infraestrutura e nuvem)
+
+- **Imagens:** `Dockerfile` *multi-stage* na raiz e `scripts/imagens.sh`. Mudar uma linha de código reconstrói
+  em 20 s e troca uma camada de 594 kB. Pix nativo de 219 MB, que sobe em ~0,1 s
+  ([ADR-0038](docs/adr/0038-imagens-multi-stage-e-nativa.md)).
+- **Kubernetes local:** chart Helm `infra/k8s/ledgerly`, `scripts/k8s.sh` e HPA, PDB, sondas e `preStop`.
+  Medido: 62 s do zero; HPA no pix (2→5) e no razao (1→3) com 180.000 pedidos sem erro; pod morto no meio de
+  320 Pix sem perda; troca de versão de 586 erros para 0 ([ADR-0039](docs/adr/0039-kubernetes-local-com-k3d-e-helm.md)).
+- **Terraform da AWS:** 12 módulos e 230 recursos no plano (EKS, 6 RDS, ElastiCache, MSK, DocumentDB, ECR, Secrets
+  Manager, S3), validados por `scripts/nuvem.sh` sem conta e com custo zero. Validado e simulado, nunca
+  aplicado numa conta real ([ADR-0040](docs/adr/0040-terraform-validado-e-simulador-local.md)).
+- **Circuit breaker do Pix para o antifraude:** com o antifraude travado, de 18–19 para 121–130 Pix/s, e p50 de
+  ~830 para ~105 ms. Medição em `desempenho/circuito` ([ADR-0041](docs/adr/0041-circuit-breaker-no-antifraude.md)).
+- **OpenTelemetry nos sete serviços** e o `otel-lgtm` no perfil `observabilidade` do compose, com um painel do
+  Pix e do circuito. Desligado por padrão: `LEDGERLY_OTEL=1` ([ADR-0042](docs/adr/0042-opentelemetry-e-otel-lgtm.md)).
+- Workflows `Imagens e chart` e `Nuvem`, com actions fixadas por SHA e `contents: read`; Dependabot para o
+  Terraform e para as imagens de base.
+
+### Alterado
+
+- `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true` no Keycloak do compose, para o cluster falar com ele pelo nome interno.
+- A ADR-0006 troca o LocalStack, que passou a exigir token, pelo Moto.
+
+### Corrigido
+
+- Os pools de conexão do chart: 5 cópias × 20 conexões estouravam o Postgres (118 respostas HTTP 500 sob carga).
+- As filas do backoffice mostram os 50 Pix mais antigos sem avisar que pode haver mais; agora avisam.
+- O teste de ponta a ponta do saldo lia o "…" da tela antes de o valor chegar, o que aparecia no cluster.
+
+### Testes — Fase 6
+
+1.091 testes: 1.011 no build Java (765 de unidade, 246 de integração), 73 nas telas e 7 de ponta a ponta,
+estes também contra o cluster, com o Pix nativo.
+
 ## [0.5.0] — 2026-10-30
 
 ### Adicionado — Fase 5 (IA aplicada)
@@ -255,7 +291,8 @@ falhava, e coberto agora também por teste do gateway, do pix ou da tela, que ro
 - CI no GitHub Actions (build, testes e validação da infraestrutura) e Dependabot.
 - Documentação: arquitetura C4, ADRs 0001–0007, roteiro de fases, glossário, guia de ambiente.
 
-[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.5.0...HEAD
+[Não lançado]: https://github.com/alanjoffre/ledgerly-bank/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.6.0
 [0.5.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.5.0
 [0.4.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.4.0
 [0.3.0]: https://github.com/alanjoffre/ledgerly-bank/releases/tag/v0.3.0

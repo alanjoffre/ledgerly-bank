@@ -1,0 +1,22 @@
+# O "Helm chart" do Ledgerly Bank (Fase 6, ADR-0039).
+#
+# O que é: o Helm é o gerenciador de pacotes do Kubernetes. Um chart é uma pasta com MODELOS de YAML
+# (templates/) e os VALORES que preenchem esses modelos (values.yaml). "helm install" junta os dois e
+# entrega o resultado ao Kubernetes; "helm upgrade" aplica uma mudança; "helm uninstall" tira tudo.
+#
+# Por que um chart, e não YAML solto: são 8 serviços com a mesma forma (Deployment, Service, probes,
+# recursos, segurança). Escrito à mão, seriam 8 cópias quase iguais — e uma correção esquecida em uma
+# delas. Aqui há UM modelo, e a lista de serviços em values.yaml.
+apiVersion: v2
+name: ledgerly
+description: Os serviços do Ledgerly Bank (razão, contas, pix, antifraude, extrato, assistente e os dois BFFs) no Kubernetes.
+type: application
+# A versão do chart (muda quando o chart muda) e a do sistema que ele instala.
+version: 0.6.0
+appVersion: "0.6.0"
+# k3s/Kubernetes 1.33 ou mais novo: o proxy do Keycloak no gateway é um "sidecar nativo"
+# (initContainer com restartPolicy: Always), estável a partir da 1.33.
+kubeVersion: ">=1.33.0-0"
+home: https://github.com/alanjoffre/ledgerly-bank
+sources:
+  - https://github.com/alanjoffre/ledgerly-bank

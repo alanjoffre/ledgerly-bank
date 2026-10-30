@@ -1,0 +1,7 @@
+Ledgerly Bank {{ .Chart.AppVersion }} instalado no namespace "{{ .Release.Namespace }}".
+
+  kubectl get pods,hpa,pdb -n {{ .Release.Namespace }}      quem está pronto, e as réplicas do HPA
+  kubectl top pods -n {{ .Release.Namespace }}              CPU e memória de cada pod
+
+Internet banking: http://localhost:8080      Backoffice: http://localhost:8090
+(no k3d do scripts/k8s.sh; em outro cluster, veja as portas do nó: kubectl get svc gateway-ib gateway-bo)

@@ -10,6 +10,7 @@ import io.restassured.config.HeaderConfig;
 import io.restassured.config.RestAssuredConfig;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
+import io.smallrye.faulttolerance.api.CircuitBreakerMaintenance;
 import jakarta.inject.Inject;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -39,6 +40,9 @@ abstract class TesteDeIntegracao {
     @Inject
     RedisDataSource redis;
 
+    @Inject
+    CircuitBreakerMaintenance circuitos;
+
     @BeforeEach
     void tokenPadrao() {
         RestAssured.config = RestAssuredConfig.config()
@@ -52,6 +56,7 @@ abstract class TesteDeIntegracao {
         ServicosFalsos.RAZAO.zerar();
         ServicosFalsos.CONTAS.zerar();
         ServicosFalsos.ANTIFRAUDE.zerar();
+        circuitos.resetAll();
         try (Connection c = banco.getConnection(); var sql = c.createStatement()) {
             sql.execute(LIMPAR_TABELAS);
         }

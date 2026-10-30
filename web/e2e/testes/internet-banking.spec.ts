@@ -6,6 +6,7 @@ test.describe("internet banking (cliente)", () => {
     await entrar(page, INTERNET_BANKING, PESSOAS.ana);
     await expect(page.getByRole("heading", { name: "Minhas contas" })).toBeVisible();
     const conta = page.locator("section.cartao", { has: page.getByText("Ativa") }).first();
+    await expect(conta.getByTestId("saldo").locator("[aria-busy]")).toHaveCount(0);
     const antes = centavos(await conta.getByTestId("saldo").innerText());
 
     await conta.getByRole("link", { name: "Enviar Pix" }).click();
@@ -30,6 +31,8 @@ test.describe("internet banking (cliente)", () => {
     await page.getByRole("link", { name: /Minhas contas/ }).first().click();
     await expect(async () => {
       await page.reload();
+      // Cada conta busca o saldo depois da lista: enquanto busca, a tela mostra "…".
+      await expect(conta.getByTestId("saldo").locator("[aria-busy]")).toHaveCount(0, { timeout: 2_000 });
       expect(centavos(await conta.getByTestId("saldo").innerText({ timeout: 1_000 }))).toBe(antes - 1234);
     }).toPass({ timeout: 20_000 });
   });

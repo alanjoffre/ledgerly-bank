@@ -1,0 +1,7 @@
+Rótulo: com-circuito · 16 clientes em sequência · 2026-10-30 06:53
+Normal  : 5854 Pix em 15 s (390.0/s) · p50 39 ms · p99 70 ms · máx 102 ms · com nota 5854 · erros 0 · {'REJEITADA': 5854}
+Travado : 5206 Pix em 40 s (130.1/s) · p50 101 ms · p99 296 ms · máx 4355 ms · com nota 6 · erros 0 · {'APROVADA': 1, 'CONCLUIDA': 5192, 'DEBITADA': 7, 'REJEITADA': 6}
+Regime  : 3012 Pix em 25 s (120.5/s) · p50 103 ms · p99 301 ms · máx 4355 ms · com nota 0 · erros 0 · {'APROVADA': 1, 'CONCLUIDA': 3004, 'DEBITADA': 7}
+De volta: 11412 Pix em 30 s (380.4/s) · p50 35 ms · p99 186 ms · máx 428 ms · com nota 10853 · erros 0 · {'CONCLUIDA': 559, 'REJEITADA': 10853}
+Nota de volta: 4.4 s depois de o antifraude voltar
+Respostas por status: {201: 23496, 202: 184}

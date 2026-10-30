@@ -88,4 +88,4 @@ conta abre mesmo com o razão fora, e o preço é essa janela: normalmente o int
     evento, um saque ainda pode passar. Para um bloqueio por fraude, isso importa; a Fase 5
     (antifraude) mede essa janela e decide se o bloqueio por fraude precisa de um caminho síncrono;
   - o serviço de contas passa a depender do Kafka para que o razão fique em dia — e o publicador do
-    Outbox vira mais uma peça para monitorar (eventos pendentes há muito tempo = alerta, Fase 6).
+    Outbox vira mais uma peça para monitorar (eventos pendentes há muito tempo = alerta; **não foi feito na Fase 6**: a [ADR-0042](0042-opentelemetry-e-otel-lgtm.md) não tem alertas).

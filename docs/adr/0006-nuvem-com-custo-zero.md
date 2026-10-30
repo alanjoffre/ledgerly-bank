@@ -1,6 +1,7 @@
 # ADR-0006: Nuvem com custo zero — Terraform validado, sem aplicar
 
-- **Status:** Aceita
+- **Status:** Aceita. O simulador mudou: o LocalStack passou a exigir token, e o projeto usa o Moto
+  ([ADR-0040](0040-terraform-validado-e-simulador-local.md)).
 - **Data:** 2026-10-26
 
 ## Contexto

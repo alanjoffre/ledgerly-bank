@@ -1,0 +1,23 @@
+# O que o Terraform cria ao rodar e que não vai para o Git.
+# O scripts/nuvem.sh trabalha numa cópia temporária, mas quem rodar o terraform à mão aqui
+# dentro não deve versionar nada disto.
+
+# Provedores e módulos baixados pelo `terraform init` (o .terraform.lock.hcl VAI para o Git).
+.terraform/
+
+# Estado: o que o Terraform criou. Pode conter dado sensível; o de produção mora no S3.
+*.tfstate
+*.tfstate.*
+
+# Plano salvo (`plan -out`): binário que pode conter valor sensível.
+*.tfplan
+plano.bin
+
+# Valores de um ambiente (podem ter faixa de IP ou conta). Exemplo versionado: *.tfvars.exemplo
+*.tfvars
+*.tfvars.json
+
+# Cópias de trabalho de override com credencial (só a de validação, falsa, é versionada).
+*_override.tf
+!validacao/sem_conta_override.tf
+!validacao/simulador_override.tf

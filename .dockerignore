@@ -1,0 +1,46 @@
+# O que NÃO vai para o "contexto" do docker build (a pasta que o Docker recebe para montar a imagem).
+#
+# Por que importa: tudo o que entra no contexto é enviado ao Docker a cada build, e qualquer arquivo
+# que mude dentro de uma pasta copiada invalida o cache daquela camada. Por isso a regra aqui é a
+# "lista do que pode" (*allowlist*): primeiro exclui TUDO (*), depois libera só o que as imagens usam.
+# Assim, mexer em estudo/, passagem/, docs/ ou num teste não reconstrói imagem nenhuma.
+#
+# Ordem conta: uma linha mais abaixo vence a de cima ("!" = liberar de novo).
+
+*
+
+# O Maven: o wrapper (baixa a versão certa do Maven) e o POM pai.
+!mvnw
+!.mvn/wrapper/maven-wrapper.properties
+!pom.xml
+
+# O código Java que vira imagem: bibliotecas e serviços.
+!bibliotecas/
+!servicos/
+
+# Módulos que o POM pai lista, mas que nenhuma imagem compila: só o pom.xml, para o Maven
+# não reclamar de "módulo que não existe".
+!desempenho/carga/pom.xml
+!desempenho/jmh/pom.xml
+!lotes/conciliacao/pom.xml
+
+# As telas (React), que o gateway serve.
+!web/package.json
+!web/package-lock.json
+!web/tsconfig.base.json
+!web/comum/
+!web/internet-banking/
+!web/backoffice/
+!web/e2e/package.json
+
+# E, de dentro do que foi liberado, corta de novo o que é gerado ou só de teste:
+#   target/        saída do Maven da sua máquina (a imagem compila do zero, no próprio estágio de build)
+#   node_modules/  dependências do npm da sua máquina (o estágio Node instala as suas com "npm ci")
+#   dist/          telas já construídas na sua máquina (o estágio Node constrói de novo)
+#   src/test/      testes dos serviços: a imagem roda com -DskipTests, e mudar um teste não deve
+#                  invalidar o cache. (Os das bibliotecas ficam: o seguranca-spring empacota um test-jar.)
+**/target/
+**/node_modules/
+web/*/dist/
+servicos/*/src/test/
+**/*.log

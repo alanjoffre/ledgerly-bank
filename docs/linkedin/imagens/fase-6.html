@@ -1,0 +1,112 @@
+<!doctype html>
+<!--
+  Imagem do post da Fase 6. Gera o PNG com:
+    chrome-headless-shell --screenshot=fase-6.png --window-size=1080,1350 \
+      --force-device-scale-factor=2 --virtual-time-budget=4000 fase-6.html
+  As duas capturas (fase-6-painel.png e fase-6-rastro.png) são o Grafana de verdade, durante a medição
+  do circuito, tiradas pelo Playwright. Aqui elas só são recortadas.
+-->
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ledgerly Bank — Fase 6</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=block" rel="stylesheet">
+<style>
+  :root {
+    --fundo: #0b1220;
+    --cartao: #111a2e;
+    --linha: #1f2a44;
+    --texto: #e6ebf5;
+    --suave: #93a0bd;
+    --verde: #34d399;
+    --ambar: #fbbf24;
+    --destaque: #60a5fa;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1350px; }
+  body {
+    background:
+      radial-gradient(900px 600px at 100% 0%, rgba(96, 165, 250, 0.16), transparent 60%),
+      radial-gradient(700px 500px at 0% 100%, rgba(52, 211, 153, 0.10), transparent 60%),
+      var(--fundo);
+    color: var(--texto);
+    font-family: "Inter", "DejaVu Sans", sans-serif;
+    padding: 72px 72px 64px;
+    display: flex;
+    flex-direction: column;
+  }
+  .topo {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--suave); font-weight: 600;
+  }
+  .marca { display: flex; align-items: center; gap: 14px; color: var(--texto); letter-spacing: 0.04em; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--destaque), var(--verde));
+    display: grid; place-items: center; color: #0b1220; font-weight: 800; font-size: 24px; letter-spacing: 0;
+  }
+  .fase { border: 1px solid var(--linha); border-radius: 999px; padding: 8px 18px; font-size: 19px; }
+  h1 { margin-top: 44px; font-size: 52px; line-height: 1.1; font-weight: 800; letter-spacing: -0.025em; }
+  h1 .verde { color: var(--verde); }
+  .sub { margin-top: 18px; font-size: 23px; line-height: 1.4; color: var(--suave); }
+  .rotulo {
+    margin-top: 26px; margin-bottom: 10px; font-size: 17px; text-transform: uppercase; letter-spacing: 0.08em;
+    font-weight: 700; color: var(--ambar);
+  }
+  .rotulo.azul { color: var(--destaque); }
+  /* Recorte da captura: a imagem ocupa a largura e sobe "margin-top" para mostrar só a faixa que interessa. */
+  .tela { border-radius: 16px; overflow: hidden; border: 1px solid var(--linha); background: #f5f6f8; }
+  .tela img { display: block; width: 100%; }
+  .painel { height: 288px; background: #111217; }
+  .painel img { width: 958px; max-width: none; margin: -44px 0 0 -11px; }
+  .rastro { height: 300px; background: #111217; }
+  .rastro img { width: 1094px; max-width: none; margin: -581px 0 0 -144px; }
+  .numeros { margin-top: 26px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .numero { background: var(--cartao); border: 1px solid var(--linha); border-radius: 16px; padding: 14px 20px; }
+  .numero b { display: block; font-size: 36px; font-weight: 800; letter-spacing: -0.02em; color: var(--destaque); }
+  .numero span { font-size: 17px; color: var(--suave); line-height: 1.35; display: block; }
+  .rodape {
+    margin-top: auto;
+    display: flex; justify-content: space-between; align-items: flex-end;
+    border-top: 1px solid var(--linha); padding-top: 24px;
+  }
+  .stack { font-size: 20px; color: var(--suave); line-height: 1.5; }
+  .stack b { color: var(--texto); font-weight: 600; }
+  .autor { text-align: right; font-size: 20px; color: var(--suave); line-height: 1.5; }
+  .autor b { color: var(--texto); font-size: 25px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="topo">
+    <div class="marca"><div class="logo">L</div>Ledgerly Bank</div>
+    <div class="fase">Fase 6 · Infraestrutura e nuvem</div>
+  </div>
+
+  <h1>O antifraude travou. O Pix <span class="verde">parou de esperar</span>.</h1>
+
+  <p class="sub">Um circuit breaker, medido com o serviço congelado de verdade. E agora dá para ver: o circuito no painel e o Pix inteiro num só rastro.</p>
+
+  <div class="rotulo">Grafana · o circuito abre nos 40 s de trava e fecha na volta</div>
+  <div class="tela painel">
+    <img src="fase-6-painel.png" alt="Painel do Grafana: o circuito fechado, aberto por 40 segundos e fechado de novo, com o Pix por segundo e o tempo do Pix">
+  </div>
+
+  <div class="rotulo azul">Tempo · um Pix concluído passa por 4 serviços num só rastro</div>
+  <div class="tela rastro">
+    <img src="fase-6-rastro.png" alt="Rastro de um Pix: pix chama contas, antifraude e razão, com o tempo de cada trecho">
+  </div>
+
+  <div class="numeros">
+    <div class="numero"><b>18 → 121+</b><span>Pix por segundo com o antifraude travado; o preço é mais Pix sem nota</span></div>
+    <div class="numero"><b>0 erro</b><span>trocando de versão sob carga no Kubernetes; eram 586 sem as sondas</span></div>
+    <div class="numero"><b>R$ 0</b><span>230 recursos da AWS em Terraform, validados sem conta e nunca aplicados</span></div>
+  </div>
+
+  <div class="rodape">
+    <div class="stack"><b>Kubernetes · Helm · Terraform · OpenTelemetry</b><br>1.091 testes · Java 25 · custo zero</div>
+    <div class="autor"><b>Alan Joffre</b><br>github.com/alanjoffre/ledgerly-bank</div>
+  </div>
+</body>
+</html>

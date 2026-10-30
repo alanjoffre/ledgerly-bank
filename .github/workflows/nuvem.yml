@@ -1,0 +1,69 @@
+# Nuvem: confere o Terraform da AWS a cada mudança nele — sem conta na AWS e sem custo
+# (ADR-0006 e ADR-0040). Roda só quando a infraestrutura muda, para não gastar minuto à toa.
+#
+#   validar → formatação, validate, plan com credencial falsa, tflint e trivy
+#   simular → aplica infra/terraform/local no Moto (simulador da AWS), confere e destrói
+#
+# Os dois passos são o mesmo scripts/nuvem.sh que se roda na máquina: o que passa aqui passa lá.
+# As actions são fixadas pelo SHA do commit (não pela tag, que pode ser movida); a tag fica no
+# comentário. O Dependabot atualiza os SHAs.
+
+name: Nuvem
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/terraform/**"
+      - "scripts/nuvem.sh"
+      - ".github/workflows/nuvem.yml"
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - "scripts/nuvem.sh"
+      - ".github/workflows/nuvem.yml"
+
+# Menor permissão possível: só ler o código. Nenhum segredo da AWS existe neste repositório.
+permissions:
+  contents: read
+
+concurrency:
+  group: nuvem-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validar:
+    name: Validar o Terraform (sem conta)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.17.1"
+          # Sem o "embrulho" da action: o script lê a saída do terraform direto.
+          terraform_wrapper: false
+
+      - name: Validar
+        run: ./scripts/nuvem.sh validar
+        env:
+          # O tflint baixa o plugin de regras da AWS do GitHub; com o token não esbarra no limite.
+          GITHUB_TOKEN: ${{ github.token }}
+
+  simular:
+    name: Simular (Moto)
+    needs: validar
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.17.1"
+          terraform_wrapper: false
+
+      # O aws-cli já vem na máquina do GitHub (ubuntu-latest); o Docker também.
+      - name: Simular
+        run: ./scripts/nuvem.sh simular

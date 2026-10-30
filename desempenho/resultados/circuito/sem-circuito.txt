@@ -1,0 +1,7 @@
+Rótulo: sem-circuito · 16 clientes em sequência · 2026-10-30 06:51
+Normal  : 5734 Pix em 15 s (382.0/s) · p50 39 ms · p99 80 ms · máx 133 ms · com nota 5734 · erros 0 · {'REJEITADA': 5734}
+Travado : 721 Pix em 40 s (18.0/s) · p50 831 ms · p99 2582 ms · máx 3078 ms · com nota 4 · erros 0 · {'CONCLUIDA': 717, 'REJEITADA': 4}
+Regime  : 443 Pix em 25 s (17.7/s) · p50 828 ms · p99 2983 ms · máx 3078 ms · com nota 0 · erros 0 · {'CONCLUIDA': 443}
+De volta: 11269 Pix em 30 s (375.6/s) · p50 35 ms · p99 287 ms · máx 948 ms · com nota 11261 · erros 0 · {'CONCLUIDA': 8, 'REJEITADA': 11261}
+Nota de volta: 0.2 s depois de o antifraude voltar
+Respostas por status: {201: 18624, 202: 176}
