@@ -86,7 +86,7 @@ services:
   # processar o mesmo Pix duas vezes), cache, limite de requisições e as regras
   # de velocidade do antifraude ("mais de 5 Pix em 1 minuto").
   redis:
-    image: redis:8.10.0-alpine
+    image: redis:8.10.3-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "127.0.0.1:16379:6379"
@@ -222,7 +222,7 @@ services:
   # OpenTelemetry numa imagem só, para a máquina local. Ocupa 3,7 GB, por isso fica de fora do padrão.
   # Grafana em http://localhost:13000; os serviços enviam com LEDGERLY_OTEL=1 ./scripts/servicos.sh subir
   lgtm:
-    image: grafana/otel-lgtm:0.36.0@sha256:57c04cbd8e7022f32bb84c4ac005d79baf8b08e2c5be44facf11f5f1f9944ba2
+    image: grafana/otel-lgtm:0.39.0@sha256:4c8056c9c05fcb3c8fd93800e85334bfd79b4d0271b47a54a121a64af41fe1fe
     profiles: ["observabilidade"]
     ports:
       - "127.0.0.1:13000:3000"
