@@ -9,6 +9,14 @@ updates:
     groups:
       maven:
         patterns: ["*"]
+    # ADR-0028: o gateway fica no Spring Boot 4.0 até o Spring Cloud 2026.0 sair em versão final.
+    # Sem esta regra, o grupo "maven" sobe o gateway para o Boot 4.1 junto com o resto.
+    # Atualizações de correção (patch) continuam chegando; a troca de linha (minor) é à mão.
+    ignore:
+      - dependency-name: "org.springframework.boot:spring-boot-dependencies"
+        update-types: ["version-update:semver-minor"]
+      - dependency-name: "org.springframework.boot:spring-boot-maven-plugin"
+        update-types: ["version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -36,16 +44,9 @@ updates:
       python:
         patterns: ["*"]
 
-  # Fase 6: os provedores do Terraform. O plano e o simulador do workflow "Nuvem" acusam o que quebrar.
-  - package-ecosystem: terraform
-    directories:
-      - /infra/terraform/aws
-      - /infra/terraform/local
-    schedule:
-      interval: weekly
-    groups:
-      terraform:
-        patterns: ["*"]
+  # Terraform fora do Dependabot: o atualizador dele roda o Terraform 1.16.4 e a configuração
+  # fixa exatamente o 1.17.1 (versions.tf), então toda execução semanal falhava no `terraform init`.
+  # Os provedores ficam fixados no versions.tf e no .terraform.lock.hcl e se atualizam à mão.
 
   # Fase 6: as imagens de base do Dockerfile da raiz (fixadas por tag; o Dependabot abre a troca de versão).
   - package-ecosystem: docker

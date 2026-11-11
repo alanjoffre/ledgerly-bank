@@ -5,6 +5,13 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+### Alterado
+
+- Dependências da semana (Pact 4.7.7, Quarkus 3.40.1.1, PiTest, Maven Enforcer, imagens do Docker Compose e
+  `actions/setup-java`); o gateway continua no Spring Boot 4.0.9 ([ADR-0028](docs/adr/0028-gateway-no-boot-4-0.md)).
+- Dependabot: ignora a troca de linha (*minor*) do Spring Boot, para respeitar o ADR-0028, e deixa de cuidar
+  do Terraform, porque o atualizador dele roda uma versão do Terraform anterior à fixada (1.17.1).
+
 ## [1.0.0] — 2026-10-30
 
 Fechamento do projeto: todas as fases do [roteiro](docs/roadmap.md) entregues. Sem mudança de código em relação à 0.7.0.
