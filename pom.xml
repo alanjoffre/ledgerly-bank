@@ -71,15 +71,15 @@
         <maven-surefire-plugin.version>3.6.1</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>3.6.1</maven-failsafe-plugin.version>
         <maven-jar-plugin.version>3.5.1</maven-jar-plugin.version>
-        <maven-enforcer-plugin.version>3.6.3</maven-enforcer-plugin.version>
+        <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
         <jacoco-maven-plugin.version>0.8.16</jacoco-maven-plugin.version>
-        <pitest.version>1.30.1</pitest.version>
+        <pitest.version>1.30.2</pitest.version>
         <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
         <!-- Análise de código (ADR-0046). Sem servidor configurado, nada disso roda. -->
         <sonar.projectKey>alanjoffre_ledgerly-bank</sonar.projectKey>
         <sonar.projectName>Ledgerly Bank</sonar.projectName>
         <sonar.coverage.jacoco.xmlReportPaths>${maven.multiModuleProjectDirectory}/**/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
-        <pact.version>4.7.6</pact.version>
+        <pact.version>4.7.7</pact.version>
         <pitest-junit5.version>1.2.3</pitest-junit5.version>
         <pitest.threads>4</pitest.threads>
 

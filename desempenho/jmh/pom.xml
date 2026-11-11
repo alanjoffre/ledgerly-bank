@@ -30,7 +30,7 @@
 
     <properties>
         <jmh.version>1.37</jmh.version>
-        <maven-shade-plugin.version>3.6.1</maven-shade-plugin.version>
+        <maven-shade-plugin.version>3.6.2</maven-shade-plugin.version>
         <!-- Medição, não produção: não há o que medir de cobertura. -->
         <jacoco.skip>true</jacoco.skip>
     </properties>
