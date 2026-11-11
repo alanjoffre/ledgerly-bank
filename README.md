@@ -460,6 +460,10 @@ ledgerly-bank/
 - [Histórico de versões](CHANGELOG.md)
 - [Como contribuir](CONTRIBUTING.md)
 
+## Como foi feito
+
+Projeto de portfólio desenvolvido por mim, com apoio de um assistente de IA para código, testes e documentação; o apoio é visível nos commits. Eu defini o escopo, as decisões de arquitetura (ver os [ADRs](docs/adr/)), as medições e revisei o resultado. Dados fictícios, sem código de empregador ou cliente.
+
 ## Autor
 
 **Alan Joffre** — [LinkedIn](https://www.linkedin.com/in/alanjoffre/) · [GitHub](https://github.com/alanjoffre)
