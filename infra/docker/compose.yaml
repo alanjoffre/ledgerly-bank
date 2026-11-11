@@ -86,7 +86,7 @@ services:
   # processar o mesmo Pix duas vezes), cache, limite de requisições e as regras
   # de velocidade do antifraude ("mais de 5 Pix em 1 minuto").
   redis:
-    image: redis:8.10.0-alpine
+    image: redis:8.10.3-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "127.0.0.1:16379:6379"
@@ -160,7 +160,7 @@ services:
   # KC_HOSTNAME fixo: o "emissor" (iss) do token sai igual no navegador e nos serviços, que
   # rodam fora do Docker e chamam localhost:18081 — se mudasse, o serviço recusaria o token.
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.1
+    image: quay.io/keycloak/keycloak:26.8.2-1
     command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
@@ -196,7 +196,7 @@ services:
   #   docker compose -f infra/docker/compose.yaml --profile ia up -d --wait
   #   ./scripts/modelos.sh           (baixa os modelos uma vez: qwen3:4b-instruct, gemma3:4b e bge-m3)
   ollama:
-    image: ollama/ollama:0.40.13
+    image: ollama/ollama:0.40.15
     profiles: ["ia"]
     environment:
       # O modelo fica na memória da placa por 30 min depois do último uso: a 1ª resposta é a lenta.
@@ -222,7 +222,7 @@ services:
   # OpenTelemetry numa imagem só, para a máquina local. Ocupa 3,7 GB, por isso fica de fora do padrão.
   # Grafana em http://localhost:13000; os serviços enviam com LEDGERLY_OTEL=1 ./scripts/servicos.sh subir
   lgtm:
-    image: grafana/otel-lgtm:0.36.0@sha256:57c04cbd8e7022f32bb84c4ac005d79baf8b08e2c5be44facf11f5f1f9944ba2
+    image: grafana/otel-lgtm:0.40.0@sha256:72e05804790e6e0d8c0b70a6d5ff1f721ef7b203463374631e99aa3429bd0cf6
     profiles: ["observabilidade"]
     ports:
       - "127.0.0.1:13000:3000"
@@ -239,7 +239,7 @@ services:
   # SonarQube local: análise de código, sem conta nem custo (ADR-0046). Ocupa ~2 GB de memória, por isso fica
   # de fora do padrão. Em http://localhost:19000; como rodar, em docs/runbooks/qualidade.md
   sonarqube:
-    image: sonarqube:26.10.0.133078-community@sha256:f95aaa9016dd4e92c7d70691167a6d96dbb5d8acffd61eba1cb4335d364a7840
+    image: sonarqube:26.11.0.134175-community@sha256:1ce197471f5f2bac347694a336862fd2c23e9f57c6edb46acebbfbe70f2c7d9c
     profiles: ["qualidade"]
     ports:
       - "127.0.0.1:19000:9000"
