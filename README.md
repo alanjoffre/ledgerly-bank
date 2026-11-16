@@ -460,9 +460,9 @@ ledgerly-bank/
 - [Histórico de versões](CHANGELOG.md)
 - [Como contribuir](CONTRIBUTING.md)
 
-## Como foi feito
+## Sobre os dados
 
-Desenvolvo com assistente de IA no fluxo de trabalho, para ganhar velocidade em código, testes e documentação. O que sustenta o resultado está versionado aqui: escopo, decisões registradas nos [ADRs](docs/adr/), testes e medições. Dados fictícios, sem código de empregador ou cliente.
+Dados fictícios, sem código de empregador ou cliente. Escopo, decisões ([ADRs](docs/adr/)), testes e medições estão versionados aqui.
 
 ## Autor
 
