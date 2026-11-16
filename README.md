@@ -462,7 +462,7 @@ ledgerly-bank/
 
 ## Como foi feito
 
-Projeto de portfólio desenvolvido por mim, com apoio de um assistente de IA para código, testes e documentação; o apoio é visível nos commits. Eu defini o escopo, as decisões de arquitetura (ver os [ADRs](docs/adr/)), as medições e revisei o resultado. Dados fictícios, sem código de empregador ou cliente.
+Desenvolvo com assistente de IA no fluxo de trabalho, para ganhar velocidade em código, testes e documentação. O que sustenta o resultado está versionado aqui: escopo, decisões registradas nos [ADRs](docs/adr/), testes e medições. Dados fictícios, sem código de empregador ou cliente.
 
 ## Autor
 
