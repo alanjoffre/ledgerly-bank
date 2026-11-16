@@ -66,7 +66,7 @@ services:
   # MongoDB — banco de documentos (NoSQL). Guarda o extrato: o "modelo de leitura"
   # do CQRS, montado a partir dos eventos e otimizado para a tela do cliente.
   mongo:
-    image: mongo:9.0.4
+    image: mongo:9.0.8
     environment:
       MONGO_INITDB_ROOT_USERNAME: ledgerly_admin
       MONGO_INITDB_ROOT_PASSWORD: ledgerly_local
@@ -160,7 +160,7 @@ services:
   # KC_HOSTNAME fixo: o "emissor" (iss) do token sai igual no navegador e nos serviços, que
   # rodam fora do Docker e chamam localhost:18081 — se mudasse, o serviço recusaria o token.
   keycloak:
-    image: quay.io/keycloak/keycloak:26.8.2-1
+    image: quay.io/keycloak/keycloak:26.8.2-2
     command: ["start-dev", "--import-realm"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
@@ -196,7 +196,7 @@ services:
   #   docker compose -f infra/docker/compose.yaml --profile ia up -d --wait
   #   ./scripts/modelos.sh           (baixa os modelos uma vez: qwen3:4b-instruct, gemma3:4b e bge-m3)
   ollama:
-    image: ollama/ollama:0.40.15
+    image: ollama/ollama:0.40.16
     profiles: ["ia"]
     environment:
       # O modelo fica na memória da placa por 30 min depois do último uso: a 1ª resposta é a lenta.
@@ -222,7 +222,7 @@ services:
   # OpenTelemetry numa imagem só, para a máquina local. Ocupa 3,7 GB, por isso fica de fora do padrão.
   # Grafana em http://localhost:13000; os serviços enviam com LEDGERLY_OTEL=1 ./scripts/servicos.sh subir
   lgtm:
-    image: grafana/otel-lgtm:0.40.0@sha256:72e05804790e6e0d8c0b70a6d5ff1f721ef7b203463374631e99aa3429bd0cf6
+    image: grafana/otel-lgtm:0.41.0@sha256:2e3290657f2f2a256c7a9175f097424a3ac5b54840741ace433e108e109348b6
     profiles: ["observabilidade"]
     ports:
       - "127.0.0.1:13000:3000"
@@ -239,7 +239,7 @@ services:
   # SonarQube local: análise de código, sem conta nem custo (ADR-0046). Ocupa ~2 GB de memória, por isso fica
   # de fora do padrão. Em http://localhost:19000; como rodar, em docs/runbooks/qualidade.md
   sonarqube:
-    image: sonarqube:26.11.0.134175-community@sha256:1ce197471f5f2bac347694a336862fd2c23e9f57c6edb46acebbfbe70f2c7d9c
+    image: sonarqube:26.11.0.134175-community@sha256:65541accbdb92e27fe770fc6ba99988a3dd5a0c71ffafd67f88abfad366996fa
     profiles: ["qualidade"]
     ports:
       - "127.0.0.1:19000:9000"
