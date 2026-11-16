@@ -3,7 +3,7 @@
 # Por que importa: tudo o que entra no contexto é enviado ao Docker a cada build, e qualquer arquivo
 # que mude dentro de uma pasta copiada invalida o cache daquela camada. Por isso a regra aqui é a
 # "lista do que pode" (*allowlist*): primeiro exclui TUDO (*), depois libera só o que as imagens usam.
-# Assim, mexer em estudo/, passagem/, docs/ ou num teste não reconstrói imagem nenhuma.
+# Assim, mexer em docs/ ou num teste não reconstrói imagem nenhuma.
 #
 # Ordem conta: uma linha mais abaixo vence a de cima ("!" = liberar de novo).
 

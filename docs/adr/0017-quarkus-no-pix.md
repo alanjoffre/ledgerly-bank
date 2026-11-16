@@ -7,9 +7,9 @@
 
 A [ADR-0004](0004-cinco-servicos-com-motivo.md) separou o Pix num serviço próprio porque o tráfego
 dele vem em **picos** (dia de pagamento, Black Friday): na nuvem, aguentar um pico é subir mais
-cópias do serviço, e uma cópia que demora para ficar pronta chega atrasada ao pico. E o projeto
-quer mostrar os dois frameworks Java mais pedidos no mercado, Spring Boot e Quarkus — com número,
-não com opinião.
+cópias do serviço, e uma cópia que demora para ficar pronta chega atrasada ao pico. E ter Spring Boot
+e Quarkus no mesmo sistema permite comparar os dois frameworks Java com número, não com
+opinião.
 
 ## Decisão
 
@@ -48,7 +48,7 @@ PostgreSQL, aplicar o Flyway e entrar no Kafka, que é o que conta para receber 
 Medido em 27/10/2026: notebook com WSL2 (16 núcleos, 17 GB), Java 25 (Temurin), sem limite de
 memória (`-Xmx`) — a JVM escolheu o tamanho do *heap* sozinha, pela mesma regra para todos.
 
-**O que essa tabela não diz**, para ser honesto com ela:
+**O que essa tabela não diz:**
 
 - **Não são o mesmo programa.** O razão e o extrato são outros serviços, com outras dependências
   (o extrato fala com o MongoDB, o Pix com Redis). As stacks são parecidas — banco, Flyway, Kafka,

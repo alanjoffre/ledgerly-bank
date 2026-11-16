@@ -21,7 +21,7 @@ Thumbs.db
 # Logs
 *.log
 
-# Cópias de trabalho (worktrees) dos agentes do Claude Code
+# Pasta local de ferramentas do editor (não versionada)
 .claude/
 
 # Logs e pids dos serviços que o scripts/servicos.sh sobe

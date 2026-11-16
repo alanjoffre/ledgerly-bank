@@ -67,7 +67,7 @@ Usar o **Keycloak 26.8.1** (código aberto, da Red Hat/CNCF) no Docker Compose, 
 ## Consequências
 
 - **Positivas:** nenhuma senha passa pelo código do banco; os serviços conferem o token sozinhos
-  (assinatura + emissor + audiência + validade); mais um ponto de mercado coberto (OAuth 2.0, OIDC,
+  (assinatura + emissor + audiência + validade); o fluxo segue os padrões abertos (OAuth 2.0, OIDC,
   PKCE, *client credentials*, JWT). Trocar o Keycloak por um gerenciado muda configuração, não código.
 - **Negativas:** mais um contêiner (medido: ~970 MB de memória em uso, com o *heap* limitado a
   512 MB) e mais uma espera na subida da infraestrutura; o realm

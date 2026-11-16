@@ -45,8 +45,8 @@ serviço monta o `OllamaChatModel` em poucas linhas (no adaptador `RedatorOllama
 `@Bean` do assistente):
 
 - a extensão `quarkus-langchain4j` ainda não tem versão estável para o Quarkus 3.40 do projeto;
-- com o mesmo código nos dois serviços, as mesmas versões e o mesmo jeito de testar, quem lê o
-  portfólio aprende uma coisa só;
+- com o mesmo código nos dois serviços, as mesmas versões e o mesmo jeito de testar, quem mantém o
+  código aprende uma coisa só;
 - a configuração fica à vista: temperatura baixa (0,1 no assistente, 0,2 na explicação), tempo
   limite, nenhuma nova tentativa automática (`maxRetries(0)`): quem decide repetir é o serviço.
 

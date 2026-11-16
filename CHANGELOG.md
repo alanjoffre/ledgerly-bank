@@ -19,7 +19,6 @@ Fechamento do projeto: todas as fases do [roteiro](docs/roadmap.md) entregues. S
 ### Adicionado
 
 - O balanço do projeto no README: o que ele prova e o que não prova.
-- O post do projeto completo em `docs/linkedin/`.
 
 ## [0.7.0] — 2026-10-30
 
@@ -136,7 +135,6 @@ estes também contra o cluster, com o Pix nativo.
   - o Ollama recusava toda pergunta ("properties must be an object"): o LangChain4j 1.23 manda a
     ferramenta sem parâmetro sem `properties`. O `ModeloComEsquemaCompleto` completa o esquema
     antes de o pedido sair (4 de 30 → 27 de 30).
-- `web/e2e/capturas.mjs`: as capturas de tela dos posts, tiradas do sistema no ar pelo Playwright.
 - Guia da [demonstração da Fase 5](docs/guias/demo-fase-5.md).
 - Telas: "Pergunte ao seu extrato" no internet banking (e o aviso do Pix retido no envio); a fila e
   a tela do Pix retido no backoffice, com a explicação. Gateway: rotas do assistente (internet

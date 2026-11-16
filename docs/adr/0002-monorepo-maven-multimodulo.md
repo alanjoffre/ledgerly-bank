@@ -19,9 +19,9 @@ versões de bibliotecas e regras de qualidade; cada serviço e biblioteca é um 
 
 - **Um repositório por serviço** — é o modelo de empresas grandes, com um time por serviço. Aqui há
   uma pessoa só: cinco repositórios significam cinco CIs, cinco READMEs e mudanças que atravessam
-  serviços em vários PRs. E quem avalia o portfólio teria de abrir cinco links.
+  serviços em vários PRs.
 - **Gradle** — build mais rápido e mais flexível, mas o Maven é o padrão no mercado financeiro
-  brasileiro e o que a maioria das vagas pede. O Maven também é mais previsível (declarativo).
+  brasileiro. O Maven também é mais previsível (declarativo).
 
 ## Consequências
 

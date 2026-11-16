@@ -30,7 +30,7 @@ sem depender de framework.
 - **Monólito modular** — seria a escolha certa para um produto novo com uma pessoa: menos
   infraestrutura, transações locais. Foi descartado porque o objetivo do projeto é justamente
   demonstrar os problemas de sistemas distribuídos (Saga, Outbox, idempotência) e dois frameworks
-  (Spring e Quarkus) — e isso é dito com honestidade aqui.
+  (Spring e Quarkus).
 - **Quinze ou mais serviços** (um para cliente, outro para endereço, outro para tarifa...) — cada
   separação a mais é custo de rede e de consistência sem ganho.
 

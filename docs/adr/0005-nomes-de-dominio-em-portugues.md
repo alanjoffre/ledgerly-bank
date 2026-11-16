@@ -23,7 +23,7 @@ negócio, em português — `Conta`, `Lancamento`, `ChavePix`, `Dinheiro`, `rate
 ## Alternativas consideradas
 
 - **Tudo em inglês** — padrão em empresas internacionais, mas cria tradução constante entre o que
-  o negócio fala e o que o código diz, e afasta o público brasileiro deste portfólio.
+  o negócio fala e o que o código diz, e afasta o público brasileiro do projeto.
 
 ## Consequências
 

@@ -8,7 +8,7 @@
 
 O projeto precisa mostrar infraestrutura na AWS (EKS, RDS, ElastiCache, MSK). Mas manter isso no
 ar custa caro: só o plano de controle do EKS fica em torno de US$ 70/mês, e RDS e MSK somam mais.
-Para um projeto de estudo, pagar mensalidade não se justifica.
+Para um sistema de demonstração, pagar mensalidade não se justifica.
 
 ## Decisão
 

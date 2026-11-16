@@ -32,8 +32,8 @@ mantêm dentro dele e quanto custa construir a imagem.
 
 ## Alternativas consideradas
 
-- **Buildpacks (`spring-boot:build-image`):** menos arquivo, mas esconde as decisões, e o projeto é de
-  estudo. Também não cobre o Quarkus do mesmo jeito.
+- **Buildpacks (`spring-boot:build-image`):** menos arquivo, mas esconde as decisões que aqui ficam
+  à vista no Dockerfile. Também não cobre o Quarkus do mesmo jeito.
 - **Jib:** imagem sem Docker, sem controle do estágio da tela nem do nativo no mesmo fluxo.
 - **Base Alpine:** menor, mas usa musl, e o ONNX Runtime do antifraude precisa de glibc.
 - **`jlink`, um JRE sob medida:** reduziria a base de 325 MB, ao custo de manter a lista de módulos.

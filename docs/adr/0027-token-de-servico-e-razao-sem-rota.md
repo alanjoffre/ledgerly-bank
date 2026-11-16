@@ -32,8 +32,8 @@ razão. E o razão é o coração do banco: todo dinheiro que se move passa por 
 - **Rede confiável (sem token entre serviços)** — o modelo antigo de "perímetro": quem entra na rede
   pode tudo. O mercado foi para *zero trust* exatamente por isso.
 - **mTLS (certificado em cada serviço)** — prova a identidade do serviço também, mas exige uma
-  autoridade certificadora e rotação de certificados; num ambiente local de portfólio, o token já
-  ensina o principal. É o passo natural com uma *service mesh*. **A Fase 6 trouxe o Kubernetes, mas não a *mesh*:** segue só o token.
+  autoridade certificadora e rotação de certificados; num ambiente local, o token já
+  cobre o principal. É o passo natural com uma *service mesh*. **A Fase 6 trouxe o Kubernetes, mas não a *mesh*:** segue só o token.
 
 ## Consequências
 

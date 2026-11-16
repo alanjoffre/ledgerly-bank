@@ -1,6 +1,6 @@
 # Como contribuir
 
-Obrigado pelo interesse! Este é um projeto de estudo, mas segue as práticas de um time profissional.
+Obrigado pelo interesse! Este projeto segue as práticas de um time profissional.
 
 ## Fluxo
 

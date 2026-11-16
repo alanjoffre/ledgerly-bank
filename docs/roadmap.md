@@ -1,7 +1,6 @@
 # Roteiro de fases
 
-Cada fase termina com: código testado, documentação atualizada, uma *release* no GitHub e um post
-no LinkedIn. O projeto é construído em público (*build in public*).
+Cada fase termina com: código testado, documentação atualizada e uma *release* no GitHub.
 
 Legenda: ✅ concluída · 🚧 em andamento · ⬜ planejada
 

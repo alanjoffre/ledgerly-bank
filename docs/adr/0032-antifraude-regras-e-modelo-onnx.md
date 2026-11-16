@@ -76,7 +76,7 @@ banco, não o modelo.
 - **Só regras.** Explicável e simples, mas não acha combinação de sinais, e cada golpe novo vira uma
   regra a mais. Ficaram as regras para o que é certeza; o resto é do modelo.
 - **Treinar em Java** (Tribuo, Smile). Funciona, mas o mercado treina em Python, com scikit-learn, e
-  quem lê o portfólio espera ver esse caminho: o cientista de dados treina, a engenharia executa. O
+  a divisão fica clara: o cientista de dados treina, a engenharia executa. O
   ONNX é o contrato entre os dois.
 - **Servir o modelo num serviço Python à parte** (FastAPI). Mais um serviço, mais uma ida e volta de
   rede no caminho do Pix, para uma conta de microssegundos. O modelo cabe dentro da JVM (544 bytes).

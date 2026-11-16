@@ -5,8 +5,8 @@
 
 ## Contexto
 
-O Ledgerly Bank é um projeto de portfólio: quem lê o repositório (recrutador técnico, pessoa
-entrevistadora, outro dev) quer entender **como penso**, não só o que funciona. Um código pronto
+Quem lê o repositório (quem revisa, mantém ou herda o código) quer entender **por que** o
+sistema é assim, não só o que funciona. Um código pronto
 mostra o resultado; não mostra as alternativas que descartei nem o preço que aceitei pagar.
 
 ## Decisão
@@ -22,6 +22,6 @@ de Michael Nygard (contexto, decisão, alternativas, consequências).
 
 ## Consequências
 
-- **Positivas:** cada escolha tem justificativa rastreável; a ADR vira roteiro de entrevista.
+- **Positivas:** cada escolha tem justificativa rastreável; quem chega depois entende o motivo sem precisar perguntar.
 - **Negativas:** custa tempo escrever. Para não virar burocracia, só decisões caras de desfazer
   ganham ADR — trocar o nome de uma variável não é decisão de arquitetura.

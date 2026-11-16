@@ -13,7 +13,7 @@ saber que resolveu. Foi escrito para ser seguido com pressa, por quem não conhe
 | Conferir se o dinheiro bate | [Integridade e conciliação](integridade-e-conciliacao.md) |
 | Testes de mutação, contratos e Sonar | [Qualidade](qualidade.md) |
 
-Todos partem da raiz do repositório e valem para o ambiente local: este é um projeto de portfólio,
+Todos partem da raiz do repositório e valem para o ambiente local: o sistema é de demonstração,
 com dados sintéticos, e nunca teve plantão de verdade. A seção "Ensaiado" de cada roteiro conta a falha
 provocada e o que aconteceu, inclusive o que ficou de fora. [Integridade e conciliação](integridade-e-conciliacao.md)
 e [Qualidade](qualidade.md) foram executados, mas sem uma falha provocada para o roteiro. O que precisaria

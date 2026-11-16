@@ -89,7 +89,7 @@ telemetria:
 #   recursos     requests = o que o agendador RESERVA no nó (e a base da % do HPA);
 #                limits   = o teto; passou da memória, o kernel mata o contêiner (OOMKilled).
 #                Medidos com "kubectl top" no k3d (números no infra/k8s/README.md), com folga.
-#                CPU sem limite? Tem limite de 2: na máquina de estudo, um serviço não pode comer o
+#                CPU sem limite? Tem limite de 2: na máquina local, um serviço não pode comer o
 #                processador dos outros. A JVM lê esse limite e se ajusta a 2 processadores.
 #   variaveis    vão para um ConfigMap (texto aberto)
 #   segredos     vão para um Secret (no k3d, as senhas LOCAIS do compose — as mesmas, públicas;

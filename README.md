@@ -2,8 +2,8 @@
 
 # 🏦 Ledgerly Bank
 
-**Um banco digital construído do zero, em público, para estudar engenharia de software
-de nível sênior: razão contábil, Pix, concorrência, antifraude com IA e nuvem.**
+**Um banco digital construído do zero: razão contábil, Pix, concorrência, antifraude com IA
+e nuvem.**
 
 [![CI](https://github.com/alanjoffre/ledgerly-bank/actions/workflows/ci.yml/badge.svg)](https://github.com/alanjoffre/ledgerly-bank/actions/workflows/ci.yml)
 ![Java 25](https://img.shields.io/badge/Java-25_LTS-orange?logo=openjdk)
@@ -16,7 +16,7 @@ de nível sênior: razão contábil, Pix, concorrência, antifraude com IA e nuv
 
 </div>
 
-> ⚠️ **Projeto de estudo.** O Ledgerly Bank é fictício: não é um banco, não movimenta dinheiro
+> ⚠️ **Sistema de demonstração.** O Ledgerly Bank é fictício: não é um banco, não movimenta dinheiro
 > real e não se conecta a nenhum sistema do Banco Central. Todos os dados são sintéticos.
 
 ---

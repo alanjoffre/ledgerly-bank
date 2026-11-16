@@ -28,8 +28,8 @@ Os dois serviços da Fase 1 têm necessidades diferentes:
 
 - **JPA nos dois** — no razão, o Hibernate decide quando fazer o `flush` e pode reordenar
   gravações; travar linhas em ordem fixa fica implícito e frágil.
-- **SQL explícito nos dois** — no cadastro, seria código repetitivo sem ganho. E JPA é o que a
-  maioria das vagas pede: o projeto mostra as duas ferramentas, cada uma onde faz sentido.
+- **SQL explícito nos dois** — no cadastro, seria código repetitivo sem ganho. E JPA é o padrão
+  do mercado: o projeto mostra as duas ferramentas, cada uma onde faz sentido.
 - **Domínio anotado com JPA** (entidade = domínio) — menos código, mas o domínio passa a depender
   do banco, e regras como "conta só nasce ativa" ficam expostas a um construtor vazio exigido
   pelo JPA.

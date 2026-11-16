@@ -21,7 +21,7 @@
     <packaging>pom</packaging>
 
     <name>Ledgerly Bank</name>
-    <description>Banco digital fictício para estudo: razão contábil, Pix, antifraude com IA.</description>
+    <description>Banco digital fictício: razão contábil, Pix, antifraude com IA.</description>
     <url>https://github.com/alanjoffre/ledgerly-bank</url>
 
     <licenses>

@@ -58,7 +58,7 @@ Abra http://localhost:8090 e entre como `carla` (senha `carla-local`).
 1. **Pix retidos** lista o Pix. Clique em **Analisar**.
 2. **Por que foi retido** mostra a nota, os motivos e a tabela do que o antifraude viu (valor,
    média do pagador, Pix na última hora, se já pagou esta conta, madrugada, idade da conta).
-3. A **explicação** aparece em 2 a 3 frases, escritas pelo `gemma3:4b`. Na captura do post:
+3. A **explicação** aparece em 2 a 3 frases, escritas pelo `gemma3:4b`. Exemplo de uma execução:
 
    > A operação chamou a atenção por envolver um valor elevado, R$ 1.500,00, em uma conta
    > recém-criada com apenas um dia de idade. O fato de o Pix ter sido realizado em horário
@@ -83,7 +83,7 @@ Entre em http://localhost:8080 como `ana` (senha `ana-local`).
 
 - No **Enviar Pix**, um Pix retido aparece como "Pix retido para análise de segurança." A Ana **não**
   vê a nota nem os motivos: se o cliente lê, o golpista lê, e aprende a ficar abaixo do limite.
-- **Pergunte ao assistente.** Na captura do post:
+- **Pergunte ao assistente.** Exemplo de uma execução:
 
   | Pergunta | Resposta |
   | --- | --- |

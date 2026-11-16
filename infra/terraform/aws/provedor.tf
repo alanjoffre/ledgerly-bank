@@ -16,7 +16,7 @@ provider "aws" {
       Ambiente      = var.ambiente
       GerenciadoPor = "terraform"
       Repositorio   = "github.com/alanjoffre/ledgerly-bank"
-      CentroDeCusto = "estudo"
+      CentroDeCusto = "demonstracao"
     }
   }
 }

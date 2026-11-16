@@ -6,7 +6,7 @@
 ## Contexto
 
 O build já reprova com aviso do compilador e com cobertura baixa. Falta o que a análise estática pega:
-código duplicado, regra de segurança, *bug* provável. E um *portfólio* precisa rodar sem depender de conta de
+código duplicado, regra de segurança, *bug* provável. E o projeto precisa rodar sem depender de conta de
 ninguém: quem clona não tem o token, e o [custo é zero](0006-nuvem-com-custo-zero.md).
 
 ## Decisão
