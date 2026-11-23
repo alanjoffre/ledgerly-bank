@@ -26,8 +26,8 @@
     <name>Ledgerly Bank :: Gateway (BFF)</name>
 
     <properties>
-        <spring-boot-gateway.version>4.0.9</spring-boot-gateway.version>
-        <spring-cloud.version>2025.1.4</spring-cloud.version>
+        <spring-boot-gateway.version>4.0.10</spring-boot-gateway.version>
+        <spring-cloud.version>2026.0.0</spring-cloud.version>
     </properties>
 
     <dependencyManagement>

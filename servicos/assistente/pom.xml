@@ -24,8 +24,8 @@
 
     <properties>
         <!-- LangChain4j puro, sem o starter do Spring (ADR-0034): as mesmas versões do antifraude. -->
-        <langchain4j.version>1.23.0</langchain4j.version>
-        <langchain4j-beta.version>1.23.0-beta33</langchain4j-beta.version>
+        <langchain4j.version>1.24.0</langchain4j.version>
+        <langchain4j-beta.version>1.24.0-beta34</langchain4j-beta.version>
         <osgi-annotation.version>8.1.0</osgi-annotation.version>
     </properties>
 

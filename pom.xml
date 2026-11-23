@@ -74,7 +74,7 @@
         <maven-enforcer-plugin.version>3.7.0</maven-enforcer-plugin.version>
         <jacoco-maven-plugin.version>0.8.16</jacoco-maven-plugin.version>
         <pitest.version>1.30.2</pitest.version>
-        <sonar-maven-plugin.version>5.8.0.7211</sonar-maven-plugin.version>
+        <sonar-maven-plugin.version>5.9.0.7382</sonar-maven-plugin.version>
         <!-- Análise de código (ADR-0046). Sem servidor configurado, nada disso roda. -->
         <sonar.projectKey>alanjoffre_ledgerly-bank</sonar.projectKey>
         <sonar.projectName>Ledgerly Bank</sonar.projectName>

@@ -22,9 +22,9 @@
     <name>Ledgerly Bank :: Serviço antifraude</name>
 
     <properties>
-        <quarkus.version>3.40.1.1</quarkus.version>
-        <onnxruntime.version>1.31.1</onnxruntime.version>
-        <langchain4j.version>1.23.0</langchain4j.version>
+        <quarkus.version>3.40.1.2</quarkus.version>
+        <onnxruntime.version>1.32.0</onnxruntime.version>
+        <langchain4j.version>1.24.0</langchain4j.version>
         <osgi-annotation.version>8.1.0</osgi-annotation.version>
     </properties>
 
